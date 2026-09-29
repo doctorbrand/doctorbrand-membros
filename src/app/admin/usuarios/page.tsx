@@ -4,7 +4,7 @@ import { storeEnabled } from "@/lib/store";
 import { getUsers } from "@/lib/users";
 import { ActionForm } from "@/components/ActionForm";
 import { Shell } from "@/components/Shell";
-import { createUserAction, deleteUserAction } from "./actions";
+import { createUserAction, deleteUserAction, updateUserAction } from "./actions";
 
 export const dynamic = "force-dynamic";
 
@@ -40,7 +40,21 @@ export default async function Usuarios() {
                 <tr key={u.id}>
                   <td className="font-medium">{u.name}</td><td>{u.email}</td><td>{u.role}</td><td>{CLIENTS.find((c) => c.slug === u.clientSlug)?.name ?? "—"}</td>
                   <td>{new Date(u.createdAt).toLocaleDateString("pt-BR")}</td><td>{u.lastLoginAt ? new Date(u.lastLoginAt).toLocaleString("pt-BR") : "—"}</td>
-                  <td><ActionForm action={deleteUserAction} confirm={`Remover o acesso de ${u.name}?`}><input type="hidden" name="id" value={u.id} /><button className="text-xs text-[var(--muted)] hover:text-[var(--bad)]">remover</button></ActionForm></td>
+                  <td className="text-left">
+                    <details>
+                      <summary className="text-xs underline cursor-pointer">editar</summary>
+                      <ActionForm action={updateUserAction} className="flex flex-col gap-2 mt-2 min-w-[240px]">
+                        <input type="hidden" name="id" value={u.id} />
+                        <input name="name" defaultValue={u.name} required className={input} />
+                        <input name="email" type="email" defaultValue={u.email} required className={input} />
+                        <select name="role" defaultValue={u.role} className={input}><option value="cliente">Cliente</option><option value="admin">Admin</option></select>
+                        <select name="clientSlug" defaultValue={u.clientSlug ?? ""} className={input}><option value="">Cliente vinculado</option>{CLIENTS.map((c) => <option key={c.slug} value={c.slug}>{c.name}</option>)}</select>
+                        <input name="password" type="text" placeholder="Nova senha (deixe vazio para manter)" minLength={8} className={input} />
+                        <button className="bg-[var(--ink)] text-white rounded-lg px-3 py-1.5 text-sm">Salvar</button>
+                      </ActionForm>
+                    </details>
+                    <ActionForm action={deleteUserAction} confirm={`Remover o acesso de ${u.name}?`}><input type="hidden" name="id" value={u.id} /><button className="text-xs text-[var(--muted)] hover:text-[var(--bad)] mt-1">remover</button></ActionForm>
+                  </td>
                 </tr>
               ))}
             </tbody>

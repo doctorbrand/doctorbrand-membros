@@ -15,7 +15,7 @@ import { igAccounts, igProfile, igRecentMedia, type IgAccount } from "@/lib/inst
 import { publishProblem } from "@/lib/publish";
 import { addDays, todayISO } from "@/lib/periods";
 import { localDir } from "@/lib/store";
-import { approveAllAction, approvePostAction, connectInstagramAction, deletePostAction, importDriveAction, importPostsAction, publishNowAction, requestChangeAction, retryPublishAction, savePlanAction, savePostAction, scheduleAction, setCoverAction, setStatusAction, unscheduleAction } from "./actions";
+import { approveAllAction, approvePostAction, connectInstagramAction, disconnectInstagramAction, deletePostAction, importDriveAction, importPostsAction, publishNowAction, requestChangeAction, retryPublishAction, savePlanAction, savePostAction, scheduleAction, setCoverAction, setStatusAction, unscheduleAction } from "./actions";
 
 export const dynamic = "force-dynamic";
 
@@ -41,7 +41,7 @@ export default async function ConteudoPage({ params, searchParams }: { params: P
   const c = await getClient(slug);
   if (!c) notFound();
 
-  const [all, plan, profile, live, accounts] = await Promise.all([getPosts(slug), getPlan(slug), igProfile(c.igUserId), igRecentMedia(c.igUserId, 15), admin && !c.igUserId ? igAccounts() : Promise.resolve([] as IgAccount[])]);
+  const [all, plan, profile, live, accounts] = await Promise.all([getPosts(slug), getPlan(slug), igProfile(c.igUserId), igRecentMedia(c.igUserId, 15), admin ? igAccounts() : Promise.resolve([] as IgAccount[])]);
   const local = !!localDir();
   const nextDay = addDays(todayISO(), 1);
   const posts = all.filter((p) => visibleTo(p, session.role));
@@ -95,6 +95,17 @@ export default async function ConteudoPage({ params, searchParams }: { params: P
           <p className="text-sm text-[var(--muted)]">Necessário para a prévia com os posts reais e para publicar sozinho no horário. Sem senha: usa o acesso da DoctorBrand no Business Manager.</p>
           <ConnectInstagram action={connectInstagramAction.bind(null, slug)} accounts={accounts.map((a) => ({ igUserId: a.igUserId, username: a.username, pageName: a.pageName }))} />
         </section>
+      )}
+
+      {admin && c.igUserId && (
+        <details className="card p-4 mb-4">
+          <summary className="cursor-pointer text-sm"><b>Instagram ligado:</b> @{profile?.username ?? c.igUserId} <span className="text-[var(--muted)] underline ml-1">editar</span></summary>
+          <div className="flex flex-col gap-3 mt-3">
+            <p className="text-sm text-[var(--muted)]">Ligou a conta errada? Escolha a certa e clique em Ligar. Os posts e agendamentos do cliente continuam como estão.</p>
+            <ConnectInstagram action={connectInstagramAction.bind(null, slug)} accounts={accounts.filter((a) => a.igUserId !== c.igUserId).map((a) => ({ igUserId: a.igUserId, username: a.username, pageName: a.pageName }))} />
+            <ActionButton action={disconnectInstagramAction.bind(null, slug)} label="Desligar o Instagram" confirm="Desligar o Instagram deste cliente? Nada publica sozinho até ligar de novo." />
+          </div>
+        </details>
       )}
 
       <ScoreCard score={score} plan={plan} admin={admin} slug={slug} />

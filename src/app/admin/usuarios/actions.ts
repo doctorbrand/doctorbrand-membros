@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import type { ActionResult } from "@/lib/types";
 import { requireAdmin } from "@/lib/auth";
-import { createUser, deleteUser, type Role } from "@/lib/users";
+import { createUser, deleteUser, updateUser, type Role } from "@/lib/users";
 
 export async function createUserAction(_prev: ActionResult | null, fd: FormData): Promise<ActionResult> {
   await requireAdmin();
@@ -12,6 +12,16 @@ export async function createUserAction(_prev: ActionResult | null, fd: FormData)
     await createUser({ name: String(fd.get("name") ?? ""), email: String(fd.get("email") ?? ""), role, clientSlug: role === "cliente" ? String(fd.get("clientSlug") ?? "") : undefined, password: String(fd.get("password") ?? "") });
     revalidatePath("/admin/usuarios");
     return { ok: true, message: "Acesso criado." };
+  } catch (e) { return { ok: false, message: e instanceof Error ? e.message : String(e) }; }
+}
+
+export async function updateUserAction(_prev: ActionResult | null, fd: FormData): Promise<ActionResult> {
+  await requireAdmin();
+  try {
+    const role = String(fd.get("role") ?? "cliente") as Role;
+    await updateUser(String(fd.get("id") ?? ""), { name: String(fd.get("name") ?? ""), email: String(fd.get("email") ?? ""), role, clientSlug: String(fd.get("clientSlug") ?? "") || undefined, password: String(fd.get("password") ?? "") || undefined });
+    revalidatePath("/admin/usuarios");
+    return { ok: true, message: "Acesso atualizado." };
   } catch (e) { return { ok: false, message: e instanceof Error ? e.message : String(e) }; }
 }
 

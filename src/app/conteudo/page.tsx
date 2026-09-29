@@ -3,7 +3,7 @@ import { Shell } from "@/components/Shell";
 import { requireAdmin } from "@/lib/auth";
 import { listClients } from "@/lib/clients";
 import { ActionForm } from "@/components/ActionForm";
-import { addClientAction } from "./actions";
+import { addClientAction, editClientAction } from "./actions";
 import { getPlan, getPosts, plannedAt } from "@/lib/content";
 import { scoreFeed } from "@/lib/feedScore";
 import { todayISO } from "@/lib/periods";
@@ -45,7 +45,15 @@ export default async function ConteudoIndex() {
           <tbody>
             {rows.map((r) => (
               <tr key={r.c.slug}>
-                <td><Link href={`/cliente/${r.c.slug}/conteudo`} className="font-medium hover:underline">{r.c.name}</Link><div className="text-[11px] text-[var(--muted)]">{r.c.specialty}</div></td>
+                <td><Link href={`/cliente/${r.c.slug}/conteudo`} className="font-medium hover:underline">{r.c.name}</Link><div className="text-[11px] text-[var(--muted)]">{r.c.specialty}</div>
+                  <details className="text-left"><summary className="text-[11px] underline cursor-pointer text-[var(--muted)]">editar</summary>
+                    <ActionForm action={editClientAction} className="flex flex-col gap-1 mt-1 min-w-[200px]">
+                      <input type="hidden" name="slug" value={r.c.slug} />
+                      <input name="name" defaultValue={r.c.name} required className="ct-input" />
+                      <input name="specialty" defaultValue={r.c.specialty} placeholder="Especialidade" className="ct-input" />
+                      <button className="ct-btn ct-btn-dark">Salvar</button>
+                    </ActionForm>
+                  </details></td>
                 <td>{r.score ? <span className={`pill ${r.score.total >= 85 ? "pill-green" : r.score.total >= 70 ? "pill-info" : r.score.total >= 50 ? "pill-yellow" : "pill-red"}`}>{r.score.total}</span> : "—"}</td>
                 <td>{r.changes ? <span className="pill pill-red">{r.changes}</span> : "0"}</td>
                 <td>{r.waiting ? <span className="pill pill-yellow">{r.waiting}</span> : "0"}</td>

@@ -225,6 +225,14 @@ export async function connectInstagramAction(slug: string, _prev: ActionResult |
   return { ok: true, message: `Ligado a @${acc.username ?? acc.igUserId}.` };
 }
 
+/** Desliga a conta do Instagram (para corrigir uma ligação errada). */
+export async function disconnectInstagramAction(slug: string, _prev: ActionResult | null): Promise<ActionResult> {
+  const s = await requireAdmin();
+  await updateClient(slug, { igUserId: undefined, pageId: undefined }, s.name);
+  revalidatePath(path(slug));
+  return { ok: true, message: "Instagram desligado." };
+}
+
 // ─── Drive, capa e metas ───────────────────────────────────────────────
 
 export interface DriveImport { ok: boolean; message: string; media?: Media[]; cover?: Media; caption?: string }
