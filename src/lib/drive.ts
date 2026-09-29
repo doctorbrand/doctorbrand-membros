@@ -15,6 +15,7 @@ const API = process.env.DRIVE_API_URL ?? "https://www.googleapis.com/drive/v3";
 const key = () => process.env.GOOGLE_API_KEY;
 
 export interface DriveFile { id: string; name: string; mime: string }
+export const FOLDER = "application/vnd.google-apps.folder";
 
 /** Extrai ids de arquivos e pastas de links colados (um por linha ou separados por espaço). */
 export function parseDriveLinks(text: string): { files: string[]; folders: string[] } {
@@ -62,10 +63,11 @@ export async function driveFolderFiles(folderId: string): Promise<DriveFile[]> {
   }
   const r = await fetch(`${WEB}/embeddedfolderview?id=${encodeURIComponent(folderId)}`, { cache: "no-store" });
   const html = r.ok ? await r.text() : "";
-  const entries = [...html.matchAll(/id="entry-([\w-]{10,})"[\s\S]*?class="flip-entry-title">([^<]+)</g)];
+  const entries = [...html.matchAll(/id="entry-([\w-]{10,})"[\s\S]*?href="([^"]*)"[\s\S]*?class="flip-entry-title">([^<]+)</g)];
   if (entries.length === 0) throw new Error("Não consegui ler a pasta. Compartilhe como “qualquer pessoa com o link” (ou cole os links dos arquivos).");
-  const files = await Promise.all(entries.map(async ([, id, name]) => {
+  const files = await Promise.all(entries.map(async ([, id, href, name]) => {
     const n = decodeEntities(name.trim());
+    if (/\/folders\//.test(href)) return { id, name: n, mime: FOLDER };
     if (/\.txt$/i.test(n)) return { id, name: n, mime: "text/plain" };
     return driveFileInfo(id).then((f) => ({ ...f, name: n }), () => ({ id, name: n, mime: "application/octet-stream" }));
   }));

@@ -6,6 +6,7 @@ import { CoverPicker } from "@/components/content/CoverPicker";
 import { PostEditor } from "@/components/content/PostEditor";
 import { VideoPlayer } from "@/components/content/VideoPlayer";
 import { ZipImport } from "@/components/content/ZipImport";
+import { DriveImport } from "@/components/content/DriveImport";
 import { Shell } from "@/components/Shell";
 import { AlertIcon, CheckIcon, EyeIcon, MenuIcon, PencilIcon } from "@/components/Icons";
 import { requireAuth } from "@/lib/auth";
@@ -16,7 +17,7 @@ import { igAccounts, igProfile, igRecentMedia, type IgAccount } from "@/lib/inst
 import { publishProblem } from "@/lib/publish";
 import { addDays, todayISO } from "@/lib/periods";
 import { localDir } from "@/lib/store";
-import { approveAllAction, approvePostAction, connectInstagramAction, disconnectInstagramAction, deletePostAction, importDriveAction, importPostsAction, publishNowAction, requestChangeAction, retryPublishAction, savePlanAction, savePostAction, scheduleAction, setCoverAction, setStatusAction, unscheduleAction } from "./actions";
+import { approveAllAction, approvePostAction, connectInstagramAction, disconnectInstagramAction, deletePostAction, importDriveAction, importDriveBatchAction, importPostsAction, publishNowAction, requestChangeAction, retryPublishAction, savePlanAction, savePostAction, scheduleAction, setCoverAction, setStatusAction, unscheduleAction } from "./actions";
 
 export const dynamic = "force-dynamic";
 
@@ -97,6 +98,7 @@ export default async function ConteudoPage({ params, searchParams }: { params: P
           <Link href="/conteudo" className="text-sm text-[var(--muted)]">← Todos os clientes</Link>
           <Link href={`${base}?visao=cliente`} className="ct-btn inline-flex items-center gap-1.5"><EyeIcon /> Ver como o cliente</Link>
           <ZipImport slug={slug} action={importPostsAction.bind(null, slug)} local={local} defaultStart={nextDay} everyDays={Math.max(1, Math.round(7 / plan.postsPerWeek))} />
+          <DriveImport action={importDriveBatchAction.bind(null, slug)} defaultStart={nextDay} everyDays={Math.max(1, Math.round(7 / plan.postsPerWeek))} />
         </div>
       )}
 
