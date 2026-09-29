@@ -309,7 +309,7 @@ export async function savePlanAction(slug: string, _prev: ActionResult | null, f
 
 // ─── Importar pacote (.zip) ────────────────────────────────────────────
 
-export interface ImportItem { title: string; caption: string; media: Media[]; cover?: Media }
+export interface ImportItem { title: string; caption: string; media: Media[]; cover?: Media; agenda?: string }
 
 function addDaysISO(date: string, days: number): string {
   const d = new Date(`${date}T12:00:00Z`);
@@ -338,7 +338,11 @@ export async function importPostsAction(slug: string, items: ImportItem[], opts:
     created.push({
       id: crypto.randomUUID(), type, title: String(it.title || `Post ${i + 1}`).slice(0, 120), caption, media,
       cover: type === "reels" ? cover : undefined,
-      date: addDaysISO(opts.start, i * every), time: times.length ? times[i % times.length] : "12:00",
+      ...(() => {
+        const auto = { date: addDaysISO(opts.start, i * every), time: times.length ? times[i % times.length] : "12:00" };
+        const fixed = it.agenda ? parseAgenda(String(it.agenda), Number(opts.start.slice(0, 4))) : {};
+        return { date: fixed.date ?? auto.date, time: fixed.time ?? auto.time };
+      })(),
       status, createdAt: now, updatedAt: now,
       history: [entry(s, "criado", "Importado em lote"), ...(opts.send ? [entry(s, "enviado")] : [])],
     });
@@ -378,7 +382,6 @@ export async function importDriveBatchAction(slug: string, link: string, opts: {
     const subs = top.filter((f) => f.mime === FOLDER).sort((a, b) => a.name.localeCompare(b.name, "pt-BR", { numeric: true }));
     if (!subs.length) return { ok: false, message: "A pasta não tem subpastas de posts (post-01-…, post-02-…)." };
     if (subs.length > 60) return { ok: false, message: "Importe no máximo 60 posts por vez." };
-    const year = Number(todayISOLocal().slice(0, 4));
     const read = await Promise.all(subs.map(async (sub) => {
       const list: DriveFile[] = await driveFolderFiles(sub.id);
       const txt = list.find((x) => /^legenda.*\.txt$|^caption.*\.txt$/i.test(x.name));
@@ -386,24 +389,16 @@ export async function importDriveBatchAction(slug: string, link: string, opts: {
       const capa = list.find((x) => /^capa\b/i.test(x.name) && x.mime.startsWith("image/"));
       const media = list.filter((x) => x !== txt && x !== ag && x !== capa).map(toMedia).filter((m): m is Media => !!m);
       const [caption, agenda] = await Promise.all([txt ? driveText(txt.id).catch(() => "") : "", ag ? driveText(ag.id).catch(() => "") : ""]);
-      return { title: titleFromFolder(sub.name), caption, media, cover: capa ? toMedia(capa) ?? undefined : undefined, when: agenda ? parseAgenda(agenda, year) : {} };
+      return { title: titleFromFolder(sub.name), caption, media, cover: capa ? toMedia(capa) ?? undefined : undefined, agenda: agenda || undefined };
     }));
     const empty = read.find((r) => !r.media.length);
     if (empty) return { ok: false, message: `“${empty.title}”: sem imagem ou vídeo (ou os arquivos não estão compartilhados).` };
-    const r = await importPostsAction(slug, read.map(({ title, caption, media, cover }) => ({ title, caption, media, cover })), opts);
+    const r = await importPostsAction(slug, read, opts);
     if (!r.ok) return r;
-    // Datas definidas no agenda.txt de cada post valem sobre a distribuição automática.
-    const fixed = read.map((x, i) => ({ i, ...x.when })).filter((x) => x.date || x.time);
-    if (fixed.length) {
-      const posts = await getPosts(slug);
-      const created = posts.slice(-read.length);
-      for (const f of fixed) { const p = created[f.i]; if (p) { if (f.date) p.date = f.date; if (f.time) p.time = f.time; } }
-      await savePosts(slug, posts);
-    }
-    return { ok: true, message: `${r.message.replace("importados", "importados do Drive")}${fixed.length ? ` ${fixed.length} com data do agenda.txt.` : ""}` };
+    const fixed = read.filter((x) => x.agenda).length;
+    return { ok: true, message: `${r.message.replace("importados", "importados do Drive")}${fixed ? ` ${fixed} com data do agenda.txt.` : ""}` };
   } catch (e) {
     return { ok: false, message: e instanceof Error ? e.message : String(e) };
   }
 }
 
-const todayISOLocal = () => new Date(Date.now() - 3 * 3600_000).toISOString().slice(0, 10);

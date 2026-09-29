@@ -9,7 +9,7 @@ import { uploadMedia } from "./upload";
 
 type ImportAction = (items: ImportItem[], opts: { start: string; everyDays: number; times: string[]; send: boolean }) => Promise<ActionResult>;
 
-interface Folder { key: string; order: number; title: string; files: { name: string; entry: JSZip.JSZipObject }[]; caption: string; cover?: JSZip.JSZipObject }
+interface Folder { key: string; order: number; title: string; files: { name: string; entry: JSZip.JSZipObject }[]; caption: string; agenda?: string; cover?: JSZip.JSZipObject }
 
 const IMG = /\.(jpe?g|png)$/i;
 const VID = /\.mp4$/i;
@@ -65,10 +65,14 @@ export function ZipImport({ slug, action, local, defaultStart, everyDays }: { sl
         }
         const f = map.get(key)!;
         if (/legenda.*\.txt$|caption.*\.txt$/i.test(name)) f.caption = (await e.async("string")).replace(/\r\n?/g, "\n").trim();
+        else if (/^agenda.*\.txt$/i.test(name)) f.agenda = (await e.async("string")).trim();
         else if (/^capa\b/i.test(name) && IMG.test(name)) f.cover = e;
         else if (IMG.test(name) || VID.test(name)) f.files.push({ name, entry: e });
       }
-      const list = [...map.values()].filter((f) => f.files.length).sort((a, b) => a.order - b.order || a.key.localeCompare(b.key));
+      const all = [...map.values()].filter((f) => f.files.length);
+      const named = all.filter((f) => /^post[-_ ]?\d/i.test(f.key.split("/").pop() ?? ""));
+      // Com o padrão (post-01-…), pastas como "00 Perfil" ficam de fora.
+      const list = (named.length ? named : all).sort((a, b) => a.order - b.order || a.key.localeCompare(b.key));
       list.forEach((f) => f.files.sort((a, b) => a.name.localeCompare(b.name, "pt-BR", { numeric: true })));
       if (!list.length) throw new Error("Não encontrei pastas de posts com imagens ou vídeo no zip.");
       setFolders(list);
@@ -100,7 +104,7 @@ export function ZipImport({ slug, action, local, defaultStart, everyDays }: { sl
           const path = await uploadMedia(`${base}/capa.jpg`, await toJpeg(await f.cover.async("blob"), f.cover.name), local);
           cover = { path, kind: "image", name: "capa.jpg", mime: "image/jpeg" };
         }
-        items.push({ title: f.title, caption: f.caption, media, cover });
+        items.push({ title: f.title, caption: f.caption, media, cover, agenda: f.agenda });
       }
       setBusy("Criando os posts…");
       const r = await action(items, { start, everyDays: gap, times: times.split(/[,\s]+/).filter((t) => /^\d{2}:\d{2}$/.test(t)), send });
@@ -129,12 +133,12 @@ export function ZipImport({ slug, action, local, defaultStart, everyDays }: { sl
         <>
           <div className="scroll-x">
             <table className="data">
-              <thead><tr><th>#</th><th>Post</th><th>Formato</th><th>Legenda</th></tr></thead>
+              <thead><tr><th>#</th><th>Post</th><th>Formato</th><th>Data</th><th>Legenda</th></tr></thead>
               <tbody>
                 {folders.map((f, i) => {
                   const vids = f.files.filter((x) => VID.test(x.name)).length;
                   const kind = f.files.length > 1 ? `Carrossel · ${f.files.length}` : vids ? `Reels${f.cover ? " · com capa" : ""}` : "Foto única";
-                  return <tr key={f.key}><td>{i + 1}</td><td>{f.title}</td><td>{kind}</td><td className="max-w-[320px] truncate text-left" title={f.caption}>{f.caption ? f.caption.split("\n")[0] : <span className="g-warn">sem legenda.txt</span>}</td></tr>;
+                  return <tr key={f.key}><td>{i + 1}</td><td>{f.title}</td><td>{kind}</td><td>{f.agenda ?? "automática"}</td><td className="max-w-[320px] truncate text-left" title={f.caption}>{f.caption ? f.caption.split("\n")[0] : <span className="g-warn">sem legenda.txt</span>}</td></tr>;
                 })}
               </tbody>
             </table>
