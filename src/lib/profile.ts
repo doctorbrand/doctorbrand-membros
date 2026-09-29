@@ -27,6 +27,8 @@ export interface ClientProfile {
   cta?: string;
   vozDm?: string;
   concorrentes?: string;
+  /** Conflitos entre fontes e dados sem fonte, para confirmar com o cliente. */
+  pendencias?: string;
   /** Nota visual do feed (0 a 10) dada pela equipe, com observação. */
   visualScore?: number;
   visualNota?: string;
@@ -53,12 +55,15 @@ export const PROFILE_FIELDS: { key: keyof ClientProfile; label: string; hint: st
   { key: "playbook", label: "Playbook", hint: "Formatos que funcionam, cadência, quadros fixos, o que já testamos.", rows: 5, group: "operacao" },
   { key: "restricoes", label: "Restrições e CFM", hint: "Limites do cliente e pontos de atenção da Resolução CFM 2.336/2023.", rows: 3, group: "operacao" },
   { key: "concorrentes", label: "Concorrentes e referências de perfil", hint: "@ de concorrentes diretos e de perfis que inspiram.", rows: 2, group: "operacao" },
+  { key: "pendencias", label: "Pontos a confirmar com o cliente", hint: "Conflitos entre fontes e dados que ainda não têm origem. Apague a linha quando confirmar.", rows: 4, group: "operacao" },
   { key: "referencias", label: "Referências e links", hint: "Drive, Notion, perfis de referência. Um por linha.", rows: 3, group: "operacao" },
 ];
 
 export async function getProfile(slug: string): Promise<ClientProfile> {
   const saved = await readDoc<ClientProfile>(`perfil/${slug}`, {});
-  return { ...(PROFILE_SEED[slug] ?? {}), ...saved };
+  // Campo salvo vazio não apaga o que foi levantado das fontes.
+  const filled = Object.fromEntries(Object.entries(saved).filter(([, v]) => v !== "" && v !== null && v !== undefined));
+  return { ...(PROFILE_SEED[slug] ?? {}), ...filled };
 }
 
 export async function saveProfile(slug: string, patch: ClientProfile, by: string): Promise<void> {
@@ -68,6 +73,6 @@ export async function saveProfile(slug: string, patch: ClientProfile, by: string
 
 /** Quanto do perfil está preenchido (0 a 100). */
 export function profileCompleteness(p: ClientProfile): number {
-  const filled = PROFILE_FIELDS.filter((f) => String(p[f.key] ?? "").trim().length > 0).length;
-  return Math.round((filled / PROFILE_FIELDS.length) * 100);
+  const filled = PROFILE_FIELDS.filter((f) => f.key !== "pendencias").filter((f) => String(p[f.key] ?? "").trim().length > 0).length;
+  return Math.round((filled / (PROFILE_FIELDS.length - 1)) * 100);
 }
