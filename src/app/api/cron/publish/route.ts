@@ -46,9 +46,9 @@ export async function GET(req: Request) {
         });
         report.push({ client: c.slug, post: p.title, outcome: r.outcome, message: r.message });
         if (r.outcome === "published") {
-          await sendAlert(`📲 *${c.name}*: publicado no Instagram · ${p.title}${r.post.publish?.permalink ? `\n${r.post.publish.permalink}` : ""}`).catch(() => undefined);
+          await sendAlert(`*${c.name}*: publicado no Instagram · ${p.title}${r.post.publish?.permalink ? `\n${r.post.publish.permalink}` : ""}`).catch(() => undefined);
         } else if (r.outcome === "error" && (r.post.publish?.attempts ?? 0) >= MAX_ATTEMPTS) {
-          await sendAlert(`⚠️ *${c.name}*: não consegui publicar "${p.title}" depois de ${MAX_ATTEMPTS} tentativas.\n${r.message}\n${publicBase()}/cliente/${c.slug}/conteudo?post=${p.id}`).catch(() => undefined);
+          await sendAlert(`*${c.name}*: não consegui publicar "${p.title}" depois de ${MAX_ATTEMPTS} tentativas.\n${r.message}\n${publicBase()}/cliente/${c.slug}/conteudo?post=${p.id}`).catch(() => undefined);
         }
       }
     }

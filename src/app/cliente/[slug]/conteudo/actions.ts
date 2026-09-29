@@ -22,7 +22,7 @@ function entry(s: Session, action: HistoryEntry["action"], note?: string, slide?
 /** Aviso para a equipe (Telegram/WhatsApp configurados no painel). Nunca bloqueia a ação do cliente. */
 async function notifyTeam(slug: string, text: string) {
   const c = await getClient(slug).catch(() => null);
-  await sendAlert(`🗂️ *Conteúdo · ${c?.name ?? slug}*\n${text}\n${publicBase()}${path(slug)}`).catch(() => undefined);
+  await sendAlert(`*Conteúdo · ${c?.name ?? slug}*\n${text}\n${publicBase()}${path(slug)}`).catch(() => undefined);
 }
 
 export async function approvePostAction(slug: string, id: string, _prev: ActionResult | null): Promise<ActionResult> {
@@ -34,7 +34,7 @@ export async function approvePostAction(slug: string, id: string, _prev: ActionR
     return { ...p, status: "aprovado", history: [...p.history, entry(s, "aprovado")] };
   });
   if (!p) return { ok: false, message: "Post não encontrado." };
-  if (s.role === "cliente" && title) await notifyTeam(slug, `✅ ${s.name} aprovou *${title}*.`);
+  if (s.role === "cliente" && title) await notifyTeam(slug, `${s.name} aprovou *${title}*.`);
   revalidatePath(path(slug));
   return { ok: true, message: "Aprovado. Obrigado!" };
 }
@@ -50,7 +50,7 @@ export async function approveAllAction(slug: string, _prev: ActionResult | null)
   });
   if (n === 0) return { ok: false, message: "Não há posts aguardando aprovação." };
   await savePosts(slug, next);
-  if (s.role === "cliente") await notifyTeam(slug, `✅ ${s.name} aprovou ${n} post${n > 1 ? "s" : ""} de uma vez.`);
+  if (s.role === "cliente") await notifyTeam(slug, `${s.name} aprovou ${n} post${n > 1 ? "s" : ""} de uma vez.`);
   revalidatePath(path(slug));
   return { ok: true, message: `${n} post${n > 1 ? "s aprovados" : " aprovado"}.` };
 }
@@ -66,7 +66,7 @@ export async function requestChangeAction(slug: string, id: string, _prev: Actio
     return { ...p, status: "alteracao", history: [...p.history, entry(s, "alteracao", note, slide)] };
   });
   if (!p) return { ok: false, message: "Post não encontrado." };
-  if (s.role === "cliente") await notifyTeam(slug, `✏️ ${s.name} pediu alteração em *${title}*${slide ? ` (imagem ${slide})` : ""}:\n"${note.slice(0, 500)}"`);
+  if (s.role === "cliente") await notifyTeam(slug, `${s.name} pediu alteração em *${title}*${slide ? ` (imagem ${slide})` : ""}:\n"${note.slice(0, 500)}"`);
   revalidatePath(path(slug));
   return { ok: true, message: "Pedido enviado para a equipe." };
 }
@@ -171,7 +171,7 @@ export async function scheduleAction(slug: string, id: string, _prev: ActionResu
   });
   if (!p) return { ok: false, message: "Post não encontrado." };
   if (problem) return { ok: false, message: problem };
-  if (s.role === "cliente") await notifyTeam(slug, `🗓️ ${s.name} agendou *${title}* para ${date.split("-").reverse().join("/")} às ${time}.`);
+  if (s.role === "cliente") await notifyTeam(slug, `${s.name} agendou *${title}* para ${date.split("-").reverse().join("/")} às ${time}.`);
   revalidatePath(path(slug));
   return { ok: true, message: "Agendado. Publica sozinho no horário." };
 }
@@ -345,7 +345,7 @@ export async function importPostsAction(slug: string, items: ImportItem[], opts:
   }
   const posts = await getPosts(slug);
   await savePosts(slug, [...posts, ...created]);
-  if (opts.send) await notifyTeam(slug, `📦 ${s.name} importou ${created.length} posts para aprovação.`);
+  if (opts.send) await notifyTeam(slug, `${s.name} importou ${created.length} posts para aprovação.`);
   revalidatePath(path(slug));
   return { ok: true, message: `${created.length} posts importados${opts.send ? " e enviados para aprovação" : " como rascunho"}.` };
 }

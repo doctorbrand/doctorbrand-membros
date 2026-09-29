@@ -3,6 +3,7 @@ import { Shell } from "@/components/Shell";
 import { requireAdmin } from "@/lib/auth";
 import { listClients } from "@/lib/clients";
 import { ActionForm } from "@/components/ActionForm";
+import { TrashIcon } from "@/components/Icons";
 import { addClientAction, removeClientAction } from "./actions";
 import { getPlan, getPosts, plannedAt } from "@/lib/content";
 import { scoreFeed } from "@/lib/feedScore";
@@ -49,7 +50,7 @@ export default async function ConteudoIndex() {
                   <ActionForm action={removeClientAction} confirm={`Tirar ${r.c.name} da área de membros?\n\nOs acessos deste cliente serão apagados e ele não entra mais. Os posts ficam guardados.`}>
                     <input type="hidden" name="slug" value={r.c.slug} />
                     <button title={`Tirar ${r.c.name}`} aria-label={`Tirar ${r.c.name}`} className="text-[var(--muted)] hover:text-[var(--bad)] p-1">
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14M10 11v6M14 11v6" /></svg>
+                      <TrashIcon />
                     </button>
                   </ActionForm>
                 </td>

@@ -7,6 +7,7 @@ import { PostEditor } from "@/components/content/PostEditor";
 import { VideoPlayer } from "@/components/content/VideoPlayer";
 import { ZipImport } from "@/components/content/ZipImport";
 import { Shell } from "@/components/Shell";
+import { AlertIcon, CheckIcon, EyeIcon, MenuIcon } from "@/components/Icons";
 import { requireAuth } from "@/lib/auth";
 import { getClient, type Client } from "@/lib/clients";
 import { canScheduleAt, dayLabel, feedOrder, getPlan, getPosts, MAX_ATTEMPTS, mediaKey, mediaUrl, sameOriginVideo, scheduleOrder, STATUS_LABEL, STATUS_PILL, thumbOf, TYPE_LABEL, videoSource, visibleTo, type FeedPlan, type Post } from "@/lib/content";
@@ -94,7 +95,7 @@ export default async function ConteudoPage({ params, searchParams }: { params: P
       {admin && (
         <div className="flex flex-wrap items-center gap-3 mb-4">
           <Link href="/conteudo" className="text-sm text-[var(--muted)]">← Todos os clientes</Link>
-          <Link href={`${base}?visao=cliente`} className="ct-btn">👁 Ver como o cliente</Link>
+          <Link href={`${base}?visao=cliente`} className="ct-btn inline-flex items-center gap-1.5"><EyeIcon /> Ver como o cliente</Link>
           <ZipImport slug={slug} action={importPostsAction.bind(null, slug)} local={local} defaultStart={nextDay} everyDays={Math.max(1, Math.round(7 / plan.postsPerWeek))} />
         </div>
       )}
@@ -122,7 +123,7 @@ export default async function ConteudoPage({ params, searchParams }: { params: P
         {/* Celular */}
         <div className="ct-phone" aria-label="Prévia do perfil no Instagram">
           <div className="ct-screen">
-            <div className="ct-ig-top"><span>{handle}</span><span aria-hidden>☰</span></div>
+            <div className="ct-ig-top"><span>{handle}</span><MenuIcon /></div>
             <div className="ct-ig-head">
               {profile?.picture ? <img src={profile.picture} alt="" className="ct-avatar" /> : <div className="ct-avatar">{initials}</div>}
               <div className="ct-stats">
@@ -341,7 +342,7 @@ function PostChecks({ post, plan }: { post: Post; plan: FeedPlan }) {
       <summary className="label cursor-pointer">Checagem do post · {bad.length ? `${bad.length} ponto${bad.length > 1 ? "s" : ""} de atenção` : "tudo certo"}</summary>
       <ul className="mt-2 flex flex-col gap-1">
         {checks.map((c, i) => (
-          <li key={i} className={c.ok ? "text-[var(--muted)]" : c.severity === "alta" ? "g-bad" : "g-warn"}>{c.ok ? "✓" : "!"} {c.label}</li>
+          <li key={i} className={c.ok ? "text-[var(--muted)]" : c.severity === "alta" ? "g-bad" : "g-warn"}><span className="inline-flex items-center gap-1.5">{c.ok ? <CheckIcon /> : <AlertIcon />} {c.label}</span></li>
         ))}
       </ul>
     </details>
