@@ -3,7 +3,7 @@ import { Shell } from "@/components/Shell";
 import { requireAdmin } from "@/lib/auth";
 import { listClients } from "@/lib/clients";
 import { ActionForm } from "@/components/ActionForm";
-import { addClientAction, editClientAction } from "./actions";
+import { addClientAction, removeClientAction } from "./actions";
 import { getPlan, getPosts, plannedAt } from "@/lib/content";
 import { scoreFeed } from "@/lib/feedScore";
 import { todayISO } from "@/lib/periods";
@@ -41,19 +41,20 @@ export default async function ConteudoIndex() {
       </div>
       <div className="card scroll-x">
         <table className="data">
-          <thead><tr><th>Cliente</th><th>Pontuação</th><th>Alteração</th><th>Aguardando</th><th>Agendados</th><th>Rascunhos</th><th>Próxima publicação</th><th>Instagram</th></tr></thead>
+          <thead><tr><th></th><th>Cliente</th><th>Pontuação</th><th>Alteração</th><th>Aguardando</th><th>Agendados</th><th>Rascunhos</th><th>Próxima publicação</th><th>Instagram</th></tr></thead>
           <tbody>
             {rows.map((r) => (
               <tr key={r.c.slug}>
+                <td>
+                  <ActionForm action={removeClientAction} confirm={`Tirar ${r.c.name} da área de membros?\n\nOs acessos deste cliente serão apagados e ele não entra mais. Os posts ficam guardados.`}>
+                    <input type="hidden" name="slug" value={r.c.slug} />
+                    <button title={`Tirar ${r.c.name}`} aria-label={`Tirar ${r.c.name}`} className="text-[var(--muted)] hover:text-[var(--bad)] p-1">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14M10 11v6M14 11v6" /></svg>
+                    </button>
+                  </ActionForm>
+                </td>
                 <td><Link href={`/cliente/${r.c.slug}/conteudo`} className="font-medium hover:underline">{r.c.name}</Link><div className="text-[11px] text-[var(--muted)]">{r.c.specialty}</div>
-                  <details className="text-left"><summary className="text-[11px] underline cursor-pointer text-[var(--muted)]">editar</summary>
-                    <ActionForm action={editClientAction} className="flex flex-col gap-1 mt-1 min-w-[200px]">
-                      <input type="hidden" name="slug" value={r.c.slug} />
-                      <input name="name" defaultValue={r.c.name} required className="ct-input" />
-                      <input name="specialty" defaultValue={r.c.specialty} placeholder="Especialidade" className="ct-input" />
-                      <button className="ct-btn ct-btn-dark">Salvar</button>
-                    </ActionForm>
-                  </details></td>
+</td>
                 <td>{r.score ? <span className={`pill ${r.score.total >= 85 ? "pill-green" : r.score.total >= 70 ? "pill-info" : r.score.total >= 50 ? "pill-yellow" : "pill-red"}`}>{r.score.total}</span> : "—"}</td>
                 <td>{r.changes ? <span className="pill pill-red">{r.changes}</span> : "0"}</td>
                 <td>{r.waiting ? <span className="pill pill-yellow">{r.waiting}</span> : "0"}</td>

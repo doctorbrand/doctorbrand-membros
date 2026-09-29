@@ -10,6 +10,8 @@ export interface Client {
   /** Página do Facebook ligada ao Instagram. */
   pageId?: string;
   createdAt?: string;
+  /** Tirado da área de membros (os posts ficam guardados). */
+  removed?: boolean;
   updatedAt?: string;
   updatedBy?: string;
 }
@@ -38,7 +40,7 @@ export async function listClients(): Promise<Client[]> {
   const saved = await stored();
   const map = new Map(SEED.map((c) => [c.slug, c]));
   for (const c of saved) map.set(c.slug, { ...map.get(c.slug), ...c });
-  return [...map.values()].sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
+  return [...map.values()].filter((c) => !c.removed).sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
 }
 
 export async function getClient(slug: string): Promise<Client | undefined> {
@@ -62,7 +64,7 @@ export async function addClient(name: string, specialty: string, by: string): Pr
   const all = await listClients();
   let slug = slugify(name) || "cliente";
   for (let n = 2; all.some((c) => c.slug === slug); n++) slug = `${slugify(name)}-${n}`;
-  const c: Client = { slug, name, specialty, createdAt: new Date().toISOString() };
+  const c: Client = { slug, name, specialty, createdAt: new Date().toISOString(), removed: false };
   await updateClient(slug, c, by);
   return c;
 }

@@ -33,18 +33,21 @@ function fmtCount(n?: number) {
   return n >= 10000 ? `${(n / 1000).toFixed(n >= 100000 ? 0 : 1).replace(".", ",")} mil` : n.toLocaleString("pt-BR");
 }
 
-export default async function ConteudoPage({ params, searchParams }: { params: Promise<{ slug: string }>; searchParams: Promise<{ post?: string; novo?: string; editar?: string }> }) {
+export default async function ConteudoPage({ params, searchParams }: { params: Promise<{ slug: string }>; searchParams: Promise<{ post?: string; novo?: string; editar?: string; visao?: string }> }) {
   const { slug } = await params;
   const session = await requireAuth(slug);
-  const admin = session.role === "admin";
   const sp = await searchParams;
+  /** Equipe pode ver a página exatamente como o cliente vê (?visao=cliente). */
+  const asClient = session.role === "admin" && sp.visao === "cliente";
+  const admin = session.role === "admin" && !asClient;
+  const role = admin ? "admin" : "cliente";
   const c = await getClient(slug);
   if (!c) notFound();
 
   const [all, plan, profile, live, accounts] = await Promise.all([getPosts(slug), getPlan(slug), igProfile(c.igUserId), igRecentMedia(c.igUserId, 15), admin ? igAccounts() : Promise.resolve([] as IgAccount[])]);
   const local = !!localDir();
   const nextDay = addDays(todayISO(), 1);
-  const posts = all.filter((p) => visibleTo(p, session.role));
+  const posts = all.filter((p) => visibleTo(p, role));
   const planned = posts.filter((p) => p.status !== "publicado");
   const order = scheduleOrder(planned);
   const num = new Map(order.map((p, i) => [p.id, i + 1]));
@@ -65,6 +68,12 @@ export default async function ConteudoPage({ params, searchParams }: { params: P
 
   return (
     <Shell active="conteudo" session={session} clientSlug={slug}>
+      {asClient && (
+        <div className="card p-3 mb-4 flex flex-wrap items-center justify-between gap-2 text-sm" style={{ background: "#fff7e0" }}>
+          <span><b>Você está vendo como {c.name} vê.</b> Rascunhos e controles da equipe ficam escondidos.</span>
+          <Link href={base} className="ct-btn">Voltar à visão da equipe</Link>
+        </div>
+      )}
       <div className="flex flex-wrap items-end justify-between gap-4 mb-5">
         <div>
           <p className="label">{admin ? `${c.name} · ${c.specialty}` : c.specialty}</p>
@@ -85,6 +94,7 @@ export default async function ConteudoPage({ params, searchParams }: { params: P
       {admin && (
         <div className="flex flex-wrap items-center gap-3 mb-4">
           <Link href="/conteudo" className="text-sm text-[var(--muted)]">← Todos os clientes</Link>
+          <Link href={`${base}?visao=cliente`} className="ct-btn">👁 Ver como o cliente</Link>
           <ZipImport slug={slug} action={importPostsAction.bind(null, slug)} local={local} defaultStart={nextDay} everyDays={Math.max(1, Math.round(7 / plan.postsPerWeek))} />
         </div>
       )}
@@ -108,8 +118,6 @@ export default async function ConteudoPage({ params, searchParams }: { params: P
         </details>
       )}
 
-      <ScoreCard score={score} plan={plan} admin={admin} slug={slug} />
-
       <div className="ct-layout">
         {/* Celular */}
         <div className="ct-phone" aria-label="Prévia do perfil no Instagram">
@@ -128,7 +136,7 @@ export default async function ConteudoPage({ params, searchParams }: { params: P
               {grid.map((p) => {
                 const t = thumbOf(p);
                 return (
-                  <Link key={p.id} href={`${base}?post=${p.id}`} className={`ct-cell ${selected?.id === p.id && !creating && !editing ? "is-current" : ""}`} aria-label={`Post ${num.get(p.id)}: ${p.title}`}>
+                  <Link key={p.id} href={`${base}?${asClient ? "visao=cliente&" : ""}post=${p.id}`} className={`ct-cell ${selected?.id === p.id && !creating && !editing ? "is-current" : ""}`} aria-label={`Post ${num.get(p.id)}: ${p.title}`}>
                     {t ? <img src={mediaUrl(t, 480)} alt="" loading="lazy" /> : <span className="absolute inset-0 grid place-items-center text-[11px] text-[var(--muted)]">sem capa</span>}
                     <span className="ct-num">{num.get(p.id)}</span>
                     {p.type === "carrossel" ? CAROUSEL : p.type === "reels" ? REEL : null}
@@ -170,7 +178,7 @@ export default async function ConteudoPage({ params, searchParams }: { params: P
               {order.map((p) => {
                 const t = thumbOf(p);
                 return (
-                  <Link key={p.id} href={`${base}?post=${p.id}`} className={`ct-row ${selected?.id === p.id && !creating && !editing ? "is-current" : ""}`}>
+                  <Link key={p.id} href={`${base}?${asClient ? "visao=cliente&" : ""}post=${p.id}`} className={`ct-row ${selected?.id === p.id && !creating && !editing ? "is-current" : ""}`}>
                     <span className="n">{String(num.get(p.id)).padStart(2, "0")}</span>
                     {t ? <img src={mediaUrl(t, 160)} alt="" loading="lazy" /> : <span className="w-12 h-[60px] rounded-lg bg-[#eee]" />}
                     <span className="min-w-0">
@@ -185,6 +193,12 @@ export default async function ConteudoPage({ params, searchParams }: { params: P
           )}
         </div>
       </div>
+
+      {planned.filter((p) => p.status !== "rascunho").length >= 6 ? (
+        <div className="mt-6"><ScoreCard score={score} plan={plan} admin={admin} slug={slug} /></div>
+      ) : admin ? (
+        <p className="text-sm text-[var(--muted)] mt-6">A pontuação do planejamento aparece quando houver pelo menos 6 posts planejados (hoje: {planned.filter((p) => p.status !== "rascunho").length}).</p>
+      ) : null}
     </Shell>
   );
 }
