@@ -154,3 +154,12 @@ table.data.compact th, table.data.compact td { padding: 6px 8px; font-size: 12px
 .ct-row img { width: 48px; height: 60px; object-fit: cover; border-radius: 8px; background: #eee; }
 .ct-row .n { font: 600 12px var(--font-inter); width: 30px; height: 30px; border-radius: 9px; display: grid; place-items: center; background: var(--ink); color: #fff; }
 @media (max-width: 560px) { .ct-row { grid-template-columns: 30px 44px minmax(0, 1fr); } .ct-row .ct-row-status { grid-column: 3; justify-self: start; } }
+
+.ct-row-wrap { display: flex; align-items: center; gap: 4px; }
+.ct-row-wrap > .ct-row { flex: 1; min-width: 0; }
+.ct-row-tools { display: flex; gap: 2px; opacity: .55; transition: opacity .15s; }
+.ct-row-wrap:hover .ct-row-tools, .ct-row-tools:focus-within { opacity: 1; }
+.ct-icon-btn { display: inline-grid; place-items: center; width: 32px; height: 32px; border-radius: 999px; color: var(--muted); background: transparent; border: 0; cursor: pointer; }
+.ct-icon-btn:hover { background: #f0efeb; color: var(--ink); }
+.ct-icon-danger:hover { background: #fbeae9; color: var(--bad); }
+@media (hover: none) { .ct-row-tools { opacity: 1; } }

@@ -2,6 +2,7 @@
 
 import { useActionState, useState } from "react";
 import type { ActionResult } from "@/lib/types";
+import { TrashIcon } from "@/components/Icons";
 
 type Act0 = (prev: ActionResult | null) => Promise<ActionResult>;
 type ActFd = (prev: ActionResult | null, fd: FormData) => Promise<ActionResult>;
@@ -10,6 +11,17 @@ function Msg({ state, pending }: { state: ActionResult | null; pending: boolean 
   if (pending) return <p className="text-xs text-[var(--muted)]">Enviando…</p>;
   if (!state) return null;
   return <p className={`text-xs ${state.ok ? "g-good" : "g-bad"}`}>{state.message}</p>;
+}
+
+/** Ícone de lixeira que exclui com confirmação. */
+export function DeleteIconButton({ action, confirm, label = "Excluir" }: { action: Act0; confirm: string; label?: string }) {
+  const [state, run, pending] = useActionState(action, null);
+  return (
+    <form action={run} onSubmit={(e) => { if (!window.confirm(confirm)) e.preventDefault(); }}>
+      <button disabled={pending} title={label} aria-label={label} className="ct-icon-btn ct-icon-danger"><TrashIcon /></button>
+      {state && !state.ok && <p className="text-xs g-bad">{state.message}</p>}
+    </form>
+  );
 }
 
 /** Botão de ação única (aprovar, mudar status, excluir). */

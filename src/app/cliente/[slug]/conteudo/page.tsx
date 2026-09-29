@@ -1,13 +1,13 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ActionForm } from "@/components/ActionForm";
-import { ActionButton, ChangeRequest, ConnectInstagram, ScheduleForm } from "@/components/content/ContentActions";
+import { ActionButton, ChangeRequest, ConnectInstagram, DeleteIconButton, ScheduleForm } from "@/components/content/ContentActions";
 import { CoverPicker } from "@/components/content/CoverPicker";
 import { PostEditor } from "@/components/content/PostEditor";
 import { VideoPlayer } from "@/components/content/VideoPlayer";
 import { ZipImport } from "@/components/content/ZipImport";
 import { Shell } from "@/components/Shell";
-import { AlertIcon, CheckIcon, EyeIcon, MenuIcon } from "@/components/Icons";
+import { AlertIcon, CheckIcon, EyeIcon, MenuIcon, PencilIcon } from "@/components/Icons";
 import { requireAuth } from "@/lib/auth";
 import { getClient, type Client } from "@/lib/clients";
 import { canScheduleAt, dayLabel, feedOrder, getPlan, getPosts, MAX_ATTEMPTS, mediaKey, mediaUrl, sameOriginVideo, scheduleOrder, STATUS_LABEL, STATUS_PILL, thumbOf, TYPE_LABEL, videoSource, visibleTo, type FeedPlan, type Post } from "@/lib/content";
@@ -179,7 +179,8 @@ export default async function ConteudoPage({ params, searchParams }: { params: P
               {order.map((p) => {
                 const t = thumbOf(p);
                 return (
-                  <Link key={p.id} href={`${base}?${asClient ? "visao=cliente&" : ""}post=${p.id}`} className={`ct-row ${selected?.id === p.id && !creating && !editing ? "is-current" : ""}`}>
+                  <div key={p.id} className="ct-row-wrap">
+                  <Link href={`${base}?${asClient ? "visao=cliente&" : ""}post=${p.id}`} className={`ct-row ${selected?.id === p.id && !creating && !editing ? "is-current" : ""}`}>
                     <span className="n">{String(num.get(p.id)).padStart(2, "0")}</span>
                     {t ? <img src={mediaUrl(t, 160)} alt="" loading="lazy" /> : <span className="w-12 h-[60px] rounded-lg bg-[#eee]" />}
                     <span className="min-w-0">
@@ -188,6 +189,13 @@ export default async function ConteudoPage({ params, searchParams }: { params: P
                     </span>
                     <span className={`pill ${STATUS_PILL[p.status]} ct-row-status`}>{STATUS_LABEL[p.status]}</span>
                   </Link>
+                  {admin && (
+                    <div className="ct-row-tools">
+                      <Link href={`${base}?editar=${p.id}`} title="Editar" aria-label={`Editar ${p.title}`} className="ct-icon-btn"><PencilIcon /></Link>
+                      <DeleteIconButton action={deletePostAction.bind(null, slug, p.id)} confirm={`Excluir "${p.title}" do planejamento?`} label={`Excluir ${p.title}`} />
+                    </div>
+                  )}
+                  </div>
                 );
               })}
             </section>
@@ -260,13 +268,17 @@ function PostDetail({ post: p, n, total, slug, admin, base, client, plan, local 
 
       {admin && (
         <div className="flex flex-wrap items-start gap-2 border-t border-[var(--line)] pt-3">
-          <span className="label w-full">Equipe</span>
-          <Link href={`${base}?editar=${p.id}`} className="ct-btn">Editar</Link>
+          <div className="w-full flex items-center justify-between">
+            <span className="label">Equipe</span>
+            <span className="flex items-center gap-1">
+              <Link href={`${base}?editar=${p.id}`} title="Editar" aria-label="Editar post" className="ct-icon-btn"><PencilIcon /></Link>
+              <DeleteIconButton action={deletePostAction.bind(null, slug, p.id)} confirm={`Excluir "${p.title}" do planejamento?`} label="Excluir post" />
+            </span>
+          </div>
           {(p.status === "rascunho" || p.status === "alteracao") && <ActionButton action={setStatusAction.bind(null, slug, p.id, "aguardando")} label="Enviar para aprovação" />}
           {(p.status === "aprovado" || p.status === "agendado") && <ActionButton action={publishNowAction.bind(null, slug, p.id)} label="Publicar agora" variant="dark" confirm="Publicar agora no Instagram do cliente?" />}
           {(p.status === "aprovado" || p.status === "agendado") && <ActionButton action={setStatusAction.bind(null, slug, p.id, "publicado")} label="Já publiquei manualmente" />}
           {p.status !== "rascunho" && p.status !== "publicado" && <ActionButton action={setStatusAction.bind(null, slug, p.id, "rascunho")} label="Voltar para rascunho" />}
-          <ActionButton action={deletePostAction.bind(null, slug, p.id)} label="Excluir" confirm="Excluir este post do planejamento?" />
         </div>
       )}
 

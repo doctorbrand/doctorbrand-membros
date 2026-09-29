@@ -7,4 +7,5 @@ export const MenuIcon = ({ size = 18, className }: P) => <svg {...base(size)} cl
 export const CheckIcon = ({ size = 14, className }: P) => <svg {...base(size)} className={className}><path d="m5 12.5 4.5 4.5L19 7.5" /></svg>;
 export const AlertIcon = ({ size = 14, className }: P) => <svg {...base(size)} className={className}><circle cx="12" cy="12" r="9" /><path d="M12 7.5v5.5M12 16.5v.01" /></svg>;
 export const TrashIcon = ({ size = 16, className }: P) => <svg {...base(size)} className={className}><path d="M4 7h16M9 7V4.5h6V7M6.5 7l1 13h9l1-13M10 11v5.5M14 11v5.5" /></svg>;
+export const PencilIcon = ({ size = 16, className }: P) => <svg {...base(size)} className={className}><path d="M4 20h4L19 9a2.8 2.8 0 0 0-4-4L4 16v4ZM13.5 6.5l4 4" /></svg>;
 export const RefreshIcon = ({ size = 16, className }: P) => <svg {...base(size)} className={className}><path d="M20 11a8 8 0 0 0-14.3-4.9L4 8M4 4v4h4M4 13a8 8 0 0 0 14.3 4.9L20 16M20 20v-4h-4" /></svg>;
