@@ -3,12 +3,15 @@ import { notFound } from "next/navigation";
 import { ActionForm } from "@/components/ActionForm";
 import { ActionButton, DeleteIconButton, IconAction } from "@/components/content/ContentActions";
 import { Shell } from "@/components/Shell";
+import { autoSource, Deliverables } from "@/components/project/Deliverables";
+import { Agenda, type DateItem } from "@/components/project/Agenda";
+import { agendaWindow, clientMeetings, meetingDate, type Meeting } from "@/lib/agenda";
 import { ArrowRightIcon, ArrowUpRightIcon, BookIcon, CalendarIcon, ChatIcon, CheckIcon, ChevronDownIcon, ChevronUpIcon, DocIcon, EyeIcon, GlobeIcon, GridIcon, LinkIcon, PaletteIcon, StoriesIcon, VideoIcon } from "@/components/Icons";
 import { requireAuth } from "@/lib/auth";
 import { getClient } from "@/lib/clients";
-import { dayLabel, getPosts, mediaUrl, scheduleOrder, thumbOf, TYPE_LABEL, visibleTo } from "@/lib/content";
+import { dayLabel, getPlan, getPosts, mediaUrl, scheduleOrder, thumbOf, TYPE_LABEL, visibleTo } from "@/lib/content";
 import { todayISO } from "@/lib/periods";
-import { getProject, MATERIAL_KINDS, STEP_LABEL, type MaterialKind, type ProjectStep } from "@/lib/project";
+import { calendarAliases, getProject, MATERIAL_KINDS, STEP_LABEL, type MaterialKind, type ProjectStep } from "@/lib/project";
 import { addMaterialAction, addStepAction, applyDefaultStepsAction, deleteMaterialAction, deleteStepAction, moveStepAction, saveProjectInfoAction, updateStepAction } from "./actions";
 
 export const dynamic = "force-dynamic";
@@ -28,7 +31,7 @@ function shortDate(iso: string) {
   return new Date(Date.UTC(y, m - 1, d, 12)).toLocaleDateString("pt-BR", { day: "2-digit", month: "short", timeZone: "UTC" }).replace(".", "").replace(" de ", " ");
 }
 
-export default async function ProjetoPage({ params, searchParams }: { params: Promise<{ slug: string }>; searchParams: Promise<{ visao?: string }> }) {
+export default async function ProjetoPage({ params, searchParams }: { params: Promise<{ slug: string }>; searchParams: Promise<{ visao?: string; mes?: string }> }) {
   const { slug } = await params;
   const session = await requireAuth(slug);
   const sp = await searchParams;
@@ -37,7 +40,7 @@ export default async function ProjetoPage({ params, searchParams }: { params: Pr
   const c = await getClient(slug);
   if (!c) notFound();
 
-  const [project, all] = await Promise.all([getProject(slug), getPosts(slug)]);
+  const [project, all, plan] = await Promise.all([getProject(slug), getPosts(slug), getPlan(slug)]);
   const posts = all.filter((p) => visibleTo(p, admin ? "admin" : "cliente"));
   const waiting = posts.filter((p) => p.status === "aguardando").length;
   const approved = posts.filter((p) => p.status === "aprovado").length;
@@ -52,10 +55,30 @@ export default async function ProjetoPage({ params, searchParams }: { params: Pr
   const next = steps.filter((s) => s.status === "nao_iniciada");
   const finished = steps.filter((s) => s.status === "concluida");
   const today = todayISO();
-  const dates = [
-    ...steps.filter((s) => s.due && s.due >= today && s.status !== "concluida").map((s) => ({ key: s.id, date: s.due!, title: s.title, kind: "Etapa" })),
-    ...scheduled.slice(0, 3).map((p) => ({ key: p.id, date: p.date, title: p.title, kind: `Publicação · ${p.time}` })),
-  ].sort((a, b) => a.date.localeCompare(b.date)).slice(0, 5);
+  const dates: DateItem[] = [
+    ...steps.filter((s) => s.due && s.due >= today && s.status !== "concluida").map((s) => ({ key: s.id, date: s.due!, title: s.title, sub: "Etapa do projeto" })),
+    ...scheduled.slice(0, 3).map((p) => ({ key: p.id, date: `${p.date}T${p.time || "12:00"}:00-03:00`, title: p.title, sub: `${p.time} · ${TYPE_LABEL[p.type]}`, badge: "Publicação" })),
+  ];
+
+  // Entregas do mês: posts do feed contam sozinhos; o resto a equipe registra.
+  const month = /^\d{4}-\d{2}$/.test(sp.mes ?? "") && sp.mes! <= today.slice(0, 7) ? sp.mes! : today.slice(0, 7);
+  const [my, mm] = month.split("-").map(Number);
+  const daysInMonth = new Date(Date.UTC(my, mm, 0)).getUTCDate();
+  const feedPosts = posts.filter((p) => p.date.startsWith(month) && ["publicado", "agendado", "aprovado"].includes(p.status));
+  const auto = posts.length > 0 ? { title: "Posts no feed", done: feedPosts.length, expected: Math.max(1, Math.round((plan.postsPerWeek * daysInMonth) / 7)), dates: [] as string[] } : null;
+  // Agenda do Google (reuniões, captações, onboarding) só deste cliente.
+  const { nowIso, from: fromD, to: toD } = agendaWindow(month);
+  let meetings: Meeting[] | null = null;
+  let agendaError: string | undefined;
+  try { meetings = await clientMeetings(c.name, calendarAliases(slug, project), fromD, toD); } catch (e) { agendaError = e instanceof Error ? e.message : String(e); meetings = []; }
+  const fromCalendar: Record<string, string[]> = {};
+  for (const d of project.deliverables ?? []) {
+    const src = autoSource(d.title);
+    if (!src || !meetings) continue;
+    const hits = meetings.filter((m) => m.start <= nowIso && meetingDate(m.start).startsWith(month) && (src === "captacao" ? m.kind === "captacao" : /planejamento/i.test(m.title)));
+    fromCalendar[d.id] = [...new Set(hits.map((m) => meetingDate(m.start)))];
+  }
+  const mesHref = (ym: string) => `/cliente/${slug}?${asClient ? "visao=cliente&" : ""}mes=${ym}#entregas`;
 
   const firstName = session.role === "cliente" ? session.name.split(" ")[0] : c.name.split(" ")[0];
   const pct = steps.length ? Math.round((done / steps.length) * 100) : 0;
@@ -110,6 +133,10 @@ export default async function ProjetoPage({ params, searchParams }: { params: Pr
               );
             })()}
           </section>
+
+          <div id="entregas" className="scroll-mt-20">
+            <Deliverables slug={slug} month={month} today={today} deliverables={project.deliverables ?? []} auto={auto} admin={admin} hrefFor={mesHref} fromCalendar={fromCalendar} agendaOn={meetings !== null} />
+          </div>
 
           {/* Andamento (o cliente só vê quando a equipe já registrou etapas) */}
           {(admin || steps.length > 0) && <section className="card p-5">
@@ -170,20 +197,7 @@ export default async function ProjetoPage({ params, searchParams }: { params: Pr
         </div>
 
         <div className="flex flex-col gap-4 min-w-0">
-          {/* Próximas datas */}
-          {dates.length > 0 && (
-            <section className="card p-5">
-              <h2 className="pj-h2">Próximas datas</h2>
-              <ul className="mt-3 flex flex-col">
-                {dates.map((d) => (
-                  <li key={d.key} className="pj-date">
-                    <span className="pj-date-day"><CalendarIcon size={15} /> {shortDate(d.date)}</span>
-                    <span className="min-w-0"><span className="block font-medium truncate">{d.title}</span><span className="block text-[12.5px] text-[var(--muted)]">{d.kind}</span></span>
-                  </li>
-                ))}
-              </ul>
-            </section>
-          )}
+          <Agenda meetings={meetings} extra={dates} now={nowIso} admin={admin} error={agendaError} />
 
           {/* Materiais */}
           {(project.materials.length > 0 || admin) && (
@@ -235,6 +249,8 @@ export default async function ProjetoPage({ params, searchParams }: { params: Pr
               <ActionForm action={saveProjectInfoAction.bind(null, slug)} className="flex flex-col gap-2 mt-3">
                 <label className="flex flex-col gap-1"><span className="label">Plano</span><input name="plano" defaultValue={project.plano} placeholder="Ex.: Growth" className="ct-input" /></label>
                 <label className="flex flex-col gap-1"><span className="label">WhatsApp da equipe</span><input name="whatsapp" defaultValue={project.whatsapp} inputMode="numeric" placeholder="5521999999999" className="ct-input" /></label>
+                <label className="flex flex-col gap-1"><span className="label">Outros nomes na agenda</span><input name="aliases" defaultValue={(project.calendarAliases ?? []).join(", ")} placeholder={`Ex.: Dr. ${c.name.split(" ")[0]}, ${c.name.split(" ").slice(-1)[0]}`} className="ct-input" />
+                  <span className="text-[12px] text-[var(--muted)]">A agenda já reconhece &quot;{c.name}&quot; e as abreviações. Separe por vírgula.</span></label>
                 <button className="ct-btn ct-btn-dark self-start">Salvar</button>
               </ActionForm>
             </details>

@@ -1,4 +1,5 @@
 import { readDoc, writeDoc } from "./store";
+import { SEED_MATERIALS } from "./projectSeed";
 
 /**
  * Projeto do cliente: o essencial do antigo painel no Notion, sem excesso.
@@ -26,12 +27,34 @@ export interface ProjectMaterial {
   url: string;
 }
 
+/** Entrega recorrente contratada (ex.: 1 captação audiovisual por mês), com o registro de cada entrega feita. */
+export interface Deliverable {
+  id: string;
+  title: string;
+  /** Quantidade prevista por mês. */
+  perMonth: number;
+  log: DeliveryEntry[];
+}
+
+export interface DeliveryEntry {
+  id: string;
+  /** Data da entrega (AAAA-MM-DD). */
+  date: string;
+  note?: string;
+  url?: string;
+}
+
 export interface Project {
   plano?: string;
+  deliverables?: Deliverable[];
   /** WhatsApp da equipe para o cliente (só números, com DDI). */
   whatsapp?: string;
   steps: ProjectStep[];
   materials: ProjectMaterial[];
+  /** A equipe já mexeu nos materiais (daí em diante os do Drive não entram sozinhos). */
+  materialsEdited?: boolean;
+  /** Outros nomes do cliente na agenda (ex.: "Dr. Carlos", "Picasso"). */
+  calendarAliases?: string[];
   updatedAt?: string;
   updatedBy?: string;
 }
@@ -62,6 +85,17 @@ export const DEFAULT_STEPS: string[] = [
   "Setup de performance (Google)",
 ];
 
+/** Entregas recorrentes padrão. A equipe ajusta a quantidade de cada cliente. */
+export const DEFAULT_DELIVERABLES: { title: string; perMonth: number }[] = [
+  { title: "Captação audiovisual", perMonth: 1 },
+  { title: "Planejamento mensal", perMonth: 1 },
+];
+
+/** Entregas feitas num mês (AAAA-MM). */
+export function deliveredIn(d: Deliverable, month: string): DeliveryEntry[] {
+  return d.log.filter((e) => e.date.startsWith(month)).sort((a, b) => a.date.localeCompare(b.date));
+}
+
 const newId = () => Math.random().toString(36).slice(2, 10);
 
 export function defaultSteps(): ProjectStep[] {
@@ -87,9 +121,26 @@ const SEED: Record<string, Project> = {
   },
 };
 
+/** Nomes que a equipe usa na agenda além do nome cadastrado (a abreviação "Nome S." já é automática). */
+export const DEFAULT_ALIASES: Record<string, string[]> = {
+  glaciale: ["Glaciale"],
+  viegas: ["Diego Viégas", "Dr. Viégas", "Viegas"],
+  "jose-mauro": ["José Mauro Monteiro", "JM"],
+  "flavio-pinheiro": ["Dream Smile"],
+  "eric-reis": ["COER"],
+  "erica-barros": ["EB Dermatologia"],
+};
+
+export function calendarAliases(slug: string, p: Project): string[] {
+  return [...new Set([...(DEFAULT_ALIASES[slug] ?? []), ...(p.calendarAliases ?? [])])];
+}
+
 export async function getProject(slug: string): Promise<Project> {
   const p = await readDoc<Project | null>(`projeto/${slug}`, null);
-  return p ?? SEED[slug] ?? { steps: [], materials: [] };
+  const base = p ?? SEED[slug] ?? { steps: [], materials: [] };
+  // Materiais levantados no Drive entram enquanto a equipe não tiver salvo os seus.
+  if (!p?.materialsEdited && !base.materials.length && SEED_MATERIALS[slug]) return { ...base, materials: SEED_MATERIALS[slug] };
+  return base;
 }
 
 export async function saveProject(slug: string, p: Project, by: string): Promise<void> {
