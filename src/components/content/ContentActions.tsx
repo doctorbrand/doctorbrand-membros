@@ -25,11 +25,11 @@ export function DeleteIconButton({ action, confirm, label = "Excluir" }: { actio
 }
 
 /** Botão de ação única (aprovar, mudar status, excluir). */
-export function ActionButton({ action, label, variant = "default", confirm }: { action: Act0; label: string; variant?: "default" | "primary" | "dark"; confirm?: string }) {
+export function ActionButton({ action, label, variant = "default", confirm }: { action: Act0; label: string; variant?: "default" | "primary" | "dark" | "ghost"; confirm?: string }) {
   const [state, run, pending] = useActionState(action, null);
   return (
     <form action={run} onSubmit={(e) => { if (confirm && !window.confirm(confirm)) e.preventDefault(); }} className="flex flex-col gap-1">
-      <button disabled={pending} className={`ct-btn ${variant === "primary" ? "ct-btn-primary" : variant === "dark" ? "ct-btn-dark" : ""}`}>{label}</button>
+      <button disabled={pending} className={`ct-btn ${variant === "primary" ? "ct-btn-primary" : variant === "dark" ? "ct-btn-dark" : variant === "ghost" ? "ct-btn-ghost" : ""}`}>{label}</button>
       <Msg state={state} pending={pending} />
     </form>
   );

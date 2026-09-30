@@ -85,7 +85,7 @@ export default async function ConteudoPage({ params, searchParams }: { params: P
       {!admin ? (
         <ClientHero name={firstName} specialty={c.specialty} waiting={waiting} changes={changes} approved={approved} total={inReview}
           nextHref={firstWaiting ? postHref(firstWaiting.id) : undefined}
-          approveAll={waiting > 1 ? <ActionButton action={approveAllAction.bind(null, slug)} label={`Aprovar todos (${waiting})`} confirm={`Aprovar de uma vez os ${waiting} posts que estão aguardando? Recomendamos abrir cada um antes.`} /> : null} />
+          approveAll={waiting > 1 ? <ActionButton action={approveAllAction.bind(null, slug)} label={`Aprovar todos (${waiting})`} variant="ghost" confirm={`Aprovar de uma vez os ${waiting} posts que estão aguardando? Recomendamos abrir cada um antes.`} /> : null} />
       ) : (
       <div className="flex flex-wrap items-end justify-between gap-4 mb-5">
         <div>
@@ -344,13 +344,13 @@ function ClientHero({ name, specialty, waiting, changes, approved, total, nextHr
       <div className="min-w-0">
         <p className="label">{specialty}</p>
         <h1 className="mt-1.5">{title}</h1>
-        <p className="text-[15px] text-[var(--muted)] mt-2 max-w-xl">{sub}</p>
+        <p className="text-[14px] sm:text-[15px] text-[var(--muted)] mt-2 max-w-xl">{sub}</p>
         {total > 0 && (
           <div className="mt-4 max-w-xl">
             <div className="ct-progress" role="img" aria-label={`${approved} de ${total} aprovados`}>
               <span style={{ width: pct(approved), background: "var(--good)" }} />
               <span style={{ width: pct(changes), background: "var(--bad)" }} />
-              <span style={{ width: pct(waiting), background: "#e7c27c" }} />
+              <span style={{ width: pct(waiting), background: "#d1d1d6" }} />
             </div>
             <p className="text-xs text-[var(--muted)] mt-2 flex flex-wrap gap-x-3 gap-y-1">
               <span className="inline-flex items-center gap-1.5"><span className="ct-dot ct-dot-inline s-aprovado"><CheckIcon size={10} /></span>{approved} aprovado{approved === 1 ? "" : "s"}</span>
