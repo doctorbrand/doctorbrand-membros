@@ -25,7 +25,7 @@ export async function readDoc<T>(path: string, fallback: T): Promise<T> {
   if (!enabled()) return fallback;
   if (localDir()) { const t = await localRead(`${path}.json`); return t ? (JSON.parse(t) as T) : fallback; }
   try {
-    const res = await get(`${path}.json`, { access: "private" });
+    const res = await get(`${path}.json`, { access: "private", useCache: false });
     if (!res || res.statusCode !== 200 || !res.stream) return fallback;
     const text = await new Response(res.stream).text();
     return JSON.parse(text) as T;
@@ -37,7 +37,7 @@ export async function readDoc<T>(path: string, fallback: T): Promise<T> {
 export async function writeDoc<T>(path: string, data: T): Promise<void> {
   if (!enabled()) throw new Error("Armazenamento não configurado (BLOB_READ_WRITE_TOKEN).");
   if (localDir()) return localWrite(`${path}.json`, JSON.stringify(data, null, 1));
-  await put(`${path}.json`, JSON.stringify(data), { access: "private", contentType: "application/json", allowOverwrite: true, addRandomSuffix: false, cacheControlMaxAge: 0 });
+  await put(`${path}.json`, JSON.stringify(data), { access: "private", contentType: "application/json", allowOverwrite: true, addRandomSuffix: false, cacheControlMaxAge: 60 });
 }
 
 export async function deleteDoc(path: string): Promise<void> {
