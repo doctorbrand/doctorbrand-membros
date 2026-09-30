@@ -4,7 +4,7 @@ import { ActionForm } from "@/components/ActionForm";
 import { DeleteIconButton } from "@/components/content/ContentActions";
 import { Shell } from "@/components/Shell";
 import { NextStep } from "@/components/evolucao/NextStep";
-import { ArrowRightIcon, CheckIcon, EyeIcon, LockIcon, SparkIcon, TargetIcon, TrophyIcon } from "@/components/Icons";
+import { ArrowRightIcon, CheckIcon, DocIcon, EyeIcon, LockIcon, SparkIcon, TargetIcon, TrophyIcon } from "@/components/Icons";
 import { ADS_CLIENTS, getAds } from "@/lib/ads";
 import { requireAuth } from "@/lib/auth";
 import { getWork, WORK_LABEL, type WorkSummary } from "@/lib/clickup";
@@ -12,6 +12,7 @@ import { getClient } from "@/lib/clients";
 import { getPosts } from "@/lib/content";
 import { badges, krValue, metasDone, METODO, quarterLabel, quarterMonths, quarterOf, type KrContext } from "@/lib/evolucao";
 import { todayISO } from "@/lib/periods";
+import { defaultReportMonth, monthName } from "@/lib/report";
 import { calendarAliases, getProject, META_FONTES, type Project } from "@/lib/project";
 import { addKrAction, deleteKrAction, saveEvolucaoAction, saveObjetivoAction, updateKrAction } from "../actions";
 
@@ -45,6 +46,7 @@ export default async function EvolucaoPage({ params, searchParams }: { params: P
   if (!c) notFound();
 
   const today = todayISO();
+  const reportMonth = defaultReportMonth(today);
   const project = await getProject(slug);
   const names = [c.name, ...calendarAliases(slug, project)];
   const hasAds = ADS_CLIENTS.has(slug);
@@ -85,7 +87,10 @@ export default async function EvolucaoPage({ params, searchParams }: { params: P
           <h1 className="mt-1.5">Tudo o que já construímos. <i>E o que vem agora.</i></h1>
           <p className="text-[14px] sm:text-[15px] text-[var(--muted)] mt-2 max-w-xl">{since ? `Desde ${since}, cada roteiro, captação e peça que a equipe DoctorBrand entregou para a sua marca.` : "Cada roteiro, captação e peça que a equipe DoctorBrand entrega para a sua marca."}</p>
         </div>
-        {admin && <div className="ct-hero-actions"><Link href={`/cliente/${slug}/evolucao?visao=cliente`} className="ct-btn inline-flex items-center gap-1.5"><EyeIcon /> Ver como o cliente</Link></div>}
+        <div className="ct-hero-actions">
+          <Link href={`/relatorio/${slug}/${reportMonth}`} className="ct-btn ct-btn-dark inline-flex items-center gap-1.5"><DocIcon size={15} /> Relatório de {monthName(reportMonth)}</Link>
+          {admin && <Link href={`/cliente/${slug}/evolucao?visao=cliente`} className="ct-btn inline-flex items-center gap-1.5"><EyeIcon /> Ver como o cliente</Link>}
+        </div>
       </section>
 
       {/* Números */}

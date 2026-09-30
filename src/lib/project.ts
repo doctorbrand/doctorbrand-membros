@@ -50,6 +50,8 @@ export interface Project {
   deliverables?: Deliverable[];
   /** WhatsApp da equipe para o cliente (só números, com DDI). */
   whatsapp?: string;
+  /** WhatsApp do cliente (ou da secretária), para a equipe mandar os avisos. Só a equipe vê. */
+  clienteWhatsapp?: string;
   steps: ProjectStep[];
   materials: ProjectMaterial[];
   /** A equipe já mexeu nos materiais (daí em diante os do Drive não entram sozinhos). */

@@ -120,7 +120,7 @@ export interface WorkSummary {
   months: { month: string; count: number }[];
   recent: WorkItem[];
   now: (WorkItem & { status: string })[];
-  doneDates: { date: string; cat: WorkCat }[];
+  doneDates: WorkItem[];
 }
 
 const isoDay = (ms: string | null | undefined) => (ms ? new Date(Number(ms) - 3 * 3600e3).toISOString().slice(0, 10) : "");
@@ -158,7 +158,7 @@ export function summarize(tasks: CuTask[], clientNames: string[], folder: string
     months,
     recent: done.slice(0, 12),
     now: open.filter((o) => !/^a fazer$|^to do$|^backlog$/i.test(o.status)).slice(0, 6),
-    doneDates: done.map((d) => ({ date: d.date, cat: d.cat })),
+    doneDates: done,
   };
 }
 

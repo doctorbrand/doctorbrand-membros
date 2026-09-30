@@ -22,8 +22,10 @@ async function edit(slug: string, fn: (p: Project) => Project | string): Promise
 export async function saveProjectInfoAction(slug: string, _prev: ActionResult | null, fd: FormData): Promise<ActionResult> {
   const whatsapp = str(fd, "whatsapp").replace(/\D/g, "");
   if (whatsapp && whatsapp.length < 10) return { ok: false, message: "WhatsApp com DDI e DDD, só números (ex.: 5521999999999)." };
+  const clienteWhatsapp = str(fd, "clienteWhatsapp").replace(/\D/g, "");
+  if (clienteWhatsapp && clienteWhatsapp.length < 10) return { ok: false, message: "WhatsApp do cliente com DDI e DDD, só números (ex.: 5521999999999)." };
   const calendarAliases = str(fd, "aliases").split(/[,;\n]/).map((a) => a.trim()).filter(Boolean).slice(0, 8);
-  return edit(slug, (p) => ({ ...p, plano: str(fd, "plano"), whatsapp, calendarAliases }));
+  return edit(slug, (p) => ({ ...p, plano: str(fd, "plano"), whatsapp, clienteWhatsapp: clienteWhatsapp || undefined, calendarAliases }));
 }
 
 export async function addStepAction(slug: string, _prev: ActionResult | null, fd: FormData): Promise<ActionResult> {

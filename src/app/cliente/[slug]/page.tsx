@@ -316,6 +316,8 @@ export default async function ProjetoPage({ params, searchParams }: { params: Pr
               <ActionForm action={saveProjectInfoAction.bind(null, slug)} className="flex flex-col gap-2 mt-3">
                 <label className="flex flex-col gap-1"><span className="label">Plano</span><input name="plano" defaultValue={project.plano} placeholder="Ex.: Growth" className="ct-input" /></label>
                 <label className="flex flex-col gap-1"><span className="label">WhatsApp da equipe</span><input name="whatsapp" defaultValue={project.whatsapp} inputMode="numeric" placeholder="5521999999999" className="ct-input" /></label>
+                <label className="flex flex-col gap-1"><span className="label">WhatsApp do cliente (para os avisos)</span><input name="clienteWhatsapp" defaultValue={project.clienteWhatsapp} inputMode="numeric" placeholder="5521999999999" className="ct-input" />
+                  <span className="text-[12px] text-[var(--muted)]">Só a equipe vê. Usado nos atalhos da página Avisos.</span></label>
                 <label className="flex flex-col gap-1"><span className="label">Outros nomes na agenda</span><input name="aliases" defaultValue={(project.calendarAliases ?? []).join(", ")} placeholder={`Ex.: Dr. ${c.name.split(" ")[0]}, ${c.name.split(" ").slice(-1)[0]}`} className="ct-input" />
                   <span className="text-[12px] text-[var(--muted)]">A agenda já reconhece &quot;{c.name}&quot; e as abreviações. Separe por vírgula.</span></label>
                 <button className="ct-btn ct-btn-dark self-start">Salvar</button>
