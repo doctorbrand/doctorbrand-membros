@@ -1,5 +1,6 @@
 import { ArrowUpRightIcon, CheckIcon, RocketIcon } from "@/components/Icons";
 import { nextPlan, PLANS } from "@/lib/plans";
+import { TEAM_WHATSAPP } from "@/lib/project";
 
 /** Próximo passo da esteira para o plano do cliente. Sem preço: abre conversa com a equipe. */
 export function NextStep({ plano, whatsapp, clientName, compact = false }: { plano?: string; whatsapp?: string; clientName: string; compact?: boolean }) {
@@ -7,7 +8,7 @@ export function NextStep({ plano, whatsapp, clientName, compact = false }: { pla
   if (!k) return null;
   const p = PLANS[k];
   const msg = `Olá! Aqui é ${clientName}. Vi na área de membros o plano ${p.name} e quero entender como ele ficaria no meu projeto.`;
-  const phone = (whatsapp || process.env.TEAM_WHATSAPP || "").replace(/\D/g, "");
+  const phone = (whatsapp || TEAM_WHATSAPP).replace(/\D/g, "");
   const href = phone ? `https://wa.me/${phone}?text=${encodeURIComponent(msg)}` : `mailto:contato@doctorbrand.co?subject=${encodeURIComponent(`Plano ${p.name}`)}&body=${encodeURIComponent(msg)}`;
   return (
     <section className="card p-5 ev-next">

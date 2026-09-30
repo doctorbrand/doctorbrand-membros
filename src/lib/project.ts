@@ -255,7 +255,15 @@ export function calendarAliases(slug: string, p: Project): string[] {
   return [...new Set([...(DEFAULT_ALIASES[slug] ?? DEFAULT_ALIASES[seedKey(slug)] ?? []), ...(p.calendarAliases ?? [])])];
 }
 
+/** WhatsApp padrão da equipe DoctorBrand, quando o projeto não tem um próprio. */
+export const TEAM_WHATSAPP = "5521993280308";
+
 export async function getProject(slug: string): Promise<Project> {
+  const p = await loadProject(slug);
+  return { ...p, whatsapp: p.whatsapp || TEAM_WHATSAPP };
+}
+
+async function loadProject(slug: string): Promise<Project> {
   const p = await readDoc<Project | null>(`projeto/${slug}`, null);
   const key = SEED[slug] || SEED_MATERIALS[slug] ? slug : seedKey(slug);
   const base = p ?? SEED[key] ?? { steps: [], materials: [] };

@@ -4,6 +4,7 @@ import { HelpSearch } from "@/components/help/HelpSearch";
 import { ArrowRightIcon, BookIcon, RocketIcon, SparkIcon } from "@/components/Icons";
 import { requireAuth } from "@/lib/auth";
 import { ARTICLES, HELP_CATS, searchText } from "@/lib/help";
+import { TEAM_WHATSAPP } from "@/lib/project";
 
 export const dynamic = "force-dynamic";
 
@@ -44,7 +45,7 @@ export default async function AjudaPage({ searchParams }: { searchParams: Promis
           </section>
         ))}
       </div>
-      <p className="text-center text-[13.5px] text-[var(--muted)] mt-8">Não achou o que procurava? Fale com a equipe pelo WhatsApp do seu projeto.</p>
+      <p className="text-center text-[13.5px] text-[var(--muted)] mt-8">Não achou o que procurava? <a href={`https://wa.me/${TEAM_WHATSAPP}?text=${encodeURIComponent("Olá! Tenho uma dúvida sobre a área de membros.")}`} target="_blank" rel="noreferrer" className="underline underline-offset-2 text-[var(--ink)]">Fale com a equipe pelo WhatsApp</a>.</p>
     </Shell>
   );
 }
