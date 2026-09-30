@@ -83,7 +83,7 @@ export default async function EvolucaoPage({ params, searchParams }: { params: P
 
       <section className="ct-hero">
         <div className="min-w-0">
-          <p className="label">Sua evolução</p>
+          <p className="label">Evolução</p>
           <h1 className="mt-1.5">Tudo o que já construímos. <i>E o que vem agora.</i></h1>
           <p className="text-[14px] sm:text-[15px] text-[var(--muted)] mt-2 max-w-xl">{since ? `Desde ${since}, cada roteiro, captação e peça que a equipe DoctorBrand entregou para a sua marca.` : "Cada roteiro, captação e peça que a equipe DoctorBrand entrega para a sua marca."}</p>
         </div>

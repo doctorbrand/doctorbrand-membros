@@ -1,6 +1,6 @@
 /**
  * Leitura do ClickUp (só leitura): as tarefas da pasta de cada cliente viram o histórico de entregas
- * que o cliente vê em "Sua evolução". Tarefas internas da equipe (cobrança, follow-up, registros) ficam de fora.
+ * que o cliente vê em "Evolução". Tarefas internas da equipe (cobrança, follow-up, registros) ficam de fora.
  *
  * Variáveis: CLICKUP_API_TOKEN (token pessoal, obrigatório), CLICKUP_TEAM_ID e CLICKUP_SPACE_IDS (opcionais).
  */
@@ -174,5 +174,27 @@ export async function getWork(names: string[], override: string | undefined, tod
     return { ok: true, data: summarize(tasks, names, folder.name, today) };
   } catch (e) {
     return { ok: false, reason: "erro", message: e instanceof Error ? e.message : String(e) };
+  }
+}
+
+// ─── CRM (lista "Clientes Ativos"): desde quando é cliente e data de renovação ──
+
+const CRM_LIST = () => process.env.CLICKUP_CRM_LIST ?? "901317220573";
+
+interface CrmTask { name: string; date_created: string; status: { status: string }; custom_fields?: { name: string; type: string; value?: string | number | null }[] }
+
+export interface CrmInfo { desde?: string; renovacao?: string; status?: string }
+
+export async function getCrm(names: string[]): Promise<CrmInfo | null> {
+  if (!clickupOn()) return null;
+  try {
+    const r = await cu<{ tasks: CrmTask[] }>(`/list/${CRM_LIST()}/task?include_closed=true&archived=false`);
+    const wanted = names.map(stripTitle).filter((n) => n.length >= 4);
+    const t = r.tasks.find((x) => wanted.includes(stripTitle(x.name))) ?? r.tasks.find((x) => wanted.some((w) => stripTitle(x.name).startsWith(w) || w.startsWith(stripTitle(x.name))));
+    if (!t) return null;
+    const ren = t.custom_fields?.find((f) => /renova/i.test(f.name) && f.type === "date")?.value;
+    return { desde: isoDay(t.date_created) || undefined, renovacao: ren ? isoDay(String(ren)) : undefined, status: t.status?.status };
+  } catch {
+    return null;
   }
 }

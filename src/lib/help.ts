@@ -24,7 +24,7 @@ export const ARTICLES: Article[] = [
       { h: "O que tem em cada parte" },
       { list: [
         "Projeto: o resumo do seu projeto, a agenda com reuniões e captações, as entregas do mês e os materiais principais.",
-        "Sua evolução: tudo o que já foi entregue, a sua etapa no método D.O.M.Í.N.I.O., as metas do trimestre e as conquistas.",
+        "Evolução: tudo o que já foi entregue, a sua etapa no método D.O.M.Í.N.I.O., as metas do trimestre e as conquistas.",
         "Conteúdo: o planejamento do feed. É aqui que você aprova os posts ou pede ajustes.",
         "Anúncios: os resultados das campanhas, quando o seu plano inclui tráfego pago.",
         "Ajuda: esta central, com tutoriais e respostas rápidas.",
@@ -109,7 +109,7 @@ export const ARTICLES: Article[] = [
   {
     id: "evolucao", cat: "tutoriais", minutes: 2,
     title: "Como acompanhar entregas, metas e conquistas",
-    summary: "Entenda a página Sua evolução.",
+    summary: "Entenda a página Evolução.",
     body: [
       { list: [
         "Entregas concluídas: tudo o que a equipe produziu para você, direto do nosso sistema de tarefas.",
@@ -138,7 +138,7 @@ export const ARTICLES: Article[] = [
     body: [
       { p: "A DoctorBrand não faz só redes sociais. Construímos autoridade em etapas, e cada uma sustenta a seguinte." },
       { steps: METODO.map((m) => `${m.nome}: ${m.texto}`) },
-      { p: "Em Sua evolução você vê em que etapa o seu projeto está." },
+      { p: "Em Evolução você vê em que etapa o seu projeto está." },
     ],
   },
   {
@@ -179,7 +179,7 @@ export const ARTICLES: Article[] = [
     body: [
       { p: "Os planos se somam: cada um inclui tudo do anterior." },
       ...(["core", "growth", "black"] as const).flatMap((k) => [{ h: `${PLANS[k].name}: ${PLANS[k].tagline}` }, { list: PLANS[k].includes }] as Block[]),
-      { note: "Quer saber como o próximo plano ficaria no seu projeto? Em Sua evolução há um atalho para falar com a equipe." },
+      { note: "Quer saber como o próximo plano ficaria no seu projeto? Em Evolução há um atalho para falar com a equipe." },
     ],
   },
   {
@@ -190,6 +190,7 @@ export const ARTICLES: Article[] = [
       { h: "Quem publica os posts?" }, { p: "A equipe DoctorBrand, depois da sua aprovação, no dia e horário planejados." },
       { h: "Posso sugerir temas?" }, { p: "Sempre. Mande pelo WhatsApp da equipe ou traga para a reunião mensal." },
       { h: "Minha secretária pode ter acesso?" }, { p: "Pode. Peça à equipe um acesso separado para ela." },
+      { h: "Onde vejo o meu contrato?" }, { p: "No Projeto, no quadro Seu contrato: desde quando somos parceiros, a próxima renovação e o link para o contrato." },
       { h: "Esqueci a senha. E agora?" }, { p: "Fale com a equipe. Criamos uma senha nova na hora." },
       { h: "Os números de anúncios são em tempo real?" }, { p: "Quase: atualizam a cada 15 minutos, direto das plataformas." },
     ],

@@ -64,8 +64,25 @@ export interface Project {
   metodoEtapa?: number;
   /** Objetivo e metas do trimestre. */
   metas?: Metas;
+  /** Contrato vigente (datas e link). */
+  contrato?: Contrato;
   updatedAt?: string;
   updatedBy?: string;
+}
+
+export type RegraRenovacao = "iguais" | "mensal" | "nova";
+
+export interface Contrato {
+  /** Início da vigência (AAAA-MM-DD). */
+  inicio?: string;
+  /** Prazo inicial em meses. */
+  meses?: number;
+  /** iguais: renova por períodos iguais; mensal: depois do prazo, mês a mês; nova: precisa de novo contrato. */
+  regra?: RegraRenovacao;
+  /** Link do contrato (Drive, ZapSign). */
+  url?: string;
+  /** Próxima renovação definida à mão (sobrepõe o cálculo). */
+  renovacao?: string;
 }
 
 export type MetaFonte = "manual" | "entregas" | "posts" | "contatos";
@@ -257,12 +274,19 @@ export function calendarAliases(slug: string, p: Project): string[] {
   return [...new Set([...(DEFAULT_ALIASES[slug] ?? DEFAULT_ALIASES[seedKey(slug)] ?? []), ...(p.calendarAliases ?? [])])];
 }
 
+/** Contratos levantados no Drive (30/09/2026). A equipe confirma e ajusta na tela Projeto. */
+const CONTRACT_SEED: Record<string, Contrato> = {
+  "carlos-picasso": { inicio: "2026-06-05", meses: 3, regra: "iguais", url: "https://drive.google.com/file/d/1VrTXsxckVMMk0tv6_go2524sL0y2kILj/view" },
+  "danilo-tacinari": { inicio: "2026-02-12", meses: 4, regra: "iguais", url: "https://drive.google.com/file/d/1Be8LBcKtSzlmhunaJPotJOEeaAqfmw22/view" },
+  "flavio-pinheiro": { inicio: "2026-09-05", meses: 6, regra: "mensal" },
+};
+
 /** WhatsApp padrão da equipe DoctorBrand, quando o projeto não tem um próprio. */
 export const TEAM_WHATSAPP = "5521993280308";
 
 export async function getProject(slug: string): Promise<Project> {
   const p = await loadProject(slug);
-  return { ...p, whatsapp: p.whatsapp || TEAM_WHATSAPP };
+  return { ...p, whatsapp: p.whatsapp || TEAM_WHATSAPP, contrato: p.contrato ?? CONTRACT_SEED[slug] };
 }
 
 async function loadProject(slug: string): Promise<Project> {

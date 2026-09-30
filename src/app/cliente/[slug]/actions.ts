@@ -1,8 +1,12 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requireAdmin } from "@/lib/auth";
-import { DEFAULT_DELIVERABLES, defaultSteps, getProject, MATERIAL_KINDS, MATERIAL_SLOTS, newId, saveProject, type MaterialKind, type MetaFonte, type Project, type StepStatus, META_FONTES } from "@/lib/project";
+import { requireAdmin, requireAuth } from "@/lib/auth";
+import { sendAlert } from "@/lib/alerts";
+import { getClient } from "@/lib/clients";
+import { addNps, adiarNps, grupo, GRUPO_LABEL } from "@/lib/nps";
+import { publicBase } from "@/lib/signed";
+import { DEFAULT_DELIVERABLES, defaultSteps, getProject, MATERIAL_KINDS, MATERIAL_SLOTS, newId, saveProject, type MaterialKind, type MetaFonte, type Project, type RegraRenovacao, type StepStatus, META_FONTES } from "@/lib/project";
 import type { ActionResult } from "@/lib/types";
 
 const path = (slug: string) => `/cliente/${slug}`;
@@ -127,7 +131,7 @@ export async function deleteDeliveryAction(slug: string, deliverableId: string, 
   });
 }
 
-// ─── Sua evolução: método, ClickUp e metas ───────────────────────────
+// ─── Evolução: método, ClickUp e metas ───────────────────────────
 
 export async function saveEvolucaoAction(slug: string, _prev: ActionResult | null, fd: FormData): Promise<ActionResult> {
   const etapa = Number(str(fd, "etapa"));
@@ -172,4 +176,37 @@ export async function updateKrAction(slug: string, id: string, _prev: ActionResu
 
 export async function deleteKrAction(slug: string, id: string, _prev: ActionResult | null): Promise<ActionResult> {
   return edit(slug, (p) => (p.metas ? { ...p, metas: { ...p.metas, krs: p.metas.krs.filter((k) => k.id !== id) } } : "Sem metas."));
+}
+
+// ─── Contrato ─────────────────────────────────────────────────────────
+
+export async function saveContratoAction(slug: string, _prev: ActionResult | null, fd: FormData): Promise<ActionResult> {
+  const inicio = str(fd, "inicio"), renovacao = str(fd, "renovacao"), url = str(fd, "url"), regra = str(fd, "regra") as RegraRenovacao;
+  const meses = Number(str(fd, "meses") || "0");
+  if (url && !/^https?:\/\//i.test(url)) return { ok: false, message: "O link do contrato precisa começar com https://" };
+  if (!["iguais", "mensal", "nova"].includes(regra)) return { ok: false, message: "Escolha como o contrato renova." };
+  if (!Number.isInteger(meses) || meses < 0 || meses > 60) return { ok: false, message: "Prazo em meses, de 1 a 60." };
+  return edit(slug, (p) => ({ ...p, contrato: { inicio: inicio || undefined, meses: meses || undefined, regra, url: url || undefined, renovacao: renovacao || undefined } }));
+}
+
+// ─── Termômetro (NPS) ─────────────────────────────────────────────────
+
+export async function responderNpsAction(slug: string, _prev: ActionResult | null, fd: FormData): Promise<ActionResult> {
+  const s = await requireAuth(slug);
+  if (s.role !== "cliente") return { ok: false, message: "Só o cliente responde. Esta é a prévia do que ele vê." };
+  const score = Number(str(fd, "score"));
+  if (!Number.isInteger(score) || score < 0 || score > 10) return { ok: false, message: "Escolha uma nota de 0 a 10." };
+  const comentario = str(fd, "comentario").slice(0, 1000) || undefined;
+  await addNps(slug, { score, comentario, por: s.name });
+  const c = await getClient(slug).catch(() => undefined);
+  await sendAlert(`*Termômetro · ${c?.name ?? slug}*\nNota ${score} (${GRUPO_LABEL[grupo(score)]})${comentario ? `\n"${comentario}"` : ""}\n${publicBase()}/admin/avisos`).catch(() => undefined);
+  revalidatePath(path(slug), "layout");
+  return { ok: true, message: "Obrigado! A sua resposta chegou para a equipe." };
+}
+
+export async function adiarNpsAction(slug: string, _prev: ActionResult | null): Promise<ActionResult> {
+  const s = await requireAuth(slug);
+  if (s.role === "cliente") await adiarNps(slug);
+  revalidatePath(path(slug), "layout");
+  return { ok: true, message: "Tudo bem, perguntamos outro dia." };
 }

@@ -128,7 +128,7 @@ export default async function RelatorioPage({ params, searchParams }: { params: 
           )}
 
           <section className="rp-sec">
-            <h2>Sua evolução</h2>
+            <h2>Evolução</h2>
             {r.etapa !== null && (
               <div className="ev-now mt-3">
                 <span className="label">Etapa {r.etapa + 1} de 7 no método</span>

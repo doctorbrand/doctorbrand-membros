@@ -6,6 +6,8 @@ import { ArrowUpRightIcon, ChatIcon, CheckIcon } from "@/components/Icons";
 import { requireAdmin } from "@/lib/auth";
 import { AVISO_LABEL, buildAvisos, getSent, waLink, type Aviso } from "@/lib/avisos";
 import { markSentAction, undoSentAction } from "./actions";
+import { listClients } from "@/lib/clients";
+import { getNps, npsScore, ultima } from "@/lib/nps";
 
 export const dynamic = "force-dynamic";
 
@@ -13,7 +15,9 @@ const hora = (iso: string) => new Date(iso).toLocaleString("pt-BR", { timeZone: 
 
 export default async function AvisosPage() {
   const session = await requireAdmin();
-  const [avisos, sent] = await Promise.all([buildAvisos(), getSent()]);
+  const [avisos, sent, clients] = await Promise.all([buildAvisos(), getSent(), listClients()]);
+  const lastScores = (await Promise.all(clients.map((c) => getNps(c.slug).then((d) => ultima(d)?.score)))).filter((x): x is number => x !== undefined);
+  const nps = npsScore(lastScores);
   const pending = avisos.filter((a) => !sent[a.key]);
   const done = avisos.filter((a) => sent[a.key]);
   const toClient = pending.filter((a) => a.message);
@@ -26,6 +30,11 @@ export default async function AvisosPage() {
           <p className="label">Avisos para os clientes</p>
           <h1 className="mt-1.5">{toClient.length ? <>{toClient.length} {toClient.length === 1 ? "mensagem" : "mensagens"} para enviar. <i>Tudo pronto.</i></> : <>Nada pendente. <i>Tudo em dia.</i></>}</h1>
           <p className="text-[14px] sm:text-[15px] text-[var(--muted)] mt-2 max-w-xl">O sistema junta o que cada cliente precisa saber e deixa a mensagem escrita. Revise, envie pelo WhatsApp e marque como enviado.</p>
+        </div>
+        <div className="card av-nps">
+          <span className="label">NPS da carteira</span>
+          <b>{nps ?? "–"}</b>
+          <span className="text-[12.5px] text-[var(--muted)]">{lastScores.length ? `${lastScores.length} ${lastScores.length === 1 ? "cliente respondeu" : "clientes responderam"}` : "Ainda sem respostas"}</span>
         </div>
       </section>
 
@@ -68,7 +77,7 @@ function AvisoCard({ a }: { a: Aviso }) {
           <p className="text-[14.5px] mt-0.5">{a.title}</p>
           <p className="text-[13px] text-[var(--muted)]">{a.detail}</p>
         </div>
-        <Link href={a.kind === "aprovar" || a.kind === "ajuste" ? `/cliente/${a.client.slug}/conteudo` : a.kind === "relatorio" ? `/relatorio/${a.client.slug}/${a.key.split(":").at(-1)}` : `/cliente/${a.client.slug}`} className="pj-more flex-none">Abrir <ArrowUpRightIcon size={14} /></Link>
+        <Link href={a.kind === "contrato" || a.kind === "nps" ? `/cliente/${a.client.slug}` : a.kind === "aprovar" || a.kind === "ajuste" ? `/cliente/${a.client.slug}/conteudo` : a.kind === "relatorio" ? `/relatorio/${a.client.slug}/${a.key.split(":").at(-1)}` : `/cliente/${a.client.slug}`} className="pj-more flex-none">Abrir <ArrowUpRightIcon size={14} /></Link>
       </div>
       {a.message && <p className="av-msg">{a.message}</p>}
       <div className="flex flex-wrap items-center gap-2 mt-3">

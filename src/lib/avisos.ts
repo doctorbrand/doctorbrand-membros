@@ -4,6 +4,9 @@ import { listClients, type Client } from "./clients";
 import { getPosts, visibleTo } from "./content";
 import { todayISO } from "./periods";
 import { calendarAliases, getProject } from "./project";
+import { getCrm } from "./clickup";
+import { contratoStatus, dataCurta } from "./contrato";
+import { getNps, grupo, GRUPO_LABEL, ultima } from "./nps";
 import { monthTitle, previousMonth, reportLink } from "./report";
 import { publicBase } from "./signed";
 import { readDoc, writeDoc } from "./store";
@@ -13,7 +16,7 @@ import { readDoc, writeDoc } from "./store";
  * (posts para aprovar, lembrete de captação, relatório do mês) e deixa a mensagem pronta;
  * a Carol revisa, envia do WhatsApp dela e marca como enviado.
  */
-export type AvisoKind = "aprovar" | "lembrete" | "relatorio" | "ajuste";
+export type AvisoKind = "aprovar" | "lembrete" | "relatorio" | "ajuste" | "contrato" | "nps";
 
 export interface Aviso {
   key: string;
@@ -27,7 +30,7 @@ export interface Aviso {
   urgent: boolean;
 }
 
-export const AVISO_LABEL: Record<AvisoKind, string> = { aprovar: "Aprovação", lembrete: "Lembrete", relatorio: "Relatório", ajuste: "Ajuste pedido" };
+export const AVISO_LABEL: Record<AvisoKind, string> = { aprovar: "Aprovação", lembrete: "Lembrete", relatorio: "Relatório", ajuste: "Ajuste pedido", contrato: "Contrato", nps: "Termômetro" };
 
 const hash = (s: string) => createHash("sha1").update(s).digest("hex").slice(0, 10);
 const daysSince = (iso: string) => Math.floor((Date.now() - Date.parse(iso)) / 86400e3);
@@ -83,6 +86,30 @@ export async function buildAvisos(): Promise<Aviso[]> {
       });
     }
 
+    // Contrato perto da renovação (30 dias) ou encerrado
+    const crm = await getCrm([c.name, ...calendarAliases(c.slug, project)]);
+    const ct = contratoStatus(project.contrato, today, crm?.desde, crm?.renovacao);
+    if (ct.proxima && ct.diasParaProxima !== undefined && ct.diasParaProxima <= 30) {
+      out.push({
+        key: `contrato:${c.slug}:${ct.proxima}`,
+        kind: "contrato", client: c, urgent: ct.vencido || ct.diasParaProxima <= 7,
+        title: ct.vencido ? `Prazo encerrado em ${dataCurta(ct.proxima)}` : `Renovação em ${ct.diasParaProxima} ${ct.diasParaProxima === 1 ? "dia" : "dias"} (${dataCurta(ct.proxima)})`,
+        detail: project.contrato?.regra === "nova" ? "Precisa de contrato novo." : "Bom momento para a conversa de resultados e próximo passo.",
+      });
+    }
+
+    // Resposta nova no termômetro (últimos 14 dias)
+    const nps = ultima(await getNps(c.slug));
+    if (nps && Date.now() - Date.parse(nps.at) < 14 * 86400e3) {
+      const g = grupo(nps.score);
+      out.push({
+        key: `nps:${c.slug}:${nps.id}`,
+        kind: "nps", client: c, urgent: g === "detrator",
+        title: `Nota ${nps.score} · ${GRUPO_LABEL[g]}`,
+        detail: nps.comentario ? `"${nps.comentario}"` : "Sem comentário.",
+      });
+    }
+
     // Relatório do mês anterior, na primeira semana
     if (day <= 7) {
       const mes = previousMonth(today);
@@ -113,7 +140,7 @@ export async function buildAvisos(): Promise<Aviso[]> {
     }
   }));
 
-  const order: AvisoKind[] = ["lembrete", "aprovar", "relatorio", "ajuste"];
+  const order: AvisoKind[] = ["lembrete", "aprovar", "relatorio", "nps", "contrato", "ajuste"];
   return out.sort((a, b) => Number(b.urgent) - Number(a.urgent) || order.indexOf(a.kind) - order.indexOf(b.kind) || a.client.name.localeCompare(b.client.name, "pt-BR"));
 }
 

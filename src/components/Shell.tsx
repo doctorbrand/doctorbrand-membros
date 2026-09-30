@@ -20,7 +20,7 @@ export function Shell({ children, active, session, clientSlug }: { children: Rea
           <nav className="flex items-center gap-0.5 sm:gap-1 text-sm -mx-1 overflow-x-auto max-w-full">
             {!isClient && nav("/conteudo", "Clientes", "geral")}
             {slug && nav(`/cliente/${slug}`, "Projeto", "projeto")}
-            {slug && nav(`/cliente/${slug}/evolucao`, "Sua evolução", "evolucao")}
+            {slug && nav(`/cliente/${slug}/evolucao`, "Evolução", "evolucao")}
             {slug && nav(`/cliente/${slug}/conteudo`, "Conteúdo", "conteudo")}
             {slug && ADS_CLIENTS.has(slug) && nav(`/cliente/${slug}/anuncios`, "Anúncios", "anuncios")}
             {nav(slug && !isClient ? `/ajuda?c=${slug}` : "/ajuda", "Ajuda", "ajuda")}

@@ -12,11 +12,15 @@ import { requireAuth } from "@/lib/auth";
 import { getClient } from "@/lib/clients";
 import { dayLabel, getPlan, getPosts, mediaUrl, scheduleOrder, thumbOf, TYPE_LABEL, visibleTo } from "@/lib/content";
 import { todayISO } from "@/lib/periods";
-import { getWork } from "@/lib/clickup";
+import { getCrm, getWork } from "@/lib/clickup";
+import { contratoStatus, dataCurta } from "@/lib/contrato";
+import { getNps, grupo, GRUPO_LABEL, npsPendente, respondeuRecente, ultima } from "@/lib/nps";
+import { ContractCard } from "@/components/project/ContractCard";
+import { NpsCard } from "@/components/project/NpsCard";
 import { METODO } from "@/lib/evolucao";
 import { NextStep } from "@/components/evolucao/NextStep";
 import { arrangeMaterials, calendarAliases, getProject, MATERIAL_SLOTS, STEP_LABEL, type MaterialKind, type MaterialSlot, type ProjectStep } from "@/lib/project";
-import { addMaterialAction, addStepAction, applyDefaultStepsAction, deleteMaterialAction, deleteStepAction, moveStepAction, saveProjectInfoAction, updateStepAction } from "./actions";
+import { saveContratoAction, addMaterialAction, addStepAction, applyDefaultStepsAction, deleteMaterialAction, deleteStepAction, moveStepAction, saveProjectInfoAction, updateStepAction } from "./actions";
 
 export const dynamic = "force-dynamic";
 
@@ -88,7 +92,11 @@ export default async function ProjetoPage({ params, searchParams }: { params: Pr
   const mesHref = (ym: string) => `/cliente/${slug}?${asClient ? "visao=cliente&" : ""}mes=${ym}#entregas`;
 
   const mats = arrangeMaterials(project.materials);
-  const work = await getWork([c.name, ...calendarAliases(slug, project)], project.clickupFolder, today);
+  const names = [c.name, ...calendarAliases(slug, project)];
+  const [work, crm, nps] = await Promise.all([getWork(names, project.clickupFolder, today), getCrm(names), getNps(slug)]);
+  const contrato = contratoStatus(project.contrato, today, crm?.desde, crm?.renovacao);
+  const npsLast = ultima(nps);
+  const showNps = !admin && npsPendente(nps, contrato.desde);
   const firstName = session.role === "cliente" ? session.name.split(" ")[0] : c.name.split(" ")[0];
   const pct = steps.length ? Math.round((done / steps.length) * 100) : 0;
 
@@ -229,9 +237,14 @@ export default async function ProjetoPage({ params, searchParams }: { params: Pr
         </div>
 
         <div className="flex flex-col gap-4 min-w-0">
+          {showNps && <NpsCard slug={slug} preview={asClient} />}
+          {!admin && !showNps && respondeuRecente(nps) && (
+            <section className="card p-5 pj-contact"><span className="pj-mat-ic"><CheckIcon /></span><span className="min-w-0"><span className="block font-medium">Obrigado pela sua resposta.</span><span className="block text-[13px] text-[var(--muted)]">A equipe já recebeu e vai usar para melhorar o seu projeto.</span></span></section>
+          )}
+
           <Link href={`/cliente/${slug}/evolucao${q}`} className="card p-5 pj-evo">
             <span className="min-w-0 flex-1">
-              <span className="label block">Sua evolução</span>
+              <span className="label block">Evolução</span>
               {work.ok
                 ? <span className="block mt-1"><b className="text-[30px] font-semibold tracking-tight tabular-nums">{work.data.done}</b> <span className="text-[14px] text-[var(--muted)]">entregas concluídas{project.metodoEtapa !== undefined ? ` · etapa ${METODO[project.metodoEtapa].nome}` : ""}</span></span>
                 : <span className="block mt-1 font-medium">Metas, conquistas e tudo o que já entregamos</span>}
@@ -308,7 +321,45 @@ export default async function ProjetoPage({ params, searchParams }: { params: Pr
             </a>
           ) : null}
 
+          <ContractCard st={contrato} plano={project.plano} hoje={today} admin={admin} />
+
+          {admin && (
+            <section className="card p-5">
+              <h2 className="pj-h2">Termômetro</h2>
+              {npsLast ? (
+                <>
+                  <p className="mt-2"><b className="text-[26px] font-semibold tracking-tight">{npsLast.score}</b> <span className={`text-[13.5px] ${grupo(npsLast.score) === "detrator" ? "g-bad" : grupo(npsLast.score) === "promotor" ? "g-good" : "g-warn"}`}>{GRUPO_LABEL[grupo(npsLast.score)]}</span> <span className="text-[13px] text-[var(--muted)]">· {dataCurta(npsLast.at.slice(0, 10))}</span></p>
+                  {npsLast.comentario && <p className="text-[14px] mt-1">&ldquo;{npsLast.comentario}&rdquo;</p>}
+                  {nps.respostas.length > 1 && <p className="text-[12.5px] text-[var(--muted)] mt-2">Anteriores: {nps.respostas.slice(0, -1).slice(-5).map((r) => r.score).join(", ")}</p>}
+                </>
+              ) : <p className="text-sm text-[var(--muted)] mt-2">Ainda sem resposta. A pergunta aparece para o cliente no Projeto a cada 90 dias.</p>}
+            </section>
+          )}
+
           <NextStep plano={project.plano} whatsapp={project.whatsapp} clientName={c.name} compact />
+
+          {admin && (
+            <details className="card p-5 pj-edit">
+              <summary className="pj-edit-toggle">Contrato</summary>
+              <ActionForm action={saveContratoAction.bind(null, slug)} className="flex flex-col gap-2 mt-3">
+                <div className="grid grid-cols-2 gap-2">
+                  <label className="flex flex-col gap-1"><span className="label">Início</span><input name="inicio" type="date" defaultValue={project.contrato?.inicio} className="ct-input" /></label>
+                  <label className="flex flex-col gap-1"><span className="label">Prazo (meses)</span><input name="meses" type="number" min={1} max={60} defaultValue={project.contrato?.meses} className="ct-input" /></label>
+                </div>
+                <label className="flex flex-col gap-1"><span className="label">Renovação</span>
+                  <select name="regra" defaultValue={project.contrato?.regra ?? "iguais"} className="ct-input">
+                    <option value="iguais">Renova sozinho por períodos iguais</option>
+                    <option value="mensal">Depois do prazo, mês a mês</option>
+                    <option value="nova">Precisa de contrato novo</option>
+                  </select></label>
+                <label className="flex flex-col gap-1"><span className="label">Próxima renovação (se quiser fixar)</span><input name="renovacao" type="date" defaultValue={project.contrato?.renovacao} className="ct-input" />
+                  <span className="text-[12px] text-[var(--muted)]">Em branco, calcula pelo início e prazo{crm?.renovacao ? `, ou usa a data do ClickUp (${dataCurta(crm.renovacao)})` : ""}.</span></label>
+                <label className="flex flex-col gap-1"><span className="label">Link do contrato</span><input name="url" type="url" defaultValue={project.contrato?.url} placeholder="https://drive.google.com/..." className="ct-input" />
+                  <span className="text-[12px] text-[var(--muted)]">O cliente vê o botão Ver contrato. Compartilhe o arquivo com o e-mail dele no Drive.</span></label>
+                <button className="ct-btn ct-btn-dark self-start">Salvar</button>
+              </ActionForm>
+            </details>
+          )}
 
           {admin && (
             <details className="card p-5 pj-edit">
