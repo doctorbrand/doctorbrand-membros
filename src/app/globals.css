@@ -164,14 +164,28 @@ table.data.compact th, table.data.compact td { padding: 6px 8px; font-size: 12px
 .ct-seg:hover { color: var(--ink); }
 .ct-seg.is-on { background: var(--ink); border-color: var(--ink); color: #fff; }
 
-/* ── Login (limpo, estilo Apple) ─────────────────────────────────── */
-.db-login { min-height: 100svh; background: var(--bg); display: flex; align-items: center; justify-content: center; padding: 32px 20px calc(32px + env(safe-area-inset-bottom)); }
-.db-appicon { width: 64px; height: 64px; border-radius: 16px; background: var(--ink); color: #fff; display: grid; place-items: center; font-size: 30px; font-weight: 600; letter-spacing: -0.03em; box-shadow: 0 8px 24px -10px rgba(0,0,0,.35); }
-.db-login-card { width: 100%; background: #fff; border-radius: 20px; padding: 20px; display: flex; flex-direction: column; gap: 10px; box-shadow: 0 1px 2px rgba(0,0,0,.04), 0 12px 32px -16px rgba(0,0,0,.12); }
+/* ── Login (limpo, estilo Apple, painel dividido) ─────────────────── */
+.db-login { min-height: 100svh; background: #e9e9ec; display: flex; align-items: center; justify-content: center; padding: 24px; }
+.db-login-frame { width: 100%; max-width: 1080px; min-height: min(680px, calc(100svh - 48px)); background: #fff; border-radius: 28px; padding: 12px; display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); box-shadow: 0 1px 2px rgba(0,0,0,.04), 0 30px 60px -30px rgba(0,0,0,.25); }
+.db-login-visual { position: relative; overflow: hidden; border-radius: 20px; padding: 22px 26px 24px; display: flex; flex-direction: column; justify-content: space-between; color: #fff;
+  background:
+    radial-gradient(120% 80% at 85% 15%, rgba(255,255,255,.16), transparent 55%),
+    radial-gradient(90% 70% at 10% 100%, rgba(255,255,255,.08), transparent 60%),
+    linear-gradient(160deg, #2a2a2d 0%, #111113 55%, #0a0a0b 100%); }
+.db-login-visual::before { content: ""; position: absolute; inset: -20%; background: repeating-linear-gradient(115deg, rgba(255,255,255,.035) 0 2px, transparent 2px 38px); mask-image: radial-gradient(80% 60% at 70% 40%, #000, transparent 75%); }
+.db-login-emblem { position: absolute; width: 78%; max-width: 440px; right: -14%; top: 50%; transform: translateY(-58%); color: rgba(255,255,255,.07); }
+.db-login-chip { position: relative; align-self: flex-start; display: inline-flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 500; padding: 7px 12px; border-radius: 999px; background: rgba(255,255,255,.1); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,.12); }
+.db-login-form { padding: 26px clamp(20px, 5vw, 56px) 22px; display: flex; flex-direction: column; align-items: flex-start; }
+@media (max-width: 860px) {
+  .db-login { padding: 0; background: #fff; align-items: stretch; }
+  .db-login-frame { grid-template-columns: minmax(0, 1fr); border-radius: 0; box-shadow: none; padding: 0; min-height: 100svh; }
+  .db-login-visual { display: none; }
+  .db-login-form { padding: 28px 22px calc(22px + env(safe-area-inset-bottom)); }
+}
 .db-input { width: 100%; background: #f2f2f7; border: 1px solid transparent; color: var(--ink); border-radius: 12px; padding: 13px 14px; font-size: 16px; outline: none; transition: border-color .15s, box-shadow .15s, background .15s; }
 .db-input::placeholder { color: #8e8e93; }
 .db-input:focus { background: #fff; border-color: #c7c7cc; box-shadow: 0 0 0 4px rgba(0,0,0,.05); }
-.db-btn { background: var(--ink); color: #fff; border-radius: 12px; padding: 13px 16px; font-weight: 600; font-size: 16px; transition: opacity .15s; }
+.db-btn { background: var(--ink); color: #fff; border-radius: 999px; padding: 12px 26px; font-weight: 600; font-size: 15px; transition: opacity .15s; flex: none; }
 .db-btn:hover { opacity: .88; }
 
 /* ── Visão do cliente ─────────────────────────────────────────────── */

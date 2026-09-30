@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { Session } from "@/lib/auth";
+import { LogoFull } from "@/components/Logo";
 import { todayISO, fmtDate } from "@/lib/periods";
 
 export function Shell({ children, active, session, clientSlug }: { children: React.ReactNode; active: "geral" | "conteudo" | "perfil" | "gerar" | "admin"; session?: Session | null; clientSlug?: string }) {
@@ -12,8 +13,8 @@ export function Shell({ children, active, session, clientSlug }: { children: Rea
     <div className="min-h-screen">
       <header className="border-b border-[var(--line)] bg-white/80 backdrop-blur sticky top-0 z-10">
         <div className="mx-auto max-w-7xl px-4 min-h-14 py-2 flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
-          <Link href={isClient && session?.clientSlug ? `/cliente/${session.clientSlug}/conteudo` : "/conteudo"} className="tracking-tight whitespace-nowrap flex items-baseline">
-            <span className="font-semibold tracking-[-0.01em]">DoctorBrand</span><span className="text-[var(--muted)] font-normal hidden sm:inline ml-1.5">Área de membros</span>
+          <Link href={isClient && session?.clientSlug ? `/cliente/${session.clientSlug}/conteudo` : "/conteudo"} className="whitespace-nowrap flex items-center" aria-label="DoctorBrand, início">
+            <LogoFull className="h-[17px] self-center text-[var(--ink)]" /><span className="text-[var(--muted)] font-normal text-sm hidden sm:inline ml-3 pl-3 border-l border-[var(--line)] leading-4">Área de membros</span>
           </Link>
           <nav className="flex items-center gap-0.5 sm:gap-1 text-sm -mx-1 overflow-x-auto max-w-full">
             {!isClient && nav("/conteudo", "Clientes", "geral")}
