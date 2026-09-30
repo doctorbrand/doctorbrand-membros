@@ -1,5 +1,6 @@
 import { readDoc, writeDoc } from "./store";
 import { SEED_MATERIALS } from "./projectSeed";
+import { seedKey } from "./seedKey";
 
 /**
  * Projeto do cliente: o essencial do antigo painel no Notion, sem excesso.
@@ -119,6 +120,44 @@ const SEED: Record<string, Project> = {
     ],
     materials: [],
   },
+  // Cliente desde fev/2025 (Gestão Core). Etapas conforme o Drive: guia de roteiros 25/08 e captação 27/08/2026.
+  "brunno-bernardo": {
+    plano: "Core",
+    steps: [
+      { id: "b1", title: "Reunião de onboarding", status: "concluida" },
+      { id: "b2", title: "Solicitação de acessos", status: "concluida" },
+      { id: "b3", title: "Identidade visual", status: "concluida" },
+      { id: "b4", title: "Sistema editorial", status: "concluida", due: "2026-05-07" },
+      { id: "b5", title: "Roteiro de captação", status: "concluida", due: "2026-08-25" },
+      { id: "b6", title: "Captação audiovisual", status: "concluida", due: "2026-08-27" },
+      { id: "b7", title: "Edição dos vídeos da captação", status: "andamento" },
+      { id: "b8", title: "Carrossel com as fotos de bastidor", status: "nao_iniciada", note: "Aguardando as fotos de bastidor." },
+      { id: "b9", title: "Planejamento de conteúdo", status: "andamento" },
+    ],
+    deliverables: [
+      { id: "bd1", title: "Captação audiovisual", perMonth: 1, log: [{ id: "bl1", date: "2026-08-27", note: "Captação 27/08" }] },
+      { id: "bd2", title: "Planejamento mensal", perMonth: 1, log: [] },
+    ],
+    materials: [],
+  },
+  // Marca pessoal do Fernando (@fernandofontees).
+  "fernando-fontes": {
+    plano: "Marca pessoal",
+    steps: [
+      { id: "f1", title: "Dossiê narrativo", status: "concluida", due: "2026-02-21" },
+      { id: "f2", title: "Estratégia de conteúdo master", status: "concluida" },
+      { id: "f3", title: "Captação audiovisual", status: "concluida", due: "2026-03-25" },
+      { id: "f4", title: "Pilares editoriais (Negócio, Bastidor, Pessoal)", status: "concluida", due: "2026-07-23" },
+      { id: "f5", title: "Calendário editorial no Notion", status: "andamento" },
+      { id: "f6", title: "Planejamento de conteúdo", status: "andamento" },
+      { id: "f7", title: "Definir o CTA dos posts", status: "nao_iniciada", note: "Keyword ou link: decidir antes de aumentar o volume." },
+    ],
+    deliverables: [
+      { id: "fd1", title: "Captação audiovisual", perMonth: 1, log: [] },
+      { id: "fd2", title: "Planejamento mensal", perMonth: 1, log: [] },
+    ],
+    materials: [],
+  },
 };
 
 /** Nomes que a equipe usa na agenda além do nome cadastrado (a abreviação "Nome S." já é automática). */
@@ -129,17 +168,19 @@ export const DEFAULT_ALIASES: Record<string, string[]> = {
   "flavio-pinheiro": ["Dream Smile"],
   "eric-reis": ["COER"],
   "erica-barros": ["EB Dermatologia"],
+  "brunno-bernardo": ["Brunno B.", "Brunno Bernardo", "Dr. Brunno"],
 };
 
 export function calendarAliases(slug: string, p: Project): string[] {
-  return [...new Set([...(DEFAULT_ALIASES[slug] ?? []), ...(p.calendarAliases ?? [])])];
+  return [...new Set([...(DEFAULT_ALIASES[slug] ?? DEFAULT_ALIASES[seedKey(slug)] ?? []), ...(p.calendarAliases ?? [])])];
 }
 
 export async function getProject(slug: string): Promise<Project> {
   const p = await readDoc<Project | null>(`projeto/${slug}`, null);
-  const base = p ?? SEED[slug] ?? { steps: [], materials: [] };
+  const key = SEED[slug] || SEED_MATERIALS[slug] ? slug : seedKey(slug);
+  const base = p ?? SEED[key] ?? { steps: [], materials: [] };
   // Materiais levantados no Drive entram enquanto a equipe não tiver salvo os seus.
-  if (!p?.materialsEdited && !base.materials.length && SEED_MATERIALS[slug]) return { ...base, materials: SEED_MATERIALS[slug] };
+  if (!p?.materialsEdited && !base.materials.length && SEED_MATERIALS[key]) return { ...base, materials: SEED_MATERIALS[key] };
   return base;
 }
 

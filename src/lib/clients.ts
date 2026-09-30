@@ -1,3 +1,4 @@
+import { sameSeed } from "./seedKey";
 import { readDoc, writeDoc } from "./store";
 
 /** Cliente da área de membros: só o que o planejamento de conteúdo precisa. */
@@ -27,6 +28,8 @@ const SEED: Client[] = [
   { slug: "danilo-tacinari", name: "Danilo Tacinari", specialty: "Cirurgia Plástica" },
   { slug: "jose-mauro", name: "José Mauro", specialty: "Cirurgia Plástica" },
   { slug: "glaciale", name: "Glaciale", specialty: "Gelato artesanal" },
+  { slug: "brunno-bernardo", name: "Brunno Bernardo", specialty: "Cirurgia Plástica (rinoplastia)" },
+  { slug: "fernando-fontes", name: "Fernando Fontes", specialty: "Marca pessoal (DoctorBrand)" },
 ];
 
 const DOC = "clients";
@@ -38,7 +41,8 @@ async function stored(): Promise<Client[]> {
 /** Todos os clientes: carteira inicial + os cadastrados, com o que foi salvo sobrescrevendo. */
 export async function listClients(): Promise<Client[]> {
   const saved = await stored();
-  const map = new Map(SEED.map((c) => [c.slug, c]));
+  // Se a equipe já cadastrou o cliente com outro endereço (ex.: dr-brunno), a carteira inicial não duplica.
+  const map = new Map(SEED.filter((c) => !saved.some((s) => !s.removed && sameSeed(s.slug, c.slug))).map((c) => [c.slug, c]));
   for (const c of saved) map.set(c.slug, { ...map.get(c.slug), ...c });
   return [...map.values()].filter((c) => !c.removed).sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
 }

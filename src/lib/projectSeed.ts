@@ -61,4 +61,19 @@ export const SEED_MATERIALS: Record<string, ProjectMaterial[]> = {
     { id: "gla0", kind: "documento", title: "Pasta do projeto", url: "https://drive.google.com/drive/folders/1DVoGvDfAFGX7EBP8yVAcgqsoZHzwvfEh" },
     { id: "gla1", kind: "identidade", title: "Identidade visual", url: "https://drive.google.com/drive/folders/1wF9cs7nFhc8bW7z-5cMRfyBzQ02ad3hh" },
   ],
+  "brunno-bernardo": [
+    { id: "bru0", kind: "documento", title: "Pasta do projeto", url: "https://drive.google.com/drive/folders/12ppgIuxDqLfmOv7txna1O63Rvbl8dytj" },
+    { id: "bru1", kind: "identidade", title: "Identidade visual", url: "https://drive.google.com/drive/folders/13Xm_oG05wVseOtRW9qsW_YeJzfsTOZcX" },
+    { id: "bru2", kind: "guidelines", title: "Guia oficial de roteiros", url: "https://docs.google.com/document/d/142bgHVgcF6a1tm29knsGGVhxgLonKsLgjSOOkN--Lf4/edit" },
+    { id: "bru3", kind: "documento", title: "Sistema editorial", url: "https://docs.google.com/document/d/1h-AQ9Ai10CnIbvh3iHTZbqHi1j1gD_PX66BqTTuJm5c/edit" },
+    { id: "bru4", kind: "roteiro", title: "Roteiros da captação 27/08", url: "https://docs.google.com/document/d/1rVQ7eQc5YL6p5wy6ZEf_XROAvMv0qYx3aVcOXqyNZdI/edit" },
+    { id: "bru5", kind: "documento", title: "Carrosséis", url: "https://docs.google.com/document/d/1ToU8s66LWQvE50VaEAb-ON94iy40eKjBxGssz-eRqtQ/edit" },
+    { id: "bru6", kind: "documento", title: "Audiovisual", url: "https://drive.google.com/drive/folders/1te7KJh0bTvw3cztXdwcGnL5v0SGlMhsN" },
+  ],
+  "fernando-fontes": [
+    { id: "fer0", kind: "documento", title: "Pasta do projeto", url: "https://drive.google.com/drive/folders/1bEK_qxCTf3kkU9gBluuMAYC_ESJmw3lT" },
+    { id: "fer1", kind: "guidelines", title: "Dossiê narrativo", url: "https://docs.google.com/document/d/1dteeCpcPnKOhgE3_76qWvhIs6SKAk-VVxHOHTLsJLHQ/edit" },
+    { id: "fer2", kind: "documento", title: "Audiovisual", url: "https://drive.google.com/drive/folders/1PerE1eQNbVShuqll3ONKD_3HiabDVgR_" },
+    { id: "fer3", kind: "documento", title: "Social media", url: "https://drive.google.com/drive/folders/1frDjEJoYrJ4-hHgiIUv1aXlxKHO5rZ7H" },
+  ],
 };
