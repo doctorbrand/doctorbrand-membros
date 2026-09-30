@@ -7,19 +7,25 @@ import { autoSource, Deliverables } from "@/components/project/Deliverables";
 import { Agenda, type DateItem } from "@/components/project/Agenda";
 import { ADS_CLIENTS, brl, CPL_LABEL, getAds, gradeCpl, int } from "@/lib/ads";
 import { agendaWindow, clientMeetings, meetingDate, type Meeting } from "@/lib/agenda";
-import { ArrowRightIcon, ArrowUpRightIcon, BookIcon, CalendarIcon, ChatIcon, CheckIcon, ChevronDownIcon, ChevronUpIcon, DocIcon, EyeIcon, GlobeIcon, GridIcon, LinkIcon, PaletteIcon, StoriesIcon, VideoIcon } from "@/components/Icons";
+import { ArrowRightIcon, ArrowUpRightIcon, BookIcon, CalendarIcon, ChatIcon, CheckIcon, ChevronDownIcon, ChevronUpIcon, DocIcon, EyeIcon, GlobeIcon, FolderIcon, GridIcon, LayersIcon, LinkIcon, PaletteIcon, StoriesIcon, VideoIcon } from "@/components/Icons";
 import { requireAuth } from "@/lib/auth";
 import { getClient } from "@/lib/clients";
 import { dayLabel, getPlan, getPosts, mediaUrl, scheduleOrder, thumbOf, TYPE_LABEL, visibleTo } from "@/lib/content";
 import { todayISO } from "@/lib/periods";
-import { calendarAliases, getProject, MATERIAL_KINDS, STEP_LABEL, type MaterialKind, type ProjectStep } from "@/lib/project";
+import { getWork } from "@/lib/clickup";
+import { METODO } from "@/lib/evolucao";
+import { NextStep } from "@/components/evolucao/NextStep";
+import { arrangeMaterials, calendarAliases, getProject, MATERIAL_SLOTS, STEP_LABEL, type MaterialKind, type MaterialSlot, type ProjectStep } from "@/lib/project";
 import { addMaterialAction, addStepAction, applyDefaultStepsAction, deleteMaterialAction, deleteStepAction, moveStepAction, saveProjectInfoAction, updateStepAction } from "./actions";
 
 export const dynamic = "force-dynamic";
 
 const KIND_ICON: Record<MaterialKind, React.ReactNode> = {
-  identidade: <PaletteIcon />, guidelines: <BookIcon />, moodboard: <GridIcon />, roteiro: <VideoIcon />,
-  stories: <StoriesIcon />, site: <GlobeIcon />, links: <LinkIcon />, documento: <DocIcon />,
+  pasta: <FolderIcon />, identidade: <PaletteIcon />, guidelines: <BookIcon />, moodboard: <GridIcon />, roteiro: <VideoIcon />,
+  planejamento: <LayersIcon />, stories: <StoriesIcon />, site: <GlobeIcon />, links: <LinkIcon />, documento: <DocIcon />,
+};
+const SLOT_ICON: Record<MaterialSlot, React.ReactNode> = {
+  pasta: <FolderIcon />, identidade: <PaletteIcon />, guia: <BookIcon />, roteiros: <VideoIcon />, planejamento: <LayersIcon />, site: <GlobeIcon />,
 };
 
 function host(url: string) {
@@ -81,6 +87,8 @@ export default async function ProjetoPage({ params, searchParams }: { params: Pr
   }
   const mesHref = (ym: string) => `/cliente/${slug}?${asClient ? "visao=cliente&" : ""}mes=${ym}#entregas`;
 
+  const mats = arrangeMaterials(project.materials);
+  const work = await getWork([c.name, ...calendarAliases(slug, project)], project.clickupFolder, today);
   const firstName = session.role === "cliente" ? session.name.split(" ")[0] : c.name.split(" ")[0];
   const pct = steps.length ? Math.round((done / steps.length) * 100) : 0;
 
@@ -221,39 +229,72 @@ export default async function ProjetoPage({ params, searchParams }: { params: Pr
         </div>
 
         <div className="flex flex-col gap-4 min-w-0">
+          <Link href={`/cliente/${slug}/evolucao${q}`} className="card p-5 pj-evo">
+            <span className="min-w-0 flex-1">
+              <span className="label block">Sua evolução</span>
+              {work.ok
+                ? <span className="block mt-1"><b className="text-[30px] font-semibold tracking-tight tabular-nums">{work.data.done}</b> <span className="text-[14px] text-[var(--muted)]">entregas concluídas{project.metodoEtapa !== undefined ? ` · etapa ${METODO[project.metodoEtapa].nome}` : ""}</span></span>
+                : <span className="block mt-1 font-medium">Metas, conquistas e tudo o que já entregamos</span>}
+            </span>
+            <ArrowRightIcon className="text-[var(--muted)] flex-none" />
+          </Link>
+
           <Agenda meetings={meetings} extra={dates} now={nowIso} admin={admin} error={agendaError} />
 
-          {/* Materiais */}
-          {(project.materials.length > 0 || admin) && (
+          {/* Materiais: lugares fixos, o mesmo padrão para todos os clientes */}
+          {(mats.slots.length > 0 || admin) && (
             <section className="card p-5">
               <h2 className="pj-h2">Materiais do projeto</h2>
-              {project.materials.length > 0 ? (
+              {mats.slots.length > 0 ? (
                 <div className="pj-materials mt-3">
-                  {project.materials.map((m) => (
-                    <div key={m.id} className="pj-mat-wrap">
-                      <a href={m.url} target="_blank" rel="noreferrer" className="pj-mat">
-                        <span className="pj-mat-ic">{KIND_ICON[m.kind]}</span>
-                        <span className="min-w-0 flex-1"><span className="block font-medium truncate">{m.title}</span><span className="block text-[12px] text-[var(--muted)] truncate">{host(m.url)}</span></span>
+                  {mats.slots.map((s) => (
+                    <div key={s.key} className="pj-mat-wrap">
+                      <a href={s.material.url} target="_blank" rel="noreferrer" className="pj-mat">
+                        <span className="pj-mat-ic">{SLOT_ICON[s.key]}</span>
+                        <span className="min-w-0 flex-1">
+                          <span className="block font-medium truncate">{s.label}</span>
+                          <span className="block text-[12px] text-[var(--muted)] truncate">{s.material.title !== s.label ? s.material.title : s.hint}</span>
+                        </span>
                         <ArrowUpRightIcon className="text-[var(--muted)] flex-none" />
                       </a>
-                      {admin && <DeleteIconButton action={deleteMaterialAction.bind(null, slug, m.id)} confirm={`Tirar "${m.title}" dos materiais?`} label={`Excluir ${m.title}`} />}
+                      {admin && <DeleteIconButton action={deleteMaterialAction.bind(null, slug, s.material.id)} confirm={`Tirar "${s.material.title}" dos materiais?`} label={`Excluir ${s.material.title}`} />}
                     </div>
                   ))}
                 </div>
-              ) : <p className="text-sm text-[var(--muted)] mt-3">Nenhum material ainda. Adicione links do Drive, Figma, Canva ou do site.</p>}
+              ) : <p className="text-sm text-[var(--muted)] mt-3">Nenhum material ainda.</p>}
               {admin && (
-                <details className="pj-edit mt-4">
-                  <summary className="pj-edit-toggle">Adicionar material</summary>
-                  <ActionForm action={addMaterialAction.bind(null, slug)} className="flex flex-col gap-2 mt-3">
-                    <select name="kind" className="ct-input" defaultValue="" required>
-                      <option value="" disabled>Tipo</option>
-                      {MATERIAL_KINDS.map((k) => <option key={k.key} value={k.key}>{k.label}</option>)}
-                    </select>
-                    <input name="title" placeholder="Nome (opcional, usa o tipo)" className="ct-input" />
-                    <input name="url" type="url" placeholder="https://" className="ct-input" required />
-                    <button className="ct-btn ct-btn-dark self-start">Adicionar</button>
-                  </ActionForm>
-                </details>
+                <>
+                  {mats.others.length > 0 && (
+                    <details className="pj-edit mt-4">
+                      <summary className="pj-edit-toggle">Histórico e outros links ({mats.others.length}) · só a equipe vê</summary>
+                      <div className="pj-materials mt-3">
+                        {mats.others.map((m) => (
+                          <div key={m.id} className="pj-mat-wrap">
+                            <a href={m.url} target="_blank" rel="noreferrer" className="pj-mat pj-mat-sm">
+                              <span className="pj-mat-ic">{KIND_ICON[m.kind] ?? <DocIcon />}</span>
+                              <span className="min-w-0 flex-1"><span className="block truncate">{m.title}</span><span className="block text-[12px] text-[var(--muted)] truncate">{host(m.url)}</span></span>
+                            </a>
+                            <DeleteIconButton action={deleteMaterialAction.bind(null, slug, m.id)} confirm={`Tirar "${m.title}" dos materiais?`} label={`Excluir ${m.title}`} />
+                          </div>
+                        ))}
+                      </div>
+                    </details>
+                  )}
+                  <details className="pj-edit mt-4">
+                    <summary className="pj-edit-toggle">Adicionar ou trocar material</summary>
+                    <ActionForm action={addMaterialAction.bind(null, slug)} className="flex flex-col gap-2 mt-3">
+                      <select name="kind" className="ct-input" defaultValue="" required>
+                        <option value="" disabled>Lugar</option>
+                        {MATERIAL_SLOTS.map((k) => <option key={k.key} value={k.kind}>{k.label}</option>)}
+                        <option value="documento">Outro link (só no histórico)</option>
+                      </select>
+                      <input name="title" placeholder="Descrição curta (ex.: Roteiros da captação 27/08)" className="ct-input" />
+                      <input name="url" type="url" placeholder="https://" className="ct-input" required />
+                      <span className="text-[12px] text-[var(--muted)]">Cada lugar mostra só o link mais recente. O anterior vai para o histórico.</span>
+                      <button className="ct-btn ct-btn-dark self-start">Salvar</button>
+                    </ActionForm>
+                  </details>
+                </>
               )}
             </section>
           )}
@@ -266,6 +307,8 @@ export default async function ProjetoPage({ params, searchParams }: { params: Pr
               <ArrowUpRightIcon className="text-[var(--muted)]" />
             </a>
           ) : null}
+
+          <NextStep plano={project.plano} whatsapp={project.whatsapp} clientName={c.name} compact />
 
           {admin && (
             <details className="card p-5 pj-edit">

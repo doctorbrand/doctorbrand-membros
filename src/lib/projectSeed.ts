@@ -65,7 +65,7 @@ export const SEED_MATERIALS: Record<string, ProjectMaterial[]> = {
     { id: "bru0", kind: "documento", title: "Pasta do projeto", url: "https://drive.google.com/drive/folders/12ppgIuxDqLfmOv7txna1O63Rvbl8dytj" },
     { id: "bru1", kind: "identidade", title: "Identidade visual", url: "https://drive.google.com/drive/folders/13Xm_oG05wVseOtRW9qsW_YeJzfsTOZcX" },
     { id: "bru2", kind: "guidelines", title: "Guia oficial de roteiros", url: "https://docs.google.com/document/d/142bgHVgcF6a1tm29knsGGVhxgLonKsLgjSOOkN--Lf4/edit" },
-    { id: "bru3", kind: "documento", title: "Sistema editorial", url: "https://docs.google.com/document/d/1h-AQ9Ai10CnIbvh3iHTZbqHi1j1gD_PX66BqTTuJm5c/edit" },
+    { id: "bru3", kind: "planejamento", title: "Sistema editorial", url: "https://docs.google.com/document/d/1h-AQ9Ai10CnIbvh3iHTZbqHi1j1gD_PX66BqTTuJm5c/edit" },
     { id: "bru4", kind: "roteiro", title: "Roteiros da captação 27/08", url: "https://docs.google.com/document/d/1rVQ7eQc5YL6p5wy6ZEf_XROAvMv0qYx3aVcOXqyNZdI/edit" },
     { id: "bru5", kind: "documento", title: "Carrosséis", url: "https://docs.google.com/document/d/1ToU8s66LWQvE50VaEAb-ON94iy40eKjBxGssz-eRqtQ/edit" },
     { id: "bru6", kind: "documento", title: "Audiovisual", url: "https://drive.google.com/drive/folders/1te7KJh0bTvw3cztXdwcGnL5v0SGlMhsN" },

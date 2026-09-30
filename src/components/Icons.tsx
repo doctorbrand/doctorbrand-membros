@@ -28,3 +28,12 @@ export const ChatIcon = ({ size = 18, className }: P) => <svg {...base(size)} cl
 export const ArrowUpRightIcon = ({ size = 16, className }: P) => <svg {...base(size)} className={className}><path d="M7 17 17 7M9 7h8v8" /></svg>;
 export const ChevronUpIcon = ({ size = 16, className }: P) => <svg {...base(size)} className={className}><path d="m6 14.5 6-6 6 6" /></svg>;
 export const ChevronDownIcon = ({ size = 16, className }: P) => <svg {...base(size)} className={className}><path d="m6 9.5 6 6 6-6" /></svg>;
+export const FolderIcon = ({ size = 18, className }: P) => <svg {...base(size)} className={className}><path d="M3.5 7.5A2 2 0 0 1 5.5 5.5h4l2 2.5h7a2 2 0 0 1 2 2v7.5a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2v-10Z" /></svg>;
+export const TargetIcon = ({ size = 18, className }: P) => <svg {...base(size)} className={className}><circle cx="12" cy="12" r="8.5" /><circle cx="12" cy="12" r="5" /><circle cx="12" cy="12" r="1.5" /></svg>;
+export const TrophyIcon = ({ size = 18, className }: P) => <svg {...base(size)} className={className}><path d="M8 4.5h8v5a4 4 0 0 1-8 0v-5ZM8 6.5H5.5a2.5 2.5 0 0 0 2.6 3.8M16 6.5h2.5a2.5 2.5 0 0 1-2.6 3.8M12 13.5v3M8.5 19.5h7M9.5 19.5l.5-3h4l.5 3" /></svg>;
+export const SparkIcon = ({ size = 18, className }: P) => <svg {...base(size)} className={className}><path d="M12 3.5 13.8 10 20.5 12l-6.7 2L12 20.5 10.2 14 3.5 12l6.7-2L12 3.5Z" /></svg>;
+export const LockIcon = ({ size = 14, className }: P) => <svg {...base(size)} className={className}><rect x="5" y="10.5" width="14" height="9.5" rx="2.5" /><path d="M8.5 10.5V8a3.5 3.5 0 0 1 7 0v2.5" /></svg>;
+export const SearchIcon = ({ size = 16, className }: P) => <svg {...base(size)} className={className}><circle cx="11" cy="11" r="6.5" /><path d="m16 16 4 4" /></svg>;
+export const HelpIcon = ({ size = 18, className }: P) => <svg {...base(size)} className={className}><circle cx="12" cy="12" r="8.5" /><path d="M9.6 9.4a2.5 2.5 0 0 1 4.8.9c0 1.7-2.4 2.1-2.4 3.7M12 16.8v.01" /></svg>;
+export const RocketIcon = ({ size = 18, className }: P) => <svg {...base(size)} className={className}><path d="M13.5 15.5 8.5 10.5c1.8-4.3 5.3-6.8 11-7 .2 5.7-2.7 9.2-6 12ZM8.5 10.5 5 10l2.5-3.5h4M13.5 15.5l.5 3.5 3.5-2.5v-4M6.5 15c-1.5.5-2.5 2.5-2.5 5 2.5 0 4.5-1 5-2.5" /><circle cx="15" cy="9" r="1.3" /></svg>;
+export const LayersIcon = ({ size = 18, className }: P) => <svg {...base(size)} className={className}><path d="m12 4 8.5 4.5L12 13 3.5 8.5 12 4ZM3.5 12.5 12 17l8.5-4.5M3.5 16.5 12 21l8.5-4.5" /></svg>;

@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { requireAdmin } from "@/lib/auth";
-import { DEFAULT_DELIVERABLES, defaultSteps, getProject, MATERIAL_KINDS, newId, saveProject, type MaterialKind, type Project, type StepStatus } from "@/lib/project";
+import { DEFAULT_DELIVERABLES, defaultSteps, getProject, MATERIAL_KINDS, MATERIAL_SLOTS, newId, saveProject, type MaterialKind, type MetaFonte, type Project, type StepStatus, META_FONTES } from "@/lib/project";
 import type { ActionResult } from "@/lib/types";
 
 const path = (slug: string) => `/cliente/${slug}`;
@@ -15,7 +15,7 @@ async function edit(slug: string, fn: (p: Project) => Project | string): Promise
   const next = fn(structuredClone(cur));
   if (typeof next === "string") return { ok: false, message: next };
   await saveProject(slug, next, s.name);
-  revalidatePath(path(slug));
+  revalidatePath(path(slug), "layout");
   return { ok: true, message: "Salvo." };
 }
 
@@ -66,7 +66,7 @@ export async function addMaterialAction(slug: string, _prev: ActionResult | null
   const url = str(fd, "url"), kind = str(fd, "kind") as MaterialKind;
   if (!/^https?:\/\//i.test(url)) return { ok: false, message: "Cole um link que comece com https://" };
   if (!MATERIAL_KINDS.some((k) => k.key === kind)) return { ok: false, message: "Escolha o tipo do material." };
-  const title = str(fd, "title") || MATERIAL_KINDS.find((k) => k.key === kind)!.label;
+  const title = str(fd, "title") || MATERIAL_SLOTS.find((k) => k.kind === kind)?.label || MATERIAL_KINDS.find((k) => k.key === kind)!.label;
   return edit(slug, (p) => ({ ...p, materialsEdited: true, materials: [...p.materials, { id: newId(), title, kind, url }] }));
 }
 
@@ -123,4 +123,51 @@ export async function deleteDeliveryAction(slug: string, deliverableId: string, 
     if (d) d.log = d.log.filter((e) => e.id !== entryId);
     return p;
   });
+}
+
+// ─── Sua evolução: método, ClickUp e metas ───────────────────────────
+
+export async function saveEvolucaoAction(slug: string, _prev: ActionResult | null, fd: FormData): Promise<ActionResult> {
+  const etapa = Number(str(fd, "etapa"));
+  const folder = str(fd, "clickup").replace(/\D/g, "");
+  if (!Number.isInteger(etapa) || etapa < 0 || etapa > 6) return { ok: false, message: "Escolha a etapa do método." };
+  return edit(slug, (p) => ({ ...p, metodoEtapa: etapa, clickupFolder: folder || undefined }));
+}
+
+export async function saveObjetivoAction(slug: string, _prev: ActionResult | null, fd: FormData): Promise<ActionResult> {
+  const objetivo = str(fd, "objetivo"), periodo = str(fd, "periodo");
+  if (!/^\d{4}-T[1-4]$/.test(periodo)) return { ok: false, message: "Trimestre inválido." };
+  if (!objetivo) return { ok: false, message: "Escreva o objetivo do trimestre." };
+  // Trimestre novo começa com as metas zeradas, mantendo os títulos para a equipe ajustar.
+  return edit(slug, (p) => ({ ...p, metas: { periodo, objetivo, krs: p.metas?.periodo === periodo ? p.metas.krs : (p.metas?.krs ?? []).map((k) => ({ ...k, atual: 0 })) } }));
+}
+
+function krFields(fd: FormData): { titulo: string; alvo: number; atual: number; fonte: MetaFonte } | string {
+  const titulo = str(fd, "titulo"), fonte = str(fd, "fonte") as MetaFonte;
+  const alvo = Number(str(fd, "alvo").replace(",", ".")), atual = Number((str(fd, "atual") || "0").replace(",", "."));
+  if (!titulo) return "Dê um nome para a meta.";
+  if (!META_FONTES.some((f) => f.key === fonte)) return "Escolha de onde vem o número.";
+  if (!Number.isFinite(alvo) || alvo <= 0) return "O alvo precisa ser maior que zero.";
+  if (!Number.isFinite(atual) || atual < 0) return "Valor atual inválido.";
+  return { titulo, alvo, atual, fonte };
+}
+
+export async function addKrAction(slug: string, _prev: ActionResult | null, fd: FormData): Promise<ActionResult> {
+  const f = krFields(fd);
+  if (typeof f === "string") return { ok: false, message: f };
+  return edit(slug, (p) => {
+    if (!p.metas) return "Defina o objetivo do trimestre primeiro.";
+    if (p.metas.krs.length >= 5) return "No máximo 5 metas por trimestre.";
+    return { ...p, metas: { ...p.metas, krs: [...p.metas.krs, { id: newId(), ...f }] } };
+  });
+}
+
+export async function updateKrAction(slug: string, id: string, _prev: ActionResult | null, fd: FormData): Promise<ActionResult> {
+  const f = krFields(fd);
+  if (typeof f === "string") return { ok: false, message: f };
+  return edit(slug, (p) => (p.metas ? { ...p, metas: { ...p.metas, krs: p.metas.krs.map((k) => (k.id === id ? { ...k, ...f } : k)) } } : "Sem metas."));
+}
+
+export async function deleteKrAction(slug: string, id: string, _prev: ActionResult | null): Promise<ActionResult> {
+  return edit(slug, (p) => (p.metas ? { ...p, metas: { ...p.metas, krs: p.metas.krs.filter((k) => k.id !== id) } } : "Sem metas."));
 }
