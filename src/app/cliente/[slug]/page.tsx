@@ -146,8 +146,13 @@ export default async function ProjetoPage({ params, searchParams }: { params: Pr
                 </div>
                 <div className="pj-stats mt-4">
                   <div className="pj-stat"><b>{brl(t.spend, 0)}</b><span>Investimento</span></div>
-                  <div className="pj-stat"><b>{int(t.captacao)}</b><span>Contatos</span></div>
-                  <div className="pj-stat"><b>{brl(t.cpl)}</b><span>{g ? CPL_LABEL[g] : "Custo por contato"}</span></div>
+                  {t.captacao > 0 ? <>
+                    <div className="pj-stat"><b>{int(t.captacao)}</b><span>Contatos</span></div>
+                    <div className="pj-stat"><b>{brl(t.cpl)}</b><span>{g ? CPL_LABEL[g] : "Custo por contato"}</span></div>
+                  </> : <>
+                    <div className="pj-stat"><b>{int(t.linkClicks)}</b><span>Cliques e visitas</span></div>
+                    <div className="pj-stat"><b>{int(t.reach)}</b><span>Pessoas alcançadas</span></div>
+                  </>}
                 </div>
               </section>
             );

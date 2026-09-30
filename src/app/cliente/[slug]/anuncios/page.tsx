@@ -78,7 +78,13 @@ export default async function AnunciosPage({ params, searchParams }: { params: P
 function AdsView({ d }: { d: AdsData }) {
   const t = d.totals, p = d.prev;
   const grade = gradeCpl(t.cpl, d.client);
-  const maxMonth = Math.max(1, ...d.months.map((m) => m.results));
+  // Com campanhas de captação, o foco é contato; sem elas (só alcance e visitas), cliques e custo por clique.
+  const capture = t.captacao > 0;
+  const cpc = t.linkClicks > 0 ? t.spend / t.linkClicks : null;
+  const prevCpc = p.linkClicks > 0 ? p.spend / p.linkClicks : null;
+  const monthsByContacts = d.months.some((m) => m.results > 0);
+  const monthValue = (m: AdsData["months"][number]) => (monthsByContacts ? m.results : m.spend);
+  const maxMonth = Math.max(1, ...d.months.map(monthValue));
   const budgetPct = d.client.budgetMonthly > 0 ? Math.min(100, (d.pacing.mtdSpend / d.client.budgetMonthly) * 100) : null;
   return (
     <div className="flex flex-col gap-4">
@@ -88,18 +94,36 @@ function AdsView({ d }: { d: AdsData }) {
           <b>{brl(t.spend, 0)}</b>
           <span className="text-[12.5px]"><Delta cur={t.spend} prev={p.spend} /></span>
         </div>
-        <div className="card ad-kpi">
-          <span className="label">Contatos</span>
-          <b>{int(t.captacao)}</b>
-          <span className="text-[12.5px]"><Delta cur={t.captacao} prev={p.captacao} /></span>
-          <span className="text-[12px] text-[var(--muted)]">{int(t.conversas)} conversas no WhatsApp/Direct · {int(t.leads)} cadastros</span>
-        </div>
-        <div className="card ad-kpi">
-          <span className="label">Custo por contato</span>
-          <b>{brl(t.cpl)}</b>
-          {grade && <span className={`ad-grade g-${grade}`}>{CPL_LABEL[grade]} · meta até {brl(d.client.cplTarget, 0)}</span>}
-          <span className="text-[12.5px]"><Delta cur={t.cpl} prev={p.cpl} lowerIsBetter /></span>
-        </div>
+        {capture ? (
+          <div className="card ad-kpi">
+            <span className="label">Contatos</span>
+            <b>{int(t.captacao)}</b>
+            <span className="text-[12.5px]"><Delta cur={t.captacao} prev={p.captacao} /></span>
+            <span className="text-[12px] text-[var(--muted)]">{int(t.conversas)} conversas no WhatsApp/Direct · {int(t.leads)} cadastros</span>
+          </div>
+        ) : (
+          <div className="card ad-kpi">
+            <span className="label">Cliques e visitas</span>
+            <b>{int(t.linkClicks)}</b>
+            <span className="text-[12.5px]"><Delta cur={t.linkClicks} prev={p.linkClicks} /></span>
+            {t.conversas > 0 && <span className="text-[12px] text-[var(--muted)]">{int(t.conversas)} conversas iniciadas</span>}
+          </div>
+        )}
+        {capture ? (
+          <div className="card ad-kpi">
+            <span className="label">Custo por contato</span>
+            <b>{brl(t.cpl)}</b>
+            {grade && <span className={`ad-grade g-${grade}`}>{CPL_LABEL[grade]} · meta até {brl(d.client.cplTarget, 0)}</span>}
+            <span className="text-[12.5px]"><Delta cur={t.cpl} prev={p.cpl} lowerIsBetter /></span>
+          </div>
+        ) : (
+          <div className="card ad-kpi">
+            <span className="label">Custo por clique</span>
+            <b>{brl(cpc)}</b>
+            <span className="text-[12.5px]"><Delta cur={cpc} prev={prevCpc} lowerIsBetter /></span>
+            <span className="text-[12px] text-[var(--muted)]">Neste período as campanhas foram de alcance e visitas ao perfil.</span>
+          </div>
+        )}
         <div className="card ad-kpi">
           <span className="label">Pessoas alcançadas</span>
           <b>{int(t.reach)}</b>
@@ -111,18 +135,18 @@ function AdsView({ d }: { d: AdsData }) {
         <div className="flex flex-col gap-4 min-w-0">
           {d.months.length > 0 && (
             <section className="card p-5">
-              <h2 className="pj-h2">Contatos por mês</h2>
+              <h2 className="pj-h2">{monthsByContacts ? "Contatos por mês" : "Investimento por mês"}</h2>
               <div className="ad-months mt-4">
                 {d.months.map((m) => (
                   <div key={m.month} className="ad-month">
-                    <span className="ad-month-v">{int(m.results)}</span>
-                    <span className="ad-month-bar"><span style={{ height: `${Math.max(3, (m.results / maxMonth) * 100)}%` }} /></span>
+                    <span className="ad-month-v">{monthsByContacts ? int(m.results) : brl(m.spend, 0)}</span>
+                    <span className="ad-month-bar"><span style={{ height: `${Math.max(3, (monthValue(m) / maxMonth) * 100)}%` }} /></span>
                     <span className="ad-month-l">{MES[Number(m.month.slice(5, 7)) - 1]}</span>
-                    <span className="ad-month-c">{brl(m.cost, 0)}</span>
+                    {monthsByContacts && <span className="ad-month-c">{brl(m.cost, 0)}</span>}
                   </div>
                 ))}
               </div>
-              <p className="text-[12px] text-[var(--muted)] mt-3">Abaixo de cada mês, o custo médio por contato.</p>
+              {monthsByContacts && <p className="text-[12px] text-[var(--muted)] mt-3">Abaixo de cada mês, o custo médio por contato.</p>}
             </section>
           )}
 
@@ -138,7 +162,7 @@ function AdsView({ d }: { d: AdsData }) {
                     </span>
                     <span className="text-right flex-none">
                       <span className="block font-medium mono">{brl(c.spend, 0)}</span>
-                      <span className="block text-[12.5px] text-[var(--muted)]">{c.costPerResult !== null ? `${brl(c.costPerResult)} cada` : "–"}</span>
+                      <span className="block text-[12.5px] text-[var(--muted)]">{c.costPerResult !== null ? `${brl(c.costPerResult)} cada` : c.results > 0 ? `${brl(c.spend / c.results)} cada` : "–"}</span>
                     </span>
                   </li>
                 ))}
