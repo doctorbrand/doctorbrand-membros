@@ -1,6 +1,272 @@
-import { redirect } from "next/navigation";
+import Link from "next/link";
+import { notFound } from "next/navigation";
+import { ActionForm } from "@/components/ActionForm";
+import { ActionButton, DeleteIconButton, IconAction } from "@/components/content/ContentActions";
+import { Shell } from "@/components/Shell";
+import { ArrowRightIcon, ArrowUpRightIcon, BookIcon, CalendarIcon, ChatIcon, CheckIcon, ChevronDownIcon, ChevronUpIcon, DocIcon, EyeIcon, GlobeIcon, GridIcon, LinkIcon, PaletteIcon, StoriesIcon, VideoIcon } from "@/components/Icons";
+import { requireAuth } from "@/lib/auth";
+import { getClient } from "@/lib/clients";
+import { dayLabel, getPosts, mediaUrl, scheduleOrder, thumbOf, TYPE_LABEL, visibleTo } from "@/lib/content";
+import { todayISO } from "@/lib/periods";
+import { getProject, MATERIAL_KINDS, STEP_LABEL, type MaterialKind, type ProjectStep } from "@/lib/project";
+import { addMaterialAction, addStepAction, applyDefaultStepsAction, deleteMaterialAction, deleteStepAction, moveStepAction, saveProjectInfoAction, updateStepAction } from "./actions";
 
-export default async function ClientePage({ params }: { params: Promise<{ slug: string }> }) {
+export const dynamic = "force-dynamic";
+
+const KIND_ICON: Record<MaterialKind, React.ReactNode> = {
+  identidade: <PaletteIcon />, guidelines: <BookIcon />, moodboard: <GridIcon />, roteiro: <VideoIcon />,
+  stories: <StoriesIcon />, site: <GlobeIcon />, links: <LinkIcon />, documento: <DocIcon />,
+};
+
+function host(url: string) {
+  try { return new URL(url).hostname.replace(/^www\./, ""); } catch { return ""; }
+}
+
+function shortDate(iso: string) {
+  const [y, m, d] = iso.split("-").map(Number);
+  if (!y) return "";
+  return new Date(Date.UTC(y, m - 1, d, 12)).toLocaleDateString("pt-BR", { day: "2-digit", month: "short", timeZone: "UTC" }).replace(".", "").replace(" de ", " ");
+}
+
+export default async function ProjetoPage({ params, searchParams }: { params: Promise<{ slug: string }>; searchParams: Promise<{ visao?: string }> }) {
   const { slug } = await params;
-  redirect(`/cliente/${slug}/conteudo`);
+  const session = await requireAuth(slug);
+  const sp = await searchParams;
+  const asClient = session.role === "admin" && sp.visao === "cliente";
+  const admin = session.role === "admin" && !asClient;
+  const c = await getClient(slug);
+  if (!c) notFound();
+
+  const [project, all] = await Promise.all([getProject(slug), getPosts(slug)]);
+  const posts = all.filter((p) => visibleTo(p, admin ? "admin" : "cliente"));
+  const waiting = posts.filter((p) => p.status === "aguardando").length;
+  const approved = posts.filter((p) => p.status === "aprovado").length;
+  const scheduled = scheduleOrder(posts.filter((p) => p.status === "agendado"));
+  const nextPost = scheduled[0];
+  const q = asClient ? "?visao=cliente" : "";
+  const conteudo = `/cliente/${slug}/conteudo${q}`;
+
+  const steps = project.steps;
+  const done = steps.filter((s) => s.status === "concluida").length;
+  const doing = steps.filter((s) => s.status === "andamento");
+  const next = steps.filter((s) => s.status === "nao_iniciada");
+  const finished = steps.filter((s) => s.status === "concluida");
+  const today = todayISO();
+  const dates = [
+    ...steps.filter((s) => s.due && s.due >= today && s.status !== "concluida").map((s) => ({ key: s.id, date: s.due!, title: s.title, kind: "Etapa" })),
+    ...scheduled.slice(0, 3).map((p) => ({ key: p.id, date: p.date, title: p.title, kind: `Publicação · ${p.time}` })),
+  ].sort((a, b) => a.date.localeCompare(b.date)).slice(0, 5);
+
+  const firstName = session.role === "cliente" ? session.name.split(" ")[0] : c.name.split(" ")[0];
+  const pct = steps.length ? Math.round((done / steps.length) * 100) : 0;
+
+  return (
+    <Shell active="projeto" session={session} clientSlug={slug}>
+      {asClient && (
+        <div className="card p-3 mb-4 flex flex-wrap items-center justify-between gap-2 text-sm" style={{ background: "#fff7e0" }}>
+          <span><b>Você está vendo como {c.name} vê.</b> Os controles da equipe ficam escondidos.</span>
+          <Link href={`/cliente/${slug}`} className="ct-btn">Voltar à visão da equipe</Link>
+        </div>
+      )}
+
+      <section className="ct-hero">
+        <div className="min-w-0">
+          <p className="label">{project.plano ? `Projeto DoctorBrand · Plano ${project.plano}` : "Projeto DoctorBrand"}</p>
+          <h1 className="mt-1.5">Olá, {firstName}. <i>Este é o seu projeto.</i></h1>
+          <p className="text-[14px] sm:text-[15px] text-[var(--muted)] mt-2 max-w-xl">O que já fizemos, o que está em andamento e tudo o que entregamos, num lugar só.</p>
+        </div>
+        <div className="ct-hero-actions">
+          {waiting > 0
+            ? <Link href={conteudo} className="ct-btn ct-btn-primary ct-btn-lg">{waiting === 1 ? "Aprovar 1 post" : `Aprovar ${waiting} posts`} <ArrowRightIcon /></Link>
+            : <Link href={conteudo} className="ct-btn ct-btn-lg">Ver o planejamento <ArrowRightIcon /></Link>}
+          {admin && <Link href={`/cliente/${slug}?visao=cliente`} className="ct-btn inline-flex items-center gap-1.5"><EyeIcon /> Ver como o cliente</Link>}
+        </div>
+      </section>
+
+      <div className="pj-grid">
+        <div className="flex flex-col gap-4 min-w-0">
+          {/* Conteúdo */}
+          <section className="card p-5">
+            <div className="flex items-center justify-between gap-3">
+              <h2 className="pj-h2">Conteúdo</h2>
+              <Link href={conteudo} className="pj-more">Abrir planejamento <ArrowRightIcon size={14} /></Link>
+            </div>
+            <div className="pj-stats mt-4">
+              <Link href={conteudo} className={`pj-stat ${waiting ? "is-attn" : ""}`}><b>{waiting}</b><span>Para aprovar</span></Link>
+              <div className="pj-stat"><b>{approved}</b><span>Aprovados</span></div>
+              <div className="pj-stat"><b>{scheduled.length}</b><span>Agendados</span></div>
+            </div>
+            {nextPost && (() => {
+              const t = thumbOf(nextPost);
+              return (
+                <Link href={`/cliente/${slug}/conteudo?${asClient ? "visao=cliente&" : ""}post=${nextPost.id}#post`} className="pj-next mt-4">
+                  {t ? <img src={mediaUrl(t, 160)} alt="" /> : <span className="pj-next-ph" />}
+                  <span className="min-w-0">
+                    <span className="label block">Próxima publicação</span>
+                    <span className="block font-medium truncate">{nextPost.title}</span>
+                    <span className="block text-[13px] text-[var(--muted)]">{dayLabel(nextPost.date, nextPost.time)} · {TYPE_LABEL[nextPost.type]}</span>
+                  </span>
+                </Link>
+              );
+            })()}
+          </section>
+
+          {/* Andamento (o cliente só vê quando a equipe já registrou etapas) */}
+          {(admin || steps.length > 0) && <section className="card p-5">
+            <div className="flex items-center justify-between gap-3">
+              <h2 className="pj-h2">Andamento do projeto</h2>
+              {steps.length > 0 && <span className="text-[13px] text-[var(--muted)] mono">{done} de {steps.length}</span>}
+            </div>
+            {steps.length > 0 ? (
+              <>
+                <div className="ct-progress mt-3" role="img" aria-label={`${pct}% concluído`}><span style={{ width: `${pct}%`, background: "var(--good)" }} /></div>
+                {doing.length > 0 && <StepGroup title="Em andamento" steps={doing} />}
+                {next.length > 0 && <StepGroup title="A seguir" steps={next} />}
+                {finished.length > 0 && (
+                  <details className="pj-done mt-4">
+                    <summary className="label cursor-pointer">Concluídas ({finished.length})</summary>
+                    <StepList steps={finished} />
+                  </details>
+                )}
+              </>
+            ) : (
+              <p className="text-sm text-[var(--muted)] mt-3">{admin ? "Nenhuma etapa ainda." : "A equipe DoctorBrand vai registrar aqui as etapas do seu projeto."}</p>
+            )}
+
+            {admin && (
+              <details className="pj-edit mt-5">
+                <summary className="pj-edit-toggle">Editar etapas</summary>
+                <div className="flex flex-col gap-2 mt-3">
+                  {steps.length === 0 && <ActionButton action={applyDefaultStepsAction.bind(null, slug)} label="Usar as etapas padrão DoctorBrand" variant="dark" />}
+                  {steps.map((s, i) => (
+                    <div key={s.id} className="pj-edit-row">
+                      <ActionForm action={updateStepAction.bind(null, slug, s.id)} className="pj-edit-form">
+                        <input name="title" defaultValue={s.title} className="ct-input" aria-label="Etapa" />
+                        <select name="status" defaultValue={s.status} className="ct-input" aria-label="Status">
+                          <option value="nao_iniciada">A seguir</option>
+                          <option value="andamento">Em andamento</option>
+                          <option value="concluida">Concluída</option>
+                        </select>
+                        <input name="due" type="date" defaultValue={s.due} className="ct-input" aria-label="Data" />
+                        <input name="note" defaultValue={s.note} placeholder="Nota para o cliente (opcional)" className="ct-input pj-edit-note" />
+                        <button className="ct-btn">Salvar</button>
+                      </ActionForm>
+                      <div className="flex items-center">
+                        {i > 0 && <IconAction action={moveStepAction.bind(null, slug, s.id, -1)} label="Subir"><ChevronUpIcon /></IconAction>}
+                        {i < steps.length - 1 && <IconAction action={moveStepAction.bind(null, slug, s.id, 1)} label="Descer"><ChevronDownIcon /></IconAction>}
+                        <DeleteIconButton action={deleteStepAction.bind(null, slug, s.id)} confirm={`Excluir a etapa "${s.title}"?`} label={`Excluir ${s.title}`} />
+                      </div>
+                    </div>
+                  ))}
+                  <ActionForm action={addStepAction.bind(null, slug)} className="pj-add">
+                    <input name="title" placeholder="Nova etapa" className="ct-input" required />
+                    <input name="due" type="date" className="ct-input" aria-label="Data" />
+                    <button className="ct-btn ct-btn-dark">Adicionar</button>
+                  </ActionForm>
+                </div>
+              </details>
+            )}
+          </section>}
+        </div>
+
+        <div className="flex flex-col gap-4 min-w-0">
+          {/* Próximas datas */}
+          {dates.length > 0 && (
+            <section className="card p-5">
+              <h2 className="pj-h2">Próximas datas</h2>
+              <ul className="mt-3 flex flex-col">
+                {dates.map((d) => (
+                  <li key={d.key} className="pj-date">
+                    <span className="pj-date-day"><CalendarIcon size={15} /> {shortDate(d.date)}</span>
+                    <span className="min-w-0"><span className="block font-medium truncate">{d.title}</span><span className="block text-[12.5px] text-[var(--muted)]">{d.kind}</span></span>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
+
+          {/* Materiais */}
+          {(project.materials.length > 0 || admin) && (
+            <section className="card p-5">
+              <h2 className="pj-h2">Materiais do projeto</h2>
+              {project.materials.length > 0 ? (
+                <div className="pj-materials mt-3">
+                  {project.materials.map((m) => (
+                    <div key={m.id} className="pj-mat-wrap">
+                      <a href={m.url} target="_blank" rel="noreferrer" className="pj-mat">
+                        <span className="pj-mat-ic">{KIND_ICON[m.kind]}</span>
+                        <span className="min-w-0 flex-1"><span className="block font-medium truncate">{m.title}</span><span className="block text-[12px] text-[var(--muted)] truncate">{host(m.url)}</span></span>
+                        <ArrowUpRightIcon className="text-[var(--muted)] flex-none" />
+                      </a>
+                      {admin && <DeleteIconButton action={deleteMaterialAction.bind(null, slug, m.id)} confirm={`Tirar "${m.title}" dos materiais?`} label={`Excluir ${m.title}`} />}
+                    </div>
+                  ))}
+                </div>
+              ) : <p className="text-sm text-[var(--muted)] mt-3">Nenhum material ainda. Adicione links do Drive, Figma, Canva ou do site.</p>}
+              {admin && (
+                <details className="pj-edit mt-4">
+                  <summary className="pj-edit-toggle">Adicionar material</summary>
+                  <ActionForm action={addMaterialAction.bind(null, slug)} className="flex flex-col gap-2 mt-3">
+                    <select name="kind" className="ct-input" defaultValue="" required>
+                      <option value="" disabled>Tipo</option>
+                      {MATERIAL_KINDS.map((k) => <option key={k.key} value={k.key}>{k.label}</option>)}
+                    </select>
+                    <input name="title" placeholder="Nome (opcional, usa o tipo)" className="ct-input" />
+                    <input name="url" type="url" placeholder="https://" className="ct-input" required />
+                    <button className="ct-btn ct-btn-dark self-start">Adicionar</button>
+                  </ActionForm>
+                </details>
+              )}
+            </section>
+          )}
+
+          {/* Contato */}
+          {project.whatsapp ? (
+            <a href={`https://wa.me/${project.whatsapp}`} target="_blank" rel="noreferrer" className="card p-5 pj-contact">
+              <span className="pj-mat-ic"><ChatIcon /></span>
+              <span className="min-w-0 flex-1"><span className="block font-medium">Fale com a equipe</span><span className="block text-[13px] text-[var(--muted)]">Dúvidas, ajustes e agenda, pelo WhatsApp.</span></span>
+              <ArrowUpRightIcon className="text-[var(--muted)]" />
+            </a>
+          ) : null}
+
+          {admin && (
+            <details className="card p-5 pj-edit">
+              <summary className="pj-edit-toggle">Plano e contato</summary>
+              <ActionForm action={saveProjectInfoAction.bind(null, slug)} className="flex flex-col gap-2 mt-3">
+                <label className="flex flex-col gap-1"><span className="label">Plano</span><input name="plano" defaultValue={project.plano} placeholder="Ex.: Growth" className="ct-input" /></label>
+                <label className="flex flex-col gap-1"><span className="label">WhatsApp da equipe</span><input name="whatsapp" defaultValue={project.whatsapp} inputMode="numeric" placeholder="5521999999999" className="ct-input" /></label>
+                <button className="ct-btn ct-btn-dark self-start">Salvar</button>
+              </ActionForm>
+            </details>
+          )}
+        </div>
+      </div>
+    </Shell>
+  );
+}
+
+function StepGroup({ title, steps }: { title: string; steps: ProjectStep[] }) {
+  return (
+    <div className="mt-4">
+      <p className="label mb-1">{title}</p>
+      <StepList steps={steps} />
+    </div>
+  );
+}
+
+function StepList({ steps }: { steps: ProjectStep[] }) {
+  return (
+    <ul className="flex flex-col">
+      {steps.map((s) => (
+        <li key={s.id} className="pj-step">
+          <span className={`pj-step-ic s-${s.status}`} aria-label={STEP_LABEL[s.status]}>{s.status === "concluida" && <CheckIcon size={12} />}</span>
+          <span className="min-w-0 flex-1">
+            <span className="block">{s.title}</span>
+            {s.note && <span className="block text-[13px] text-[var(--muted)]">{s.note}</span>}
+          </span>
+          {s.due && <span className="text-[12.5px] text-[var(--muted)] mono flex-none">{shortDate(s.due)}</span>}
+        </li>
+      ))}
+    </ul>
+  );
 }

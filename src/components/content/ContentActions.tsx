@@ -89,3 +89,13 @@ export function ConnectInstagram({ action, accounts }: { action: ActFd; accounts
     </form>
   );
 }
+
+/** Botão de ícone que roda uma ação sem confirmação (ex.: subir ou descer um item). */
+export function IconAction({ action, label, children }: { action: Act0; label: string; children: React.ReactNode }) {
+  const [, run, pending] = useActionState(action, null);
+  return (
+    <form action={run}>
+      <button disabled={pending} title={label} aria-label={label} className="ct-icon-btn">{children}</button>
+    </form>
+  );
+}

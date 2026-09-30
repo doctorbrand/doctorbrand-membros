@@ -54,7 +54,7 @@ export async function requireAuth(allowedSlug?: string): Promise<Session> {
   if (!s) redirect("/login");
   if (s.role === "cliente") {
     if (!s.clientSlug) redirect("/login?erro=sem-cliente");
-    if (allowedSlug !== s.clientSlug) redirect(`/cliente/${s.clientSlug}/conteudo`);
+    if (allowedSlug !== s.clientSlug) redirect(`/cliente/${s.clientSlug}`);
   }
   return s;
 }
@@ -62,6 +62,6 @@ export async function requireAuth(allowedSlug?: string): Promise<Session> {
 export async function requireAdmin(): Promise<Session> {
   const s = await getSession();
   if (!s) redirect("/login");
-  if (s.role !== "admin") redirect(s.clientSlug ? `/cliente/${s.clientSlug}/conteudo` : "/login");
+  if (s.role !== "admin") redirect(s.clientSlug ? `/cliente/${s.clientSlug}` : "/login");
   return s;
 }
