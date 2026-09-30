@@ -59,11 +59,20 @@ export const PROFILE_FIELDS: { key: keyof ClientProfile; label: string; hint: st
   { key: "referencias", label: "Referências e links", hint: "Drive, Notion, perfis de referência. Um por linha.", rows: 3, group: "operacao" },
 ];
 
+/** Perfis levantados para clientes cadastrados depois pela tela Clientes, cujo endereço pode variar (ex.: dr-brunno). */
+const SEED_MATCH: [RegExp, string][] = [[/brunno/, "brunno-bernardo"], [/fernando/, "fernando-fontes"]];
+
+function seedFor(slug: string): ClientProfile | undefined {
+  if (PROFILE_SEED[slug]) return PROFILE_SEED[slug];
+  const hit = SEED_MATCH.find(([re]) => re.test(slug));
+  return hit ? PROFILE_SEED[hit[1]] : undefined;
+}
+
 export async function getProfile(slug: string): Promise<ClientProfile> {
   const saved = await readDoc<ClientProfile>(`perfil/${slug}`, {});
   // Campo salvo vazio não apaga o que foi levantado das fontes.
   const filled = Object.fromEntries(Object.entries(saved).filter(([, v]) => v !== "" && v !== null && v !== undefined));
-  return { ...(PROFILE_SEED[slug] ?? {}), ...filled };
+  return { ...(seedFor(slug) ?? {}), ...filled };
 }
 
 export async function saveProfile(slug: string, patch: ClientProfile, by: string): Promise<void> {
