@@ -77,7 +77,7 @@ function AvisoCard({ a }: { a: Aviso }) {
           <p className="text-[14.5px] mt-0.5">{a.title}</p>
           <p className="text-[13px] text-[var(--muted)]">{a.detail}</p>
         </div>
-        <Link href={a.kind === "contrato" || a.kind === "nps" ? `/cliente/${a.client.slug}` : a.kind === "aprovar" || a.kind === "ajuste" ? `/cliente/${a.client.slug}/conteudo` : a.kind === "relatorio" ? `/relatorio/${a.client.slug}/${a.key.split(":").at(-1)}` : `/cliente/${a.client.slug}`} className="pj-more flex-none">Abrir <ArrowUpRightIcon size={14} /></Link>
+        <Link href={a.kind === "circle" ? "/admin/indicacoes" : a.kind === "onboarding" ? `/cliente/${a.client.slug}/onboarding` : a.kind === "contrato" || a.kind === "nps" ? `/cliente/${a.client.slug}` : a.kind === "aprovar" || a.kind === "ajuste" ? `/cliente/${a.client.slug}/conteudo` : a.kind === "relatorio" ? `/relatorio/${a.client.slug}/${a.key.split(":").at(-1)}` : `/cliente/${a.client.slug}`} className="pj-more flex-none">Abrir <ArrowUpRightIcon size={14} /></Link>
       </div>
       {a.message && <p className="av-msg">{a.message}</p>}
       <div className="flex flex-wrap items-center gap-2 mt-3">

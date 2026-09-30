@@ -83,6 +83,8 @@ export interface Contrato {
   url?: string;
   /** Próxima renovação definida à mão (sobrepõe o cálculo). */
   renovacao?: string;
+  /** Documento na ZapSign escolhido pela equipe (token). Sem ele, usa o mais recente com o nome do cliente. */
+  zapsign?: string;
 }
 
 export type MetaFonte = "manual" | "entregas" | "posts" | "contatos";

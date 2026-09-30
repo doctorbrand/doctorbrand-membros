@@ -5,6 +5,9 @@ import { getPosts, visibleTo } from "./content";
 import { todayISO } from "./periods";
 import { calendarAliases, getProject } from "./project";
 import { getCrm } from "./clickup";
+import { clientContract } from "./zapsign";
+import { acessos, getOnboarding } from "./onboarding";
+import { aEntregar, getCircle, NIVEIS } from "./circle";
 import { contratoStatus, dataCurta } from "./contrato";
 import { getNps, grupo, GRUPO_LABEL, ultima } from "./nps";
 import { monthTitle, previousMonth, reportLink } from "./report";
@@ -16,7 +19,7 @@ import { readDoc, writeDoc } from "./store";
  * (posts para aprovar, lembrete de captação, relatório do mês) e deixa a mensagem pronta;
  * a Carol revisa, envia do WhatsApp dela e marca como enviado.
  */
-export type AvisoKind = "aprovar" | "lembrete" | "relatorio" | "ajuste" | "contrato" | "nps";
+export type AvisoKind = "aprovar" | "lembrete" | "relatorio" | "ajuste" | "contrato" | "nps" | "onboarding" | "circle";
 
 export interface Aviso {
   key: string;
@@ -30,7 +33,7 @@ export interface Aviso {
   urgent: boolean;
 }
 
-export const AVISO_LABEL: Record<AvisoKind, string> = { aprovar: "Aprovação", lembrete: "Lembrete", relatorio: "Relatório", ajuste: "Ajuste pedido", contrato: "Contrato", nps: "Termômetro" };
+export const AVISO_LABEL: Record<AvisoKind, string> = { aprovar: "Aprovação", lembrete: "Lembrete", relatorio: "Relatório", ajuste: "Ajuste pedido", contrato: "Contrato", nps: "Termômetro", onboarding: "Onboarding", circle: "Circle" };
 
 const hash = (s: string) => createHash("sha1").update(s).digest("hex").slice(0, 10);
 const daysSince = (iso: string) => Math.floor((Date.now() - Date.parse(iso)) / 86400e3);
@@ -53,6 +56,8 @@ export async function buildAvisos(): Promise<Aviso[]> {
   const clients = await listClients();
   const agendaOn = agendaConfigured();
   const out: Aviso[] = [];
+  const circle = await getCircle();
+  const itensAcesso = acessos();
 
   await Promise.all(clients.map(async (c) => {
     const [project, all] = await Promise.all([getProject(c.slug), getPosts(c.slug)]);
@@ -98,6 +103,37 @@ export async function buildAvisos(): Promise<Aviso[]> {
       });
     }
 
+    // Contrato na ZapSign esperando assinatura
+    const zs = await clientContract([c.name, ...calendarAliases(c.slug, project)], project.contrato?.zapsign);
+    if (zs && zs.doc.status === "pending" && zs.doc.pendentes.length) {
+      out.push({
+        key: `assinatura:${c.slug}:${zs.doc.token}:${zs.doc.pendentes.join(",")}`,
+        kind: "contrato", client: c, urgent: false,
+        title: `Contrato aguardando assinatura`,
+        detail: `Falta: ${zs.doc.pendentes.join(", ")} · ${zs.doc.name}`,
+      });
+    }
+
+    // Onboarding: acessos marcados pelo cliente para confirmar e briefing enviado
+    const onb = await getOnboarding(c.slug);
+    const paraConfirmar = itensAcesso.filter((a) => onb.acessos[a.id]?.status === "feito");
+    if (paraConfirmar.length) {
+      out.push({
+        key: `acessos:${c.slug}:${paraConfirmar.map((a) => `${a.id}${onb.acessos[a.id].at}`).join(",")}`,
+        kind: "onboarding", client: c, urgent: false,
+        title: `${paraConfirmar.length} ${paraConfirmar.length === 1 ? "acesso para confirmar" : "acessos para confirmar"}`,
+        detail: paraConfirmar.map((a) => a.titulo).join(" · "),
+      });
+    }
+    if (onb.briefing?.enviadoEm && !onb.briefing.aplicadoEm) {
+      out.push({ key: `briefing:${c.slug}:${onb.briefing.enviadoEm}`, kind: "onboarding", client: c, urgent: false, title: "Briefing enviado pelo cliente", detail: "Revise e leve as respostas para o Perfil." });
+    }
+
+    // Circle: indicações novas e recompensas para entregar
+    const novas = circle.indicacoes.filter((i) => i.slug === c.slug && i.status === "recebida");
+    for (const i of novas) out.push({ key: `indicacao:${i.id}`, kind: "circle", client: c, urgent: true, title: `Nova indicação: ${i.nome}`, detail: [i.especialidade, i.contato, i.cidade].filter(Boolean).join(" · ") });
+    for (const n of aEntregar(circle, c.slug)) out.push({ key: `recompensa:${c.slug}:${n}`, kind: "circle", client: c, urgent: false, title: `Recompensa do nível ${n} para entregar`, detail: NIVEIS[n - 1].titulo });
+
     // Resposta nova no termômetro (últimos 14 dias)
     const nps = ultima(await getNps(c.slug));
     if (nps && Date.now() - Date.parse(nps.at) < 14 * 86400e3) {
@@ -140,7 +176,7 @@ export async function buildAvisos(): Promise<Aviso[]> {
     }
   }));
 
-  const order: AvisoKind[] = ["lembrete", "aprovar", "relatorio", "nps", "contrato", "ajuste"];
+  const order: AvisoKind[] = ["lembrete", "aprovar", "relatorio", "circle", "nps", "contrato", "onboarding", "ajuste"];
   return out.sort((a, b) => Number(b.urgent) - Number(a.urgent) || order.indexOf(a.kind) - order.indexOf(b.kind) || a.client.name.localeCompare(b.client.name, "pt-BR"));
 }
 

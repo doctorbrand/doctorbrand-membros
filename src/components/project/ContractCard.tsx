@@ -1,9 +1,11 @@
 import { ArrowUpRightIcon, DocIcon } from "@/components/Icons";
 import { dataCurta, tempoDesde, type ContratoStatus } from "@/lib/contrato";
+import type { ZsStatus } from "@/lib/zapsign";
 
 /** Contrato: há quanto tempo é cliente, ciclo atual, próxima renovação e o link do contrato. */
-export function ContractCard({ st, plano, hoje, admin }: { st: ContratoStatus; plano?: string; hoje: string; admin: boolean }) {
-  if (!st.desde && !st.proxima && !st.url) return null;
+export function ContractCard({ st, plano, hoje, admin, zs, slug }: { st: ContratoStatus; plano?: string; hoje: string; admin: boolean; zs?: ZsStatus | null; slug: string }) {
+  if (!st.desde && !st.proxima && !st.url && !zs) return null;
+  const link = zs ? `/api/contrato/${slug}` : st.url;
   const alerta = st.diasParaProxima !== undefined && st.diasParaProxima <= 30;
   return (
     <section className="card p-5">
@@ -22,10 +24,10 @@ export function ContractCard({ st, plano, hoje, admin }: { st: ContratoStatus; p
         </div>
       )}
       {st.regraTexto && <p className="text-[12.5px] text-[var(--muted)] mt-2">{st.regraTexto}</p>}
-      {st.url && (
-        <a href={st.url} target="_blank" rel="noreferrer" className="pj-mat mt-3">
+      {link && (
+        <a href={link} target="_blank" rel="noreferrer" className="pj-mat mt-3">
           <span className="pj-mat-ic"><DocIcon /></span>
-          <span className="min-w-0 flex-1"><span className="block font-medium">Ver contrato</span><span className="block text-[12px] text-[var(--muted)]">Abre no Drive</span></span>
+          <span className="min-w-0 flex-1"><span className="block font-medium">Ver contrato</span><span className="block text-[12px] text-[var(--muted)]">{zs ? (zs.status === "signed" ? `Assinado${zs.signedAt ? ` em ${dataCurta(zs.signedAt)}` : ""}` : admin && zs.pendentes.length ? `Falta assinar: ${zs.pendentes.join(", ")}` : "Aguardando assinaturas") : "Abre no Drive"}</span></span>
           <ArrowUpRightIcon className="text-[var(--muted)]" />
         </a>
       )}

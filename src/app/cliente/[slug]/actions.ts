@@ -186,7 +186,8 @@ export async function saveContratoAction(slug: string, _prev: ActionResult | nul
   if (url && !/^https?:\/\//i.test(url)) return { ok: false, message: "O link do contrato precisa começar com https://" };
   if (!["iguais", "mensal", "nova"].includes(regra)) return { ok: false, message: "Escolha como o contrato renova." };
   if (!Number.isInteger(meses) || meses < 0 || meses > 60) return { ok: false, message: "Prazo em meses, de 1 a 60." };
-  return edit(slug, (p) => ({ ...p, contrato: { inicio: inicio || undefined, meses: meses || undefined, regra, url: url || undefined, renovacao: renovacao || undefined } }));
+  const zapsign = str(fd, "zapsign");
+  return edit(slug, (p) => ({ ...p, contrato: { inicio: inicio || undefined, meses: meses || undefined, regra, url: url || undefined, renovacao: renovacao || undefined, zapsign: zapsign || undefined } }));
 }
 
 // ─── Termômetro (NPS) ─────────────────────────────────────────────────

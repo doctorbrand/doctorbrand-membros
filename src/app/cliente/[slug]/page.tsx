@@ -7,12 +7,16 @@ import { autoSource, Deliverables } from "@/components/project/Deliverables";
 import { Agenda, type DateItem } from "@/components/project/Agenda";
 import { ADS_CLIENTS, brl, CPL_LABEL, getAds, gradeCpl, int } from "@/lib/ads";
 import { agendaWindow, clientMeetings, meetingDate, type Meeting } from "@/lib/agenda";
-import { ArrowRightIcon, ArrowUpRightIcon, BookIcon, CalendarIcon, ChatIcon, CheckIcon, ChevronDownIcon, ChevronUpIcon, DocIcon, EyeIcon, GlobeIcon, FolderIcon, GridIcon, LayersIcon, LinkIcon, PaletteIcon, StoriesIcon, VideoIcon } from "@/components/Icons";
+import { SparkIcon, ArrowRightIcon, ArrowUpRightIcon, BookIcon, CalendarIcon, ChatIcon, CheckIcon, ChevronDownIcon, ChevronUpIcon, DocIcon, EyeIcon, GlobeIcon, FolderIcon, GridIcon, LayersIcon, LinkIcon, PaletteIcon, StoriesIcon, VideoIcon } from "@/components/Icons";
 import { requireAuth } from "@/lib/auth";
 import { getClient } from "@/lib/clients";
 import { dayLabel, getPlan, getPosts, mediaUrl, scheduleOrder, thumbOf, TYPE_LABEL, visibleTo } from "@/lib/content";
 import { todayISO } from "@/lib/periods";
 import { getCrm, getWork } from "@/lib/clickup";
+import { clientContract } from "@/lib/zapsign";
+import { acessosDoPlano, getOnboarding, progresso } from "@/lib/onboarding";
+import { planKey } from "@/lib/plans";
+import { getCircle, nivelDe } from "@/lib/circle";
 import { contratoStatus, dataCurta } from "@/lib/contrato";
 import { getNps, grupo, GRUPO_LABEL, npsPendente, respondeuRecente, ultima } from "@/lib/nps";
 import { ContractCard } from "@/components/project/ContractCard";
@@ -93,8 +97,12 @@ export default async function ProjetoPage({ params, searchParams }: { params: Pr
 
   const mats = arrangeMaterials(project.materials);
   const names = [c.name, ...calendarAliases(slug, project)];
-  const [work, crm, nps] = await Promise.all([getWork(names, project.clickupFolder, today), getCrm(names), getNps(slug)]);
-  const contrato = contratoStatus(project.contrato, today, crm?.desde, crm?.renovacao);
+  const [work, crm, nps, zs, onb, circle] = await Promise.all([getWork(names, project.clickupFolder, today), getCrm(names), getNps(slug), clientContract(names, project.contrato?.zapsign), getOnboarding(slug), getCircle()]);
+  const pk = planKey(project.plano);
+  const onbPr = progresso(onb, acessosDoPlano(pk === "growth" || pk === "black"));
+  const circleNivel = nivelDe(circle.indicacoes, slug);
+  const circleCount = circle.indicacoes.filter((i) => i.slug === slug).length;
+  const contrato = contratoStatus(project.contrato?.inicio || !zs?.doc.signedAt ? project.contrato : { ...project.contrato, inicio: zs.doc.signedAt }, today, crm?.desde, crm?.renovacao);
   const npsLast = ultima(nps);
   const showNps = !admin && npsPendente(nps, contrato.desde);
   const firstName = session.role === "cliente" ? session.name.split(" ")[0] : c.name.split(" ")[0];
@@ -125,6 +133,17 @@ export default async function ProjetoPage({ params, searchParams }: { params: Pr
 
       <div className="pj-grid">
         <div className="flex flex-col gap-4 min-w-0">
+          {(!onbPr.completo || admin) && (
+            <Link href={`/cliente/${slug}/onboarding${q}`} className={`card p-5 pj-evo ${!onbPr.completo && !admin ? "pj-onb" : ""}`}>
+              <span className="min-w-0 flex-1">
+                <span className="label block">Onboarding · acessos e briefing</span>
+                <span className="block mt-1 font-medium">{onbPr.completo ? "Completo" : `${onbPr.pct}% concluído`} <span className="text-[13px] font-normal text-[var(--muted)]">· {onbPr.feitos} de {onbPr.total} acessos{admin && onbPr.feitos > onbPr.confirmados ? ` (${onbPr.feitos - onbPr.confirmados} para confirmar)` : ""} · briefing {onbPr.briefing ? "enviado" : "pendente"}</span></span>
+                <span className="pj-bar"><span style={{ width: `${onbPr.pct}%` }} className={onbPr.completo ? "is-done" : ""} /></span>
+              </span>
+              <ArrowRightIcon className="text-[var(--muted)] flex-none" />
+            </Link>
+          )}
+
           {/* Conteúdo */}
           <section className="card p-5">
             <div className="flex items-center justify-between gap-3">
@@ -321,7 +340,7 @@ export default async function ProjetoPage({ params, searchParams }: { params: Pr
             </a>
           ) : null}
 
-          <ContractCard st={contrato} plano={project.plano} hoje={today} admin={admin} />
+          <ContractCard st={contrato} plano={project.plano} hoje={today} admin={admin} zs={zs?.doc} slug={slug} />
 
           {admin && (
             <section className="card p-5">
@@ -335,6 +354,12 @@ export default async function ProjetoPage({ params, searchParams }: { params: Pr
               ) : <p className="text-sm text-[var(--muted)] mt-2">Ainda sem resposta. A pergunta aparece para o cliente no Projeto a cada 90 dias.</p>}
             </section>
           )}
+
+          <Link href={`/cliente/${slug}/indicacoes${q}`} className="card p-5 pj-contact">
+            <span className="pj-mat-ic"><SparkIcon /></span>
+            <span className="min-w-0 flex-1"><span className="block font-medium">Circle DoctorBrand{circleNivel ? ` · nível ${circleNivel}` : ""}</span><span className="block text-[13px] text-[var(--muted)]">{circleCount ? `${circleCount} ${circleCount === 1 ? "indicação" : "indicações"}. Indique um colega e suba de nível.` : "Indique um colega médico e conquiste acessos exclusivos."}</span></span>
+            <ArrowRightIcon className="text-[var(--muted)]" />
+          </Link>
 
           <NextStep plano={project.plano} whatsapp={project.whatsapp} clientName={c.name} compact />
 
@@ -356,6 +381,13 @@ export default async function ProjetoPage({ params, searchParams }: { params: Pr
                   <span className="text-[12px] text-[var(--muted)]">Em branco, calcula pelo início e prazo{crm?.renovacao ? `, ou usa a data do ClickUp (${dataCurta(crm.renovacao)})` : ""}.</span></label>
                 <label className="flex flex-col gap-1"><span className="label">Link do contrato</span><input name="url" type="url" defaultValue={project.contrato?.url} placeholder="https://drive.google.com/..." className="ct-input" />
                   <span className="text-[12px] text-[var(--muted)]">O cliente vê o botão Ver contrato. Compartilhe o arquivo com o e-mail dele no Drive.</span></label>
+                {zs && zs.all.length > 0 && (
+                  <label className="flex flex-col gap-1"><span className="label">Contrato na ZapSign</span>
+                    <select name="zapsign" defaultValue={project.contrato?.zapsign ?? ""} className="ct-input">
+                      <option value="">Automático (o mais recente assinado)</option>
+                      {zs.all.map((d) => <option key={d.token} value={d.token}>{d.name} · {d.status === "signed" ? "assinado" : "pendente"} · {dataCurta(d.created)}</option>)}
+                    </select></label>
+                )}
                 <button className="ct-btn ct-btn-dark self-start">Salvar</button>
               </ActionForm>
             </details>

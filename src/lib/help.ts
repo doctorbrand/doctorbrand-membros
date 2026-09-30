@@ -1,5 +1,6 @@
 import { METODO } from "./evolucao";
 import { PLANS } from "./plans";
+import { NIVEIS } from "./circle";
 
 /** Central de Ajuda: o mesmo conteúdo para todos os clientes. */
 export type HelpCat = "primeiros-passos" | "tutoriais" | "conhecimento";
@@ -180,6 +181,26 @@ export const ARTICLES: Article[] = [
       { p: "Os planos se somam: cada um inclui tudo do anterior." },
       ...(["core", "growth", "black"] as const).flatMap((k) => [{ h: `${PLANS[k].name}: ${PLANS[k].tagline}` }, { list: PLANS[k].includes }] as Block[]),
       { note: "Quer saber como o próximo plano ficaria no seu projeto? Em Evolução há um atalho para falar com a equipe." },
+    ],
+  },
+  {
+    id: "onboarding", cat: "primeiros-passos", minutes: 2,
+    title: "Onboarding: acessos e briefing",
+    summary: "O que a equipe precisa no começo, sem nenhuma senha.",
+    body: [
+      { p: "Na aba Onboarding você encontra a lista de acessos e o briefing. Cada acesso é liberado por convite ou permissão de parceiro, então você nunca precisa enviar senhas." },
+      { steps: ["Abra cada item, siga os passos e toque em Feito.", "A equipe confere e marca como confirmado.", "Responda o briefing do seu jeito. Dá para salvar e continuar depois."] },
+      { note: "Alguém pediu uma senha em nome da DoctorBrand? Não envie. Fale com a equipe pelo WhatsApp oficial." },
+    ],
+  },
+  {
+    id: "circle", cat: "conhecimento", minutes: 2,
+    title: "Circle DoctorBrand",
+    summary: "Como funcionam as indicações e os níveis.",
+    body: [
+      { p: "O Circle é o programa de indicação da DoctorBrand. Você indica colegas médicos com quem tem afinidade real e, quando a indicação vira cliente, conquista o próximo nível." },
+      { steps: NIVEIS.map((n) => `Nível ${n.n}: ${n.titulo}. ${n.texto}`) },
+      { list: ["Conta a indicação que fecha contrato.", "Até 10 indicações por cliente.", "A recompensa não é financeira: é acesso, status e proximidade estratégica.", "Você acompanha cada indicação na aba Indicações."] },
     ],
   },
   {
