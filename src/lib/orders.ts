@@ -20,9 +20,15 @@ export interface ContentOrder {
   quantidades: Record<OrderType, number>;
   servicos: string[];
   foco?: string;
+  /** Pedido completo como vai para o Claude (perfil, plano, histórico deste cliente). */
+  texto?: string;
 }
 
 export const getOrders = (slug: string) => readDoc<ContentOrder[]>(`pedidos/${slug}`, []);
+
+export async function getOrder(slug: string, id: string): Promise<ContentOrder | undefined> {
+  return (await getOrders(slug)).find((o) => o.id === id);
+}
 
 export async function saveOrder(slug: string, o: ContentOrder): Promise<void> {
   const cur = await getOrders(slug);

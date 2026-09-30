@@ -14,6 +14,12 @@ export function signedMediaUrl(path: string, ttlSeconds = 24 * 3600): string {
   return `${publicBase()}/api/media/public?p=${encodeURIComponent(path)}&e=${exp}&s=${sign(path, exp)}`;
 }
 
+/** Assinatura de um caminho qualquer (ex.: pedido de conteúdo), para links temporários sem login. */
+export function signPath(path: string, ttlSeconds: number): { e: number; s: string } {
+  const e = Math.floor(Date.now() / 1000) + ttlSeconds;
+  return { e, s: sign(path, e) };
+}
+
 export function verifySigned(path: string, exp: string | null, sig: string | null): boolean {
   if (!process.env.PANEL_PASSWORD || !exp || !sig) return false;
   const e = Number(exp);

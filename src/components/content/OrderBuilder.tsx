@@ -5,7 +5,7 @@ import type { ActionResult } from "@/lib/types";
 import { CheckIcon } from "@/components/Icons";
 
 type TypeDef = { key: string; label: string; hint: string; options: readonly number[] };
-type Save = (o: { periodo: string; quantidades: Record<string, number>; servicos: string[]; foco?: string }) => Promise<ActionResult>;
+type Save = (o: { periodo: string; quantidades: Record<string, number>; servicos: string[]; foco?: string; texto?: string }) => Promise<ActionResult & { link?: string }>;
 
 const PERIODOS = ["Próxima semana", "Próximas 2 semanas", "Próximo mês"];
 
@@ -35,10 +35,29 @@ export function OrderBuilder({ types, servicos, context, save, skill }: { types:
       `Cliente: ${String((context.cliente as { nome?: string })?.nome ?? "")}. Trabalhe só com os dados deste pedido e com as fontes deste cliente; não misture com outros clientes.`,
       "",
       "```json",
-      JSON.stringify(pedido, null, 1),
+      JSON.stringify(pedido),
       "```",
     ].join("\n");
   }, [q, periodo, sel, foco, context, types, skill]);
+
+  /** Registra o pedido e abre uma conversa nova no Claude já escrita: ela aponta para o pedido completo por um link assinado. */
+  async function openClaude() {
+    setRes(null);
+    const win = window.open("about:blank", "_blank");
+    const r = await save({ periodo, quantidades: q, servicos: sel, foco, texto: text }).catch((e) => ({ ok: false, message: String(e) } as ActionResult & { link?: string }));
+    if (!r.ok || !r.link) { win?.close(); setRes(r); return; }
+    const nome = String((context.cliente as { nome?: string })?.nome ?? "");
+    const resumo = types.filter((t) => q[t.key] > 0).map((t) => `${q[t.key]} ${t.label.toLowerCase()}`).join(", ");
+    const prompt = [
+      `Use a skill ${skill} para gerar o conteúdo de ${nome} (${periodo}): ${resumo}.`,
+      `O pedido completo deste cliente, com perfil, plano e histórico, está neste link. Leia o conteúdo inteiro antes de começar:`,
+      `${window.location.origin}${r.link}`,
+      `Trabalhe só com este cliente; não misture com outros.`,
+    ].join("\n");
+    const url = `https://claude.ai/new?q=${encodeURIComponent(prompt)}`;
+    if (win) win.location.href = url; else window.open(url, "_blank");
+    setRes({ ok: true, message: "Pedido registrado e conversa aberta no Claude. É só enviar." });
+  }
 
   async function copy() {
     setRes(null);
@@ -91,11 +110,14 @@ export function OrderBuilder({ types, servicos, context, save, skill }: { types:
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h2 className="font-semibold">Pedido para o Claude</h2>
-            <p className="text-sm text-[var(--muted)]">Copie e cole numa conversa com o Claude. O pedido já leva o perfil, o plano e o que já foi planejado deste cliente.</p>
+            <p className="text-sm text-[var(--muted)]">Gerar no Claude abre uma conversa nova com o pedido já escrito: é só enviar. O pedido leva o perfil, o plano e o que já foi planejado deste cliente.</p>
           </div>
-          <button type="button" className="ct-btn ct-btn-dark" disabled={total === 0} onClick={copy}>{copied ? <><CheckIcon /> Copiado</> : "Copiar pedido"}</button>
+          <div className="flex flex-wrap gap-2">
+            <button type="button" className="ct-btn" disabled={total === 0} onClick={copy}>{copied ? <><CheckIcon /> Copiado</> : "Copiar pedido"}</button>
+            <button type="button" className="ct-btn ct-btn-dark" disabled={total === 0} onClick={openClaude}>Gerar no Claude</button>
+          </div>
         </div>
-        {res && !res.ok && <p className="text-sm g-bad">{res.message}</p>}
+        {res && <p className={`text-sm ${res.ok ? "text-[var(--muted)]" : "g-bad"}`}>{res.message}</p>}
         <details className="text-sm"><summary className="cursor-pointer text-[var(--muted)]">Ver o pedido</summary><pre className="mt-2 p-3 rounded-lg bg-[#f6f5f1] overflow-auto text-xs whitespace-pre-wrap max-h-96">{text}</pre></details>
       </section>
     </div>
