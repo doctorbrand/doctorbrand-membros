@@ -5,6 +5,7 @@ import { ActionButton, DeleteIconButton, IconAction } from "@/components/content
 import { Shell } from "@/components/Shell";
 import { autoSource, Deliverables } from "@/components/project/Deliverables";
 import { Agenda, type DateItem } from "@/components/project/Agenda";
+import { ADS_CLIENTS, brl, CPL_LABEL, getAds, gradeCpl, int } from "@/lib/ads";
 import { agendaWindow, clientMeetings, meetingDate, type Meeting } from "@/lib/agenda";
 import { ArrowRightIcon, ArrowUpRightIcon, BookIcon, CalendarIcon, ChatIcon, CheckIcon, ChevronDownIcon, ChevronUpIcon, DocIcon, EyeIcon, GlobeIcon, GridIcon, LinkIcon, PaletteIcon, StoriesIcon, VideoIcon } from "@/components/Icons";
 import { requireAuth } from "@/lib/auth";
@@ -40,7 +41,7 @@ export default async function ProjetoPage({ params, searchParams }: { params: Pr
   const c = await getClient(slug);
   if (!c) notFound();
 
-  const [project, all, plan] = await Promise.all([getProject(slug), getPosts(slug), getPlan(slug)]);
+  const [project, all, plan, ads] = await Promise.all([getProject(slug), getPosts(slug), getPlan(slug), ADS_CLIENTS.has(slug) ? getAds(slug, "30d") : Promise.resolve(null)]);
   const posts = all.filter((p) => visibleTo(p, admin ? "admin" : "cliente"));
   const waiting = posts.filter((p) => p.status === "aguardando").length;
   const approved = posts.filter((p) => p.status === "aprovado").length;
@@ -133,6 +134,24 @@ export default async function ProjetoPage({ params, searchParams }: { params: Pr
               );
             })()}
           </section>
+
+          {ads?.ok && (() => {
+            const t = ads.data.totals;
+            const g = gradeCpl(t.cpl, ads.data.client);
+            return (
+              <section className="card p-5">
+                <div className="flex items-center justify-between gap-3">
+                  <h2 className="pj-h2">Anúncios <span className="text-[13px] font-normal text-[var(--muted)]">· últimos 30 dias</span></h2>
+                  <Link href={`/cliente/${slug}/anuncios${q}`} className="pj-more">Ver anúncios <ArrowRightIcon size={14} /></Link>
+                </div>
+                <div className="pj-stats mt-4">
+                  <div className="pj-stat"><b>{brl(t.spend, 0)}</b><span>Investimento</span></div>
+                  <div className="pj-stat"><b>{int(t.captacao)}</b><span>Contatos</span></div>
+                  <div className="pj-stat"><b>{brl(t.cpl)}</b><span>{g ? CPL_LABEL[g] : "Custo por contato"}</span></div>
+                </div>
+              </section>
+            );
+          })()}
 
           <div id="entregas" className="scroll-mt-20">
             <Deliverables slug={slug} month={month} today={today} deliverables={project.deliverables ?? []} auto={auto} admin={admin} hrefFor={mesHref} fromCalendar={fromCalendar} agendaOn={meetings !== null} />
