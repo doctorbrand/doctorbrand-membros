@@ -1,14 +1,15 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ActionForm } from "@/components/ActionForm";
-import { ActionButton, ChangeRequest, ConnectInstagram, DeleteIconButton, ScheduleForm } from "@/components/content/ContentActions";
+import { ActionButton, ConnectInstagram, DeleteIconButton, ScheduleForm } from "@/components/content/ContentActions";
 import { CoverPicker } from "@/components/content/CoverPicker";
 import { PostEditor } from "@/components/content/PostEditor";
 import { VideoPlayer } from "@/components/content/VideoPlayer";
 import { ZipImport } from "@/components/content/ZipImport";
 import { DriveImport } from "@/components/content/DriveImport";
 import { Shell } from "@/components/Shell";
-import { AlertIcon, CheckIcon, EyeIcon, MenuIcon, PencilIcon } from "@/components/Icons";
+import { AlertIcon, ArrowRightIcon, CalendarIcon, CheckIcon, ChevronLeftIcon, ChevronRightIcon, ClockIcon, EyeIcon, MenuIcon, PencilIcon } from "@/components/Icons";
+import { DecisionBar, FeedFrame } from "@/components/content/ClientView";
 import { requireAuth } from "@/lib/auth";
 import { getClient, type Client } from "@/lib/clients";
 import { canScheduleAt, dayLabel, feedOrder, getPlan, getPosts, MAX_ATTEMPTS, mediaKey, mediaUrl, sameOriginVideo, scheduleOrder, STATUS_LABEL, STATUS_PILL, thumbOf, TYPE_LABEL, videoSource, visibleTo, type FeedPlan, type Post } from "@/lib/content";
@@ -17,7 +18,7 @@ import { igAccounts, igProfile, igRecentMedia, type IgAccount } from "@/lib/inst
 import { publishProblem } from "@/lib/publish";
 import { addDays, todayISO } from "@/lib/periods";
 import { localDir } from "@/lib/store";
-import { approveAllAction, approvePostAction, connectInstagramAction, disconnectInstagramAction, deletePostAction, importDriveAction, importDriveBatchAction, importPostsAction, publishNowAction, requestChangeAction, retryPublishAction, savePlanAction, savePostAction, scheduleAction, setCoverAction, setStatusAction, unscheduleAction } from "./actions";
+import { approveAllAction, approveAndNextAction, changeAndNextAction, connectInstagramAction, disconnectInstagramAction, deletePostAction, importDriveAction, importDriveBatchAction, importPostsAction, publishNowAction, retryPublishAction, savePlanAction, savePostAction, scheduleAction, setCoverAction, setStatusAction, unscheduleAction } from "./actions";
 
 export const dynamic = "force-dynamic";
 
@@ -35,7 +36,7 @@ function fmtCount(n?: number) {
   return n >= 10000 ? `${(n / 1000).toFixed(n >= 100000 ? 0 : 1).replace(".", ",")} mil` : n.toLocaleString("pt-BR");
 }
 
-export default async function ConteudoPage({ params, searchParams }: { params: Promise<{ slug: string }>; searchParams: Promise<{ post?: string; novo?: string; editar?: string; visao?: string }> }) {
+export default async function ConteudoPage({ params, searchParams }: { params: Promise<{ slug: string }>; searchParams: Promise<{ post?: string; novo?: string; editar?: string; visao?: string; feito?: string }> }) {
   const { slug } = await params;
   const session = await requireAuth(slug);
   const sp = await searchParams;
@@ -64,6 +65,11 @@ export default async function ConteudoPage({ params, searchParams }: { params: P
   const creating = admin && sp.novo !== undefined;
   const selected: Post | undefined = (sp.post && posts.find((p) => p.id === sp.post)) || order.find((p) => p.status === "aguardando") || order[0] || feedOrder(posts)[0];
   const base = `/cliente/${slug}/conteudo`;
+  /** Link para um post, mantendo a visão do cliente e rolando até o detalhe. */
+  const postHref = (id: string) => `${base}?${asClient ? "visao=cliente&" : ""}post=${id}#post`;
+  const firstWaiting = order.find((p) => p.status === "aguardando");
+  const inReview = planned.filter((p) => p.status !== "rascunho").length;
+  const firstName = session.role === "cliente" ? session.name.split(" ")[0] : c.name.split(" ")[0];
 
   const handle = profile?.username ?? c.name.toLowerCase().replace(/\s+/g, "");
   const initials = c.name.split(" ").map((w) => w[0]).slice(0, 2).join("");
@@ -76,12 +82,17 @@ export default async function ConteudoPage({ params, searchParams }: { params: P
           <Link href={base} className="ct-btn">Voltar à visão da equipe</Link>
         </div>
       )}
+      {!admin ? (
+        <ClientHero name={firstName} specialty={c.specialty} waiting={waiting} changes={changes} approved={approved} total={inReview}
+          nextHref={firstWaiting ? postHref(firstWaiting.id) : undefined}
+          approveAll={waiting > 1 ? <ActionButton action={approveAllAction.bind(null, slug)} label={`Aprovar todos (${waiting})`} confirm={`Aprovar de uma vez os ${waiting} posts que estão aguardando? Recomendamos abrir cada um antes.`} /> : null} />
+      ) : (
       <div className="flex flex-wrap items-end justify-between gap-4 mb-5">
         <div>
-          <p className="label">{admin ? `${c.name} · ${c.specialty}` : c.specialty}</p>
+          <p className="label">{c.name} · {c.specialty}</p>
           <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight mt-1">Planejamento de conteúdo</h1>
           <p className="text-sm text-[var(--muted)] mt-1 max-w-xl">
-            {admin ? "Visão da equipe. O cliente vê tudo, menos os rascunhos." : "Veja como o seu feed vai ficar, abra cada post e aprove ou peça alteração. Nada é publicado sem a sua aprovação."}
+            Visão da equipe. O cliente vê tudo, menos os rascunhos.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -89,9 +100,10 @@ export default async function ConteudoPage({ params, searchParams }: { params: P
           {changes > 0 && <span className="pill pill-red">{changes} com alteração</span>}
           <span className="pill pill-green">{approved} aprovados</span>
           {waiting > 1 && <ActionButton action={approveAllAction.bind(null, slug)} label={`Aprovar os ${waiting}`} variant="primary" confirm={`Aprovar os ${waiting} posts que estão aguardando?`} />}
-          {admin && <Link href={`${base}?novo`} className="ct-btn ct-btn-dark">+ Novo post</Link>}
+          <Link href={`${base}?novo`} className="ct-btn ct-btn-dark">+ Novo post</Link>
         </div>
       </div>
+      )}
 
       {admin && (
         <div className="flex flex-wrap items-center gap-3 mb-4">
@@ -123,15 +135,15 @@ export default async function ConteudoPage({ params, searchParams }: { params: P
 
       <div className="ct-layout">
         {/* Celular */}
-        <div className="ct-phone" aria-label="Prévia do perfil no Instagram">
+        <FeedFrame legend={<Legend admin={admin} />}>
           <div className="ct-screen">
             <div className="ct-ig-top"><span>{handle}</span><MenuIcon /></div>
             <div className="ct-ig-head">
               {profile?.picture ? <img src={profile.picture} alt="" className="ct-avatar" /> : <div className="ct-avatar">{initials}</div>}
               <div className="ct-stats">
                 <div><b>{fmtCount((profile?.mediaCount ?? live.length) + planned.length)}</b>posts</div>
-                <div><b>{fmtCount(profile?.followers)}</b>seguidores</div>
-                <div><b>{fmtCount(profile?.follows)}</b>seguindo</div>
+                {profile?.followers !== undefined && <div><b>{fmtCount(profile.followers)}</b>seguidores</div>}
+                {profile?.follows !== undefined && <div><b>{fmtCount(profile.follows)}</b>seguindo</div>}
               </div>
             </div>
             <div className="ct-bio"><b>{profile?.name ?? c.name}</b>{profile?.biography ?? c.specialty}</div>
@@ -139,11 +151,11 @@ export default async function ConteudoPage({ params, searchParams }: { params: P
               {grid.map((p) => {
                 const t = thumbOf(p);
                 return (
-                  <Link key={p.id} href={`${base}?${asClient ? "visao=cliente&" : ""}post=${p.id}`} className={`ct-cell ${selected?.id === p.id && !creating && !editing ? "is-current" : ""}`} aria-label={`Post ${num.get(p.id)}: ${p.title}`}>
+                  <Link key={p.id} href={postHref(p.id)} className={`ct-cell ${selected?.id === p.id && !creating && !editing ? "is-current" : ""}`} aria-label={`Post ${num.get(p.id)}: ${p.title}, ${STATUS_LABEL[p.status]}`}>
                     {t ? <img src={mediaUrl(t, 480)} alt="" loading="lazy" /> : <span className="absolute inset-0 grid place-items-center text-[11px] text-[var(--muted)]">sem capa</span>}
                     <span className="ct-num">{num.get(p.id)}</span>
                     {p.type === "carrossel" ? CAROUSEL : p.type === "reels" ? REEL : null}
-                    <span className={`ct-badge s-${p.status}`}>{STATUS_LABEL[p.status]}</span>
+                    <StatusDot status={p.status} />
                   </Link>
                 );
               })}
@@ -155,8 +167,7 @@ export default async function ConteudoPage({ params, searchParams }: { params: P
               ))}
             </div>
           </div>
-          <p className="text-[11px] text-center text-white/60 py-2">Numerados: planejados · apagados: já publicados</p>
-        </div>
+        </FeedFrame>
 
         {/* Lado direito */}
         <div className="flex flex-col gap-4 min-w-0">
@@ -166,7 +177,9 @@ export default async function ConteudoPage({ params, searchParams }: { params: P
               <PostEditor slug={slug} action={savePostAction.bind(null, slug)} post={editing} defaultDate={todayISO()} pillars={plan.pillars.map((p) => p.name)} importDrive={importDriveAction} local={local} />
             </>
           ) : selected ? (
-            <PostDetail post={selected} n={num.get(selected.id)} total={order.length} slug={slug} admin={admin} base={base} client={c} plan={plan} local={local} />
+            <PostDetail post={selected} n={num.get(selected.id)} total={order.length} slug={slug} admin={admin} base={base} client={c} plan={plan} local={local}
+              prevHref={prevOf(order, selected.id, postHref)} nextHref={nextOf(order, selected.id, postHref)} afterHref={nextWaiting(order, selected.id, postHref) ?? (asClient ? `${base}?visao=cliente` : base)}
+              hasNextWaiting={!!nextWaiting(order, selected.id, postHref)} feito={sp.feito} />
           ) : (
             <div className="card p-8 text-center">
               <p className="font-medium">Nenhum post planejado ainda.</p>
@@ -182,7 +195,7 @@ export default async function ConteudoPage({ params, searchParams }: { params: P
                 const t = thumbOf(p);
                 return (
                   <div key={p.id} className="ct-row-wrap">
-                  <Link href={`${base}?${asClient ? "visao=cliente&" : ""}post=${p.id}`} className={`ct-row ${selected?.id === p.id && !creating && !editing ? "is-current" : ""}`}>
+                  <Link href={postHref(p.id)} className={`ct-row ${selected?.id === p.id && !creating && !editing ? "is-current" : ""}`}>
                     <span className="n">{String(num.get(p.id)).padStart(2, "0")}</span>
                     {t ? <img src={mediaUrl(t, 160)} alt="" loading="lazy" /> : <span className="w-12 h-[60px] rounded-lg bg-[#eee]" />}
                     <span className="min-w-0">
@@ -214,15 +227,26 @@ export default async function ConteudoPage({ params, searchParams }: { params: P
   );
 }
 
-function PostDetail({ post: p, n, total, slug, admin, base, client, plan, local }: { post: Post; n?: number; total: number; slug: string; admin: boolean; base: string; client: Client; plan: FeedPlan; local: boolean }) {
+function PostDetail({ post: p, n, total, slug, admin, base, client, plan, local, prevHref, nextHref, afterHref, hasNextWaiting, feito }: { post: Post; n?: number; total: number; slug: string; admin: boolean; base: string; client: Client; plan: FeedPlan; local: boolean; prevHref?: string; nextHref?: string; afterHref: string; hasNextWaiting: boolean; feito?: string }) {
   const canDecide = p.status === "aguardando" || p.status === "alteracao";
   const lastChange = [...p.history].reverse().find((h) => h.action === "alteracao");
   return (
-    <section className="card p-4 sm:p-5 flex flex-col gap-4">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <p className="label">{n ? `Post ${n} de ${total} · ` : ""}{TYPE_LABEL[p.type]}{p.media.length > 1 ? ` · ${p.media.length} mídias` : ""} · {dayLabel(p.date, p.time)}</p>
-          <h2 className="text-2xl font-semibold tracking-tight mt-1">{p.title}</h2>
+    <section id="post" className="card p-4 sm:p-5 flex flex-col gap-4">
+      {(feito === "aprovado" || feito === "alteracao") && (
+        <div className="ct-done" role="status">
+          <span className="ic">{feito === "aprovado" ? <CheckIcon size={16} /> : <PencilIcon size={15} />}</span>
+          <p className="text-sm"><b>{feito === "aprovado" ? "Aprovado." : "Pedido enviado para a equipe."}</b> {canDecide ? "Este é o próximo post esperando por você." : "Não há mais posts esperando aprovação."}</p>
+        </div>
+      )}
+      <div className="ct-pager">
+        {prevHref ? <Link href={prevHref} aria-label="Post anterior" title="Post anterior"><ChevronLeftIcon /></Link> : <span className="off" aria-hidden><ChevronLeftIcon /></span>}
+        <p className="label text-center">{n ? `Post ${n} de ${total}` : TYPE_LABEL[p.type]}</p>
+        {nextHref ? <Link href={nextHref} aria-label="Próximo post" title="Próximo post"><ChevronRightIcon /></Link> : <span className="off" aria-hidden><ChevronRightIcon /></span>}
+      </div>
+      <div className="flex flex-wrap items-start justify-between gap-3 -mt-1">
+        <div className="min-w-0">
+          <h2 className="text-2xl font-semibold tracking-tight">{p.title}</h2>
+          <p className="ct-when mt-1"><CalendarIcon size={15} /> {dayLabel(p.date, p.time)} · {TYPE_LABEL[p.type]}{p.media.length > 1 ? ` · ${p.media.length} imagens` : ""}</p>
         </div>
         <span className={`pill ${STATUS_PILL[p.status]}`}>{STATUS_LABEL[p.status]}</span>
       </div>
@@ -253,18 +277,11 @@ function PostDetail({ post: p, n, total, slug, admin, base, client, plan, local 
       )}
 
       <div>
-        <p className="label mb-1">Legenda · {p.caption.length} caracteres</p>
+        <p className="label mb-1">Legenda{admin ? ` · ${p.caption.length} caracteres` : ""}</p>
         <div className="ct-caption">{p.caption || <span className="text-[var(--muted)]">Sem legenda.</span>}</div>
       </div>
 
-      <PostChecks post={p} plan={plan} />
-
-      {canDecide && (
-        <div className="flex flex-wrap items-start gap-2">
-          <ActionButton action={approvePostAction.bind(null, slug, p.id)} label="Aprovar post" variant="primary" />
-          <ChangeRequest action={requestChangeAction.bind(null, slug, p.id)} slides={p.media.length} />
-        </div>
-      )}
+      {admin && <PostChecks post={p} plan={plan} />}
 
       <PublishBlock post={p} slug={slug} admin={admin} client={client} />
 
@@ -295,8 +312,96 @@ function PostDetail({ post: p, n, total, slug, admin, base, client, plan, local 
           ))}
         </ul>
       </details>
+
+      {canDecide && (
+        <DecisionBar key={p.id} status={p.status} slides={p.media.length} hasNext={hasNextWaiting}
+          approve={approveAndNextAction.bind(null, slug, p.id, afterHref)}
+          change={changeAndNextAction.bind(null, slug, p.id, afterHref)} />
+      )}
     </section>
   );
+}
+
+/** Topo da visão do cliente: o que falta, progresso e o próximo passo. */
+function ClientHero({ name, specialty, waiting, changes, approved, total, nextHref, approveAll }: { name: string; specialty: string; waiting: number; changes: number; approved: number; total: number; nextHref?: string; approveAll: React.ReactNode }) {
+  const pct = (v: number) => (total ? `${(v / total) * 100}%` : "0%");
+  const title = total === 0
+    ? <>Seu planejamento <i>está a caminho.</i></>
+    : waiting > 0
+      ? <>{waiting === 1 ? "Um post" : `${waiting} posts`} <i>esperando você.</i></>
+      : changes > 0
+        ? <>Estamos ajustando <i>o que você pediu.</i></>
+        : <>Tudo aprovado. <i>Obrigado, {name}.</i></>;
+  const sub = total === 0
+    ? "Assim que a equipe DoctorBrand enviar os posts do mês, eles aparecem aqui para você aprovar."
+    : waiting > 0
+      ? "Toque em um post para ver em tamanho real e ler a legenda. Nada é publicado sem a sua aprovação."
+      : changes > 0
+        ? "A equipe recebeu os seus pedidos e devolve os posts aqui para uma nova olhada."
+        : "Os posts aprovados seguem para agendamento e vão ao ar nos dias marcados.";
+  return (
+    <section className="ct-hero">
+      <div className="min-w-0">
+        <p className="label">{specialty}</p>
+        <h1 className="mt-1.5">{title}</h1>
+        <p className="text-[15px] text-[var(--muted)] mt-2 max-w-xl">{sub}</p>
+        {total > 0 && (
+          <div className="mt-4 max-w-xl">
+            <div className="ct-progress" role="img" aria-label={`${approved} de ${total} aprovados`}>
+              <span style={{ width: pct(approved), background: "var(--good)" }} />
+              <span style={{ width: pct(changes), background: "var(--bad)" }} />
+              <span style={{ width: pct(waiting), background: "#e7c27c" }} />
+            </div>
+            <p className="text-xs text-[var(--muted)] mt-2 flex flex-wrap gap-x-3 gap-y-1">
+              <span className="inline-flex items-center gap-1.5"><span className="ct-dot ct-dot-inline s-aprovado"><CheckIcon size={10} /></span>{approved} aprovado{approved === 1 ? "" : "s"}</span>
+              {changes > 0 && <span className="inline-flex items-center gap-1.5"><span className="ct-dot ct-dot-inline s-alteracao"><PencilIcon size={9} /></span>{changes} em ajuste</span>}
+              {waiting > 0 && <span className="inline-flex items-center gap-1.5"><span className="ct-dot ct-dot-inline s-aguardando" />{waiting} para aprovar</span>}
+            </p>
+          </div>
+        )}
+      </div>
+      {(nextHref || approveAll) && (
+        <div className="ct-hero-actions">
+          {nextHref && <Link href={nextHref} className="ct-btn ct-btn-primary ct-btn-lg">Revisar o próximo <ArrowRightIcon /></Link>}
+          {approveAll}
+        </div>
+      )}
+    </section>
+  );
+}
+
+function StatusDot({ status }: { status: Post["status"] }) {
+  const icon = status === "aprovado" ? <CheckIcon size={13} /> : status === "agendado" ? <ClockIcon size={13} /> : status === "alteracao" ? <PencilIcon size={12} /> : null;
+  return <span className={`ct-dot s-${status}`} aria-hidden>{icon}</span>;
+}
+
+function Legend({ admin }: { admin: boolean }) {
+  return (
+    <div className="ct-legend">
+      <span><span className="ct-dot ct-dot-inline s-aguardando" /> Para aprovar</span>
+      <span><span className="ct-dot ct-dot-inline s-aprovado"><CheckIcon size={10} /></span> Aprovado</span>
+      <span><span className="ct-dot ct-dot-inline s-agendado"><ClockIcon size={10} /></span> Agendado</span>
+      <span><span className="ct-dot ct-dot-inline s-alteracao"><PencilIcon size={9} /></span> Em ajuste</span>
+      {admin && <span><span className="ct-dot ct-dot-inline s-rascunho" /> Rascunho</span>}
+      <span className="basis-full justify-center text-white/50">Apagados: já publicados</span>
+    </div>
+  );
+}
+
+function prevOf(order: Post[], id: string, href: (id: string) => string) {
+  const i = order.findIndex((p) => p.id === id);
+  return i > 0 ? href(order[i - 1].id) : undefined;
+}
+function nextOf(order: Post[], id: string, href: (id: string) => string) {
+  const i = order.findIndex((p) => p.id === id);
+  return i >= 0 && i < order.length - 1 ? href(order[i + 1].id) : undefined;
+}
+/** Próximo post (depois deste, dando a volta) que ainda espera aprovação. */
+function nextWaiting(order: Post[], id: string, href: (id: string) => string) {
+  const i = order.findIndex((p) => p.id === id);
+  const rest = [...order.slice(i + 1), ...order.slice(0, Math.max(0, i))];
+  const n = rest.find((p) => p.status === "aguardando" && p.id !== id);
+  return n ? href(n.id) : undefined;
 }
 
 function PublishBlock({ post: p, slug, admin, client }: { post: Post; slug: string; admin: boolean; client: Client }) {
@@ -314,9 +419,14 @@ function PublishBlock({ post: p, slug, admin, client }: { post: Post; slug: stri
     const future = canScheduleAt(p);
     return (
       <div className="border-t border-[var(--line)] pt-3 flex flex-col gap-2">
-        <p className="label">Agendar publicação</p>
-        {problem ? <p className="text-sm g-warn">{problem}</p> : (
-          <ScheduleForm action={scheduleAction.bind(null, slug, p.id)} date={future ? p.date : ""} time={p.time} />
+        <p className="label">{admin ? "Agendar publicação" : "Quando publicar"}</p>
+        {problem ? (
+          admin ? <p className="text-sm g-warn">{problem}</p> : <p className="text-sm text-[var(--muted)]">Aprovado. A equipe DoctorBrand cuida da publicação{future ? `, prevista para ${dayLabel(p.date, p.time)}` : ""}.</p>
+        ) : (
+          <>
+            {!admin && <p className="text-sm text-[var(--muted)]">{future ? `Sugestão da equipe: ${dayLabel(p.date, p.time)}. Mude se preferir e toque em Agendar.` : "Escolha o dia e a hora. O post vai ao ar sozinho."}</p>}
+            <ScheduleForm action={scheduleAction.bind(null, slug, p.id)} date={future ? p.date : ""} time={p.time} label={admin ? "Agendar publicação" : "Agendar"} />
+          </>
         )}
       </div>
     );

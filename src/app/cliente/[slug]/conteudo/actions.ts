@@ -71,6 +71,28 @@ export async function requestChangeAction(slug: string, id: string, _prev: Actio
   return { ok: true, message: "Pedido enviado para a equipe." };
 }
 
+/** Destino depois de decidir: só dentro da página de conteúdo deste cliente. */
+function afterDecision(slug: string, next: string, done: "aprovado" | "alteracao"): string {
+  const b = path(slug);
+  const safe = typeof next === "string" && next.startsWith(b) && !next.includes("//") ? next : b;
+  const [pathq, hash] = safe.split("#");
+  return `${pathq}${pathq.includes("?") ? "&" : "?"}feito=${done}${hash ? `#${hash}` : ""}`;
+}
+
+/** Aprovar e seguir para o próximo post que espera aprovação. */
+export async function approveAndNextAction(slug: string, id: string, next: string, prev: ActionResult | null): Promise<ActionResult> {
+  const r = await approvePostAction(slug, id, prev);
+  if (!r.ok) return r;
+  redirect(afterDecision(slug, next, "aprovado"));
+}
+
+/** Pedir alteração e seguir para o próximo post que espera aprovação. */
+export async function changeAndNextAction(slug: string, id: string, next: string, prev: ActionResult | null, fd: FormData): Promise<ActionResult> {
+  const r = await requestChangeAction(slug, id, prev, fd);
+  if (!r.ok) return r;
+  redirect(afterDecision(slug, next, "alteracao"));
+}
+
 // ─── Equipe ────────────────────────────────────────────────────────────
 
 function parseMedia(raw: string, slug: string): Media[] {
