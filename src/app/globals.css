@@ -669,3 +669,8 @@ table.data.compact th, table.data.compact td { padding: 6px 8px; font-size: 12px
   .ac-tools { flex-basis: 100%; }
   .ac-search { max-width: none; }
 }
+
+/* Imagem sem acesso (Drive fechado por link): aviso limpo no lugar do ícone quebrado */
+.ct-noimg { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; width: 100%; height: 100%; background: #ececee; color: #8e8e93; font-size: 11px; font-weight: 500; text-align: center; padding: 8px; }
+.ct-slide .ct-noimg { aspect-ratio: 4 / 5; height: auto; border-radius: 14px; }
+.ct-row .ct-noimg { width: 48px; height: 60px; flex: none; border-radius: 8px; padding: 0; }

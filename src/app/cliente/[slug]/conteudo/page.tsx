@@ -5,6 +5,7 @@ import { ActionButton, ConnectInstagram, DeleteIconButton, ScheduleForm } from "
 import { CoverPicker } from "@/components/content/CoverPicker";
 import { PostEditor } from "@/components/content/PostEditor";
 import { VideoPlayer } from "@/components/content/VideoPlayer";
+import { MediaImg } from "@/components/content/MediaImg";
 import { ZipImport } from "@/components/content/ZipImport";
 import { ListImport } from "@/components/content/ListImport";
 import { FeedGrid } from "@/components/content/FeedGrid";
@@ -163,7 +164,7 @@ export default async function ConteudoPage({ params, searchParams }: { params: P
                   id: p.id, href: postHref(p.id), current: selected?.id === p.id && !creating && !editing,
                   label: `Post ${num.get(p.id)}: ${p.title}, ${STATUS_LABEL[p.status]}`,
                   content: <>
-                    {t ? <img src={mediaUrl(t, 480)} alt="" loading="lazy" draggable={false} /> : <span className="absolute inset-0 grid place-items-center text-[11px] text-[var(--muted)]">sem capa</span>}
+                    {t ? <MediaImg src={mediaUrl(t, 480)} loading="lazy" draggable={false} /> : <span className="absolute inset-0 grid place-items-center text-[11px] text-[var(--muted)]">sem capa</span>}
                     <span className="ct-num">{num.get(p.id)}</span>
                     {p.type === "carrossel" ? CAROUSEL : p.type === "reels" ? REEL : null}
                     <StatusDot status={p.status} />
@@ -209,7 +210,7 @@ export default async function ConteudoPage({ params, searchParams }: { params: P
                   <div key={p.id} className="ct-row-wrap">
                   <Link href={postHref(p.id)} className={`ct-row ${selected?.id === p.id && !creating && !editing ? "is-current" : ""}`}>
                     <span className="n">{String(num.get(p.id)).padStart(2, "0")}</span>
-                    {t ? <img src={mediaUrl(t, 160)} alt="" loading="lazy" /> : <span className="w-12 h-[60px] rounded-lg bg-[#eee]" />}
+                    {t ? <MediaImg src={mediaUrl(t, 160)} loading="lazy" small className="w-12 h-[60px] rounded-lg" /> : <span className="w-12 h-[60px] rounded-lg bg-[#eee]" />}
                     <span className="min-w-0">
                       <span className="label block">{TYPE_LABEL[p.type]} · {dayLabel(p.date, p.time)}</span>
                       <span className="block font-medium truncate">{p.title}</span>
@@ -281,7 +282,7 @@ function PostDetail({ post: p, n, total, slug, admin, base, client, plan, local,
           <div key={mediaKey(m)} className={`ct-slide ${p.type === "reels" ? "is-reel" : ""}`}>
             {m.kind === "video"
               ? <VideoPlayer {...videoSource(m)} poster={mediaUrl(p.type === "reels" && p.cover ? p.cover : m.driveId ? m : undefined, 720)} vertical={p.type === "reels"} label={p.title} />
-              : <img src={mediaUrl(m, 1080)} alt={`${p.title}, imagem ${i + 1}`} />}
+              : <MediaImg src={mediaUrl(m, 1080)} alt={`${p.title}, imagem ${i + 1}`} />}
             {p.media.length > 1 && <span className="ct-num">{i + 1}</span>}
           </div>
         ))}
