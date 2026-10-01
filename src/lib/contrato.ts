@@ -61,8 +61,18 @@ export function contratoStatus(c: Contrato | undefined, hoje: string, clienteDes
       cicloInicio = a; proxima = b;
     }
   }
+  // Data informada à mão (ou no CRM do ClickUp). Se já passou e o contrato renova sozinho,
+  // vale o ciclo calculado; sem ciclo calculado, a data anda para a frente pelo prazo.
   const manual = c?.renovacao || renovacaoCrm;
-  if (manual) { proxima = manual; vencido = manual < hoje && regra === "nova"; }
+  if (manual) {
+    if (manual >= hoje || regra === "nova") { proxima = manual; vencido = manual < hoje && regra === "nova"; }
+    else if (!proxima) {
+      const passo = regra === "mensal" ? 1 : meses ?? 12;
+      let b = manual;
+      for (let i = 0; b < hoje && i < 240; i++) b = addMonths(b, passo);
+      proxima = b;
+    }
+  }
 
   const regraTexto = !meses ? undefined
     : regra === "iguais" ? `Renova automaticamente a cada ${meses} ${meses === 1 ? "mês" : "meses"}.`

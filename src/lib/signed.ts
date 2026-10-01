@@ -7,7 +7,12 @@ import { createHmac, timingSafeEqual } from "crypto";
 const key = () => `${process.env.PANEL_PASSWORD ?? ""}:media-public:v1`;
 const sign = (p: string, exp: number) => createHmac("sha256", key()).update(`${p}|${exp}`).digest("hex");
 
-export const publicBase = () => (process.env.PUBLIC_BASE_URL ?? "https://members.doctorbrand.co").replace(/\/$/, "");
+const DOMINIO = "https://members.doctorbrand.co";
+/** Endereço público. O antigo login.doctorbrand.co nunca teve DNS: se ainda estiver na variável, vale o novo. */
+export const publicBase = () => {
+  const env = process.env.PUBLIC_BASE_URL?.trim();
+  return (!env || /login\.doctorbrand\.co/i.test(env) ? DOMINIO : env).replace(/\/$/, "");
+};
 
 export function signedMediaUrl(path: string, ttlSeconds = 24 * 3600): string {
   const exp = Math.floor(Date.now() / 1000) + ttlSeconds;
