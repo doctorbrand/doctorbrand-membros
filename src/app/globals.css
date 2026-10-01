@@ -517,11 +517,15 @@ table.data.compact th, table.data.compact td { padding: 6px 8px; font-size: 12px
 @media (max-width: 420px) { .nps-scale { gap: 3px; } .nps-opt span { height: 34px; font-size: 13px; border-radius: 8px; } }
 .av-nps { padding: 14px 18px; display: flex; flex-direction: column; gap: 2px; min-width: 170px; }
 .av-nps b { font-size: 34px; font-weight: 600; letter-spacing: -0.02em; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.av-cu { display: flex; align-items: center; gap: 14px; padding: 14px 18px; margin-bottom: 14px; }
+@media (max-width: 640px) { .av-cu { flex-direction: column; align-items: stretch; } }
 .nps form.flex-col:not(.mt-3) { align-items: flex-start; }
 
 /* Onboarding */
 .ob-item { border: 1px solid var(--line); border-radius: 14px; padding: 12px 14px; background: #fff; }
 .ob-item.is-confirmado { background: #f5faf7; border-color: #d7ebdf; }
+.ob-modo { display: flex; align-items: center; gap: 14px; padding: 14px 18px; }
+@media (max-width: 640px) { .ob-modo { flex-direction: column; align-items: stretch; } }
 .ob-sum { list-style: none; display: flex; gap: 12px; align-items: flex-start; cursor: pointer; }
 .ob-sum::-webkit-details-marker { display: none; }
 .ob-dot { width: 22px; height: 22px; border-radius: 999px; flex: none; margin-top: 1px; display: grid; place-items: center; color: #fff; box-shadow: inset 0 0 0 1.5px #c7c7cc; }
@@ -550,6 +554,8 @@ table.data.compact th, table.data.compact td { padding: 6px 8px; font-size: 12px
 .sb.is-min .sb-client { padding: 6px; justify-content: center; background: transparent; }
 .sb-avatar { width: 32px; height: 32px; border-radius: 999px; background: var(--ink); color: #fff; display: grid; place-items: center; font-weight: 600; font-size: 14px; flex: none; }
 .sb-avatar.is-user { background: #ececf0; color: var(--muted); width: 28px; height: 28px; }
+.sb-avatar.is-photo { object-fit: cover; background: #ececf0; }
+.sb-avatar.is-sm { width: 28px; height: 28px; font-size: 12px; }
 .sb-nav { display: flex; flex-direction: column; gap: 12px; flex: 1; scrollbar-width: none; min-height: 0; overflow-y: auto; margin: 0 -6px; padding: 0 6px; }
 .sb-sec { display: flex; flex-direction: column; gap: 2px; }
 .sb-title { font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: #a1a1a6; padding: 0 12px 4px; }

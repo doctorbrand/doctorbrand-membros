@@ -4,8 +4,11 @@ import { ActionButton } from "@/components/content/ContentActions";
 import { CopyButton } from "@/components/avisos/CopyButton";
 import { ArrowUpRightIcon, ChatIcon, CheckIcon } from "@/components/Icons";
 import { requireAdmin } from "@/lib/auth";
-import { AVISO_LABEL, buildAvisos, getSent, waLink, type Aviso } from "@/lib/avisos";
-import { markSentAction, undoSentAction } from "./actions";
+import { AVISO_LABEL, avisoPath, buildAvisos, getSent, waLink, type Aviso } from "@/lib/avisos";
+import { clickupAction, markSentAction, undoSentAction } from "./actions";
+import { getAvisosTask } from "@/lib/avisosClickup";
+import { clickupOn } from "@/lib/clickup";
+import { todayISO } from "@/lib/periods";
 import { listClients } from "@/lib/clients";
 import { getNps, npsScore, ultima } from "@/lib/nps";
 
@@ -15,7 +18,8 @@ const hora = (iso: string) => new Date(iso).toLocaleString("pt-BR", { timeZone: 
 
 export default async function AvisosPage() {
   const session = await requireAdmin();
-  const [avisos, sent, clients] = await Promise.all([buildAvisos(), getSent(), listClients()]);
+  const [avisos, sent, clients, task] = await Promise.all([buildAvisos(), getSent(), listClients(), getAvisosTask()]);
+  const taskHoje = task?.date === todayISO() ? task : null;
   const lastScores = (await Promise.all(clients.map((c) => getNps(c.slug).then((d) => ultima(d)?.score)))).filter((x): x is number => x !== undefined);
   const nps = npsScore(lastScores);
   const pending = avisos.filter((a) => !sent[a.key]);
@@ -37,6 +41,19 @@ export default async function AvisosPage() {
           <span className="text-[12.5px] text-[var(--muted)]">{lastScores.length ? `${lastScores.length} ${lastScores.length === 1 ? "cliente respondeu" : "clientes responderam"}` : "Ainda sem respostas"}</span>
         </div>
       </section>
+
+      {clickupOn() && (
+        <div className="card av-cu">
+          <span className="min-w-0 flex-1">
+            <span className="block font-medium">Tarefa da Carol no ClickUp</span>
+            <span className="block text-[13px] text-[var(--muted)]">
+              {taskHoje ? <>Hoje às {hora(taskHoje.at).split(" ").at(-1)}, com {taskHoje.count} {taskHoje.count === 1 ? "aviso" : "avisos"}. </> : "Todo dia às 9h o sistema cria uma tarefa para ela com os avisos pendentes. "}
+              {taskHoje && <a href={taskHoje.url} target="_blank" rel="noreferrer" className="underline underline-offset-2">Abrir tarefa</a>}
+            </span>
+          </span>
+          <ActionButton action={clickupAction} label={taskHoje ? "Atualizar agora" : "Enviar agora"} variant="ghost" />
+        </div>
+      )}
 
       <div className="av-list">
         {toClient.map((a) => <AvisoCard key={a.key} a={a} />)}
@@ -77,7 +94,7 @@ function AvisoCard({ a }: { a: Aviso }) {
           <p className="text-[14.5px] mt-0.5">{a.title}</p>
           <p className="text-[13px] text-[var(--muted)]">{a.detail}</p>
         </div>
-        <Link href={a.kind === "circle" ? "/admin/indicacoes" : a.kind === "onboarding" ? `/cliente/${a.client.slug}/onboarding` : a.kind === "contrato" || a.kind === "nps" ? `/cliente/${a.client.slug}` : a.kind === "aprovar" || a.kind === "ajuste" ? `/cliente/${a.client.slug}/conteudo` : a.kind === "relatorio" ? `/relatorio/${a.client.slug}/${a.key.split(":").at(-1)}` : `/cliente/${a.client.slug}`} className="pj-more flex-none">Abrir <ArrowUpRightIcon size={14} /></Link>
+        <Link href={avisoPath(a)} className="pj-more flex-none">Abrir <ArrowUpRightIcon size={14} /></Link>
       </div>
       {a.message && <p className="av-msg">{a.message}</p>}
       <div className="flex flex-wrap items-center gap-2 mt-3">

@@ -6,6 +6,7 @@ import { requireAdmin, requireAuth , PREVIEW_BLOCK } from "@/lib/auth";
 import { getClient } from "@/lib/clients";
 import { acessos, BRIEFING, getOnboarding, saveOnboarding } from "@/lib/onboarding";
 import { getProfile, saveProfile } from "@/lib/profile";
+import { getProject, saveProject } from "@/lib/project";
 import { publicBase } from "@/lib/signed";
 import type { ActionResult } from "@/lib/types";
 
@@ -46,7 +47,17 @@ export async function confirmarAcessoAction(slug: string, id: string, _prev: Act
 export async function salvarBriefingAction(slug: string, _prev: ActionResult | null, fd: FormData): Promise<ActionResult> {
   const s = await requireAuth(slug);
   if (s.preview) return PREVIEW_BLOCK;
-  const enviar = String(fd.get("intent")) === "enviar";
+  const intent = String(fd.get("intent"));
+  // Cliente da casa: a equipe registra o briefing internamente, sem mínimo e sem alerta.
+  if (intent === "interno") {
+    if (s.role !== "admin") return { ok: false, message: "Só a equipe." };
+    const respostas = Object.fromEntries(BRIEFING.map((q) => [q.key, String(fd.get(q.key) ?? "").trim().slice(0, 3000)]).filter(([, v]) => v));
+    const d = await getOnboarding(slug);
+    d.briefing = { ...d.briefing, respostas, enviadoEm: Object.keys(respostas).length ? new Date().toISOString() : undefined, por: s.name };
+    await saveOnboarding(slug, d);
+    return done(slug, "Briefing salvo.");
+  }
+  const enviar = intent === "enviar";
   const respostas = Object.fromEntries(BRIEFING.map((q) => [q.key, String(fd.get(q.key) ?? "").trim().slice(0, 3000)]).filter(([, v]) => v));
   if (enviar && Object.keys(respostas).length < 4) return { ok: false, message: "Responda pelo menos 4 perguntas para enviar. Você pode salvar e continuar depois." };
   const d = await getOnboarding(slug);
@@ -71,4 +82,12 @@ export async function aplicarBriefingAction(slug: string, _prev: ActionResult | 
   d.briefing = { ...d.briefing!, aplicadoEm: new Date().toISOString() };
   await saveOnboarding(slug, d);
   return done(slug, `${Object.keys(patch).length} campos levados para o Perfil.`);
+}
+
+/** Equipe: cliente entrando (vê e preenche o onboarding) ou cliente da casa (registro interno). */
+export async function modoOnboardingAction(slug: string, modo: "ativo" | "interno", _prev: ActionResult | null): Promise<ActionResult> {
+  const s = await requireAdmin();
+  const p = await getProject(slug);
+  await saveProject(slug, { ...p, onboarding: modo }, s.name);
+  return done(slug, modo === "ativo" ? "Onboarding ligado para o cliente." : "Agora é registro interno. O cliente não vê.");
 }

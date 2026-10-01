@@ -51,6 +51,8 @@ export interface Project {
   plano?: string;
   /** Implementação tem começo, meio e fim (mostra as etapas); gestão mensal é recorrente. */
   tipo?: ProjetoTipo;
+  /** Onboarding com o cliente (ele vê e preenche) ou só registro interno de acessos e briefing (cliente da casa). */
+  onboarding?: "ativo" | "interno";
   deliverables?: Deliverable[];
   /** WhatsApp da equipe para o cliente (só números, com DDI). */
   whatsapp?: string;
@@ -313,4 +315,9 @@ export { newId };
 /** Implementação: pelo tipo marcado ou pelo nome do plano. O resto é gestão mensal. */
 export function isImplementacao(p: Project): boolean {
   return p.tipo ? p.tipo === "implementacao" : /implementa/i.test(p.plano ?? "");
+}
+
+/** O cliente está entrando: vê o Onboarding e preenche. Sem marcação, só Implementação começa com onboarding ativo. */
+export function onboardingAtivo(p: Project): boolean {
+  return p.onboarding ? p.onboarding === "ativo" : isImplementacao(p);
 }

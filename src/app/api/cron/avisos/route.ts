@@ -1,16 +1,18 @@
 import { NextResponse } from "next/server";
-import { sendAlert } from "@/lib/alerts";
+import { configuredChannels, sendAlert } from "@/lib/alerts";
 import { AVISO_LABEL, buildAvisos, getSent } from "@/lib/avisos";
+import { avisosMarkdown, enviarAvisosClickup } from "@/lib/avisosClickup";
 import { publicBase } from "@/lib/signed";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
 /**
- * Resumo diário dos avisos para a Carol (pelo canal de alertas configurado: Telegram, WhatsApp Cloud ou Twilio).
- * Agendar uma vez por dia no cron-job.org, por exemplo às 9h:
- *   GET https://login.doctorbrand.co/api/cron/avisos?key=<CRON_SECRET>
- * Com ?teste=1 devolve o texto sem enviar.
+ * Resumo diário dos avisos para a Carol.
+ * 1. Tarefa no ClickUp atribuída a ela (lista "Avisos · Área de membros").
+ * 2. Mensagem pelo canal de alertas, se houver um configurado (Telegram, WhatsApp Cloud ou Twilio).
+ * Roda pelo Vercel Cron (vercel.json, todo dia às 9h de Brasília), que manda Bearer CRON_SECRET.
+ * Também aceita ?key=<CRON_SECRET>. Com ?teste=1 devolve o texto sem enviar nada.
  */
 export async function GET(req: Request) {
   const url = new URL(req.url);
@@ -20,14 +22,16 @@ export async function GET(req: Request) {
   }
   const [avisos, sent] = await Promise.all([buildAvisos(), getSent()]);
   const pending = avisos.filter((a) => !sent[a.key]);
-  if (!pending.length) return NextResponse.json({ sent: false, pending: 0 });
   const lines = pending.slice(0, 20).map((a) => `• *${a.client.name}* · ${AVISO_LABEL[a.kind]}: ${a.title}`);
   const body = `*Avisos de hoje* (${pending.length})\n${lines.join("\n")}${pending.length > 20 ? `\n…e mais ${pending.length - 20}` : ""}\n\nMensagens prontas: ${publicBase()}/admin/avisos`;
-  if (url.searchParams.get("teste")) return NextResponse.json({ sent: false, pending: pending.length, body });
-  try {
-    const r = await sendAlert(body);
-    return NextResponse.json({ sent: true, pending: pending.length, channel: r.channel });
-  } catch (e) {
-    return NextResponse.json({ sent: false, pending: pending.length, error: e instanceof Error ? e.message : String(e) }, { status: 502 });
+  if (url.searchParams.get("teste")) return NextResponse.json({ pending: pending.length, body, clickup: avisosMarkdown(pending) });
+
+  const clickup = await enviarAvisosClickup();
+  let alert: { sent: boolean; channel?: string; error?: string } = { sent: false };
+  if (pending.length && configuredChannels().length) {
+    try { alert = { sent: true, channel: (await sendAlert(body)).channel }; }
+    catch (e) { alert = { sent: false, error: e instanceof Error ? e.message : String(e) }; }
   }
+  const ok = clickup.ok || alert.sent || !pending.length;
+  return NextResponse.json({ pending: pending.length, clickup, alert }, { status: ok ? 200 : 502 });
 }

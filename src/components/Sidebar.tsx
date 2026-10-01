@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { LogoMark } from "@/components/Logo";
+import { ClientAvatar } from "@/components/ClientAvatar";
 import {
   BellIcon, ChecklistIcon, ChevronLeftIcon, ChevronRightIcon, GearIcon, GridIcon, HelpIcon, HomeIcon, KeyIcon, LogoutIcon,
   MegaphoneIcon, MenuIcon, EyeIcon, SparkIcon, TrendIcon, UserIcon, UsersIcon, WandIcon, XIcon,
@@ -21,7 +22,7 @@ const COOKIE = "db_sb";
 
 /** Menu lateral: recolhe para só ícones (lembra a escolha) e vira gaveta no celular. */
 export function Sidebar({ sections, footer, user, client, home, initialCollapsed }: {
-  sections: NavSection[]; footer: NavItem[]; user: string; client?: { name: string; sub?: string; switchHref?: string }; home: string; initialCollapsed: boolean;
+  sections: NavSection[]; footer: NavItem[]; user: string; client?: { name: string; sub?: string; switchHref?: string; photo?: string }; home: string; initialCollapsed: boolean;
 }) {
   const [collapsed, setCollapsed] = useState(initialCollapsed);
   const [open, setOpen] = useState(false);
@@ -77,7 +78,7 @@ export function Sidebar({ sections, footer, user, client, home, initialCollapsed
 
         {client && (
           <div className="sb-client" {...tipProps(client.name)}>
-            <span className="sb-avatar">{client.name.replace(/^(dra?\.?\s+)/i, "").charAt(0).toUpperCase()}</span>
+            <ClientAvatar name={client.name} photo={client.photo} />
             <span className="sb-label min-w-0">
               <span className="block font-medium truncate">{client.name}</span>
               {client.switchHref ? <Link href={client.switchHref} className="block text-[12px] text-[var(--muted)] hover:text-[var(--ink)]">Trocar cliente</Link> : client.sub && <span className="block text-[12px] text-[var(--muted)] truncate">{client.sub}</span>}

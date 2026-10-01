@@ -8,6 +8,8 @@ import { addClientAction, removeClientAction } from "./actions";
 import { getPlan, getPosts, plannedAt } from "@/lib/content";
 import { scoreFeed } from "@/lib/feedScore";
 import { todayISO } from "@/lib/periods";
+import { igProfile } from "@/lib/instagram";
+import { ClientAvatar } from "@/components/ClientAvatar";
 
 export const dynamic = "force-dynamic";
 
@@ -17,11 +19,11 @@ export default async function ConteudoIndex() {
   const clients = await listClients();
   const today = todayISO();
   const rows = await Promise.all(clients.map(async (c) => {
-    const [posts, plan] = await Promise.all([getPosts(c.slug), getPlan(c.slug)]);
+    const [posts, plan, ig] = await Promise.all([getPosts(c.slug), getPlan(c.slug), c.igUserId ? igProfile(c.igUserId).catch(() => null) : null]);
     const visible = posts.filter((p) => p.status !== "rascunho");
     const next = posts.filter((p) => p.status === "agendado").sort((a, b) => plannedAt(a).getTime() - plannedAt(b).getTime())[0];
     return {
-      c, total: posts.length,
+      c, photo: ig?.picture, total: posts.length,
       waiting: posts.filter((p) => p.status === "aguardando").length,
       changes: posts.filter((p) => p.status === "alteracao").length,
       scheduled: posts.filter((p) => p.status === "agendado").length,
@@ -54,7 +56,7 @@ export default async function ConteudoIndex() {
                     </button>
                   </ActionForm>
                 </td>
-                <td><Link href={`/cliente/${r.c.slug}/conteudo`} className="font-medium hover:underline">{r.c.name}</Link><div className="text-[11px] text-[var(--muted)]">{r.c.specialty}</div>
+                <td><div className="flex items-center gap-2.5 text-left"><ClientAvatar name={r.c.name} photo={r.photo} className="sb-avatar is-sm" /><div className="min-w-0"><Link href={`/cliente/${r.c.slug}/conteudo`} className="font-medium hover:underline">{r.c.name}</Link><div className="text-[11px] text-[var(--muted)]">{r.c.specialty}</div></div></div>
 </td>
                 <td>{r.score ? <span className={`pill ${r.score.total >= 85 ? "pill-green" : r.score.total >= 70 ? "pill-info" : r.score.total >= 50 ? "pill-yellow" : "pill-red"}`}>{r.score.total}</span> : "—"}</td>
                 <td>{r.changes ? <span className="pill pill-red">{r.changes}</span> : "0"}</td>

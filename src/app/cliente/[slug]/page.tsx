@@ -23,7 +23,7 @@ import { ContractCard } from "@/components/project/ContractCard";
 import { NpsCard } from "@/components/project/NpsCard";
 import { METODO } from "@/lib/evolucao";
 import { NextStep } from "@/components/evolucao/NextStep";
-import { arrangeMaterials, calendarAliases, getProject, isImplementacao, MATERIAL_SLOTS, STEP_LABEL, type MaterialKind, type MaterialSlot, type ProjectStep } from "@/lib/project";
+import { arrangeMaterials, calendarAliases, getProject, isImplementacao, MATERIAL_SLOTS, STEP_LABEL, type MaterialKind, type MaterialSlot, type ProjectStep, onboardingAtivo } from "@/lib/project";
 import { saveContratoAction, addMaterialAction, addStepAction, applyDefaultStepsAction, deleteMaterialAction, deleteStepAction, moveStepAction, saveProjectInfoAction, updateStepAction } from "./actions";
 
 export const dynamic = "force-dynamic";
@@ -134,7 +134,7 @@ export default async function ProjetoPage({ params, searchParams }: { params: Pr
 
       <div className="pj-grid">
         <div className="flex flex-col gap-4 min-w-0">
-          {(!onbPr.completo || admin) && (
+          {onboardingAtivo(project) && (!onbPr.completo || admin) && (
             <Link href={`/cliente/${slug}/onboarding${q}`} className={`card p-5 pj-evo ${!onbPr.completo && !admin ? "pj-onb" : ""}`}>
               <span className="min-w-0 flex-1">
                 <span className="label block">Onboarding · acessos e briefing</span>

@@ -18,7 +18,7 @@ export default async function ConfiguracoesPage() {
     ] },
     { titulo: "Conteúdo e Instagram", itens: [
       { nome: "Meta (Instagram)", faz: "Publica os posts aprovados e lê o feed.", ok: on("META_ACCESS_TOKEN"), como: "META_ACCESS_TOKEN" },
-      { nome: "Publicação automática", faz: "Publica na hora marcada e manda o resumo diário de avisos.", ok: on("CRON_SECRET"), como: "CRON_SECRET + agendamento no cron-job.org" },
+      { nome: "Publicação automática", faz: "Publica os posts aprovados na hora marcada.", ok: on("CRON_SECRET"), como: "CRON_SECRET + agendamento no cron-job.org" },
       { nome: "Apify", faz: "Lê perfis do Instagram sem conta ligada (diagnóstico).", ok: on("APIFY_TOKEN"), como: "APIFY_TOKEN", opcional: true },
       { nome: "Google Drive", faz: "Importa mídias de pastas do Drive.", ok: on("GOOGLE_API_KEY"), como: "GOOGLE_API_KEY", opcional: true },
     ] },
@@ -30,7 +30,8 @@ export default async function ConfiguracoesPage() {
       { nome: "ID de parceiro Meta", faz: "Aparece no passo a passo do onboarding.", ok: on("META_PARTNER_ID"), como: "META_PARTNER_ID", opcional: true },
     ] },
     { titulo: "Avisos para a equipe", itens: [
-      { nome: "Canal de alertas", faz: "Aprovações, ajustes, termômetro, indicações e resumo diário.", ok: on("TELEGRAM_BOT_TOKEN", "WHATSAPP_PHONE_ID", "TWILIO_ACCOUNT_SID"), como: "TELEGRAM_BOT_TOKEN (ou WhatsApp Cloud / Twilio)" },
+      { nome: "Tarefa diária da Carol", faz: "Todo dia às 9h, uma tarefa no ClickUp com os avisos do dia, atribuída a ela.", ok: on("CLICKUP_API_TOKEN") && on("CRON_SECRET"), como: "CLICKUP_API_TOKEN + CRON_SECRET" },
+      { nome: "Canal de alertas", faz: "Aprovações, ajustes, termômetro e indicações na hora em que acontecem.", ok: on("TELEGRAM_BOT_TOKEN", "WHATSAPP_PHONE_ID", "TWILIO_ACCOUNT_SID"), como: "TELEGRAM_BOT_TOKEN (ou WhatsApp Cloud / Twilio)", opcional: true },
     ] },
   ];
   const total = grupos.flatMap((g) => g.itens).filter((i) => !i.opcional);

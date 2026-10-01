@@ -6,7 +6,8 @@ import { getClient } from "@/lib/clients";
 import { acessosDoPlano, getOnboarding, progresso } from "@/lib/onboarding";
 import { todayISO, fmtDate } from "@/lib/periods";
 import { planKey } from "@/lib/plans";
-import { getProject } from "@/lib/project";
+import { getProject, onboardingAtivo } from "@/lib/project";
+import { igProfile } from "@/lib/instagram";
 
 export type ShellActive =
   | "geral" | "projeto" | "evolucao" | "conteudo" | "anuncios" | "ajuda" | "perfil" | "gerar"
@@ -21,17 +22,19 @@ export async function Shell({ children, active, session, clientSlug }: { childre
 
   const it = (href: string, label: string, icon: NavItem["icon"], key: ShellActive): NavItem => ({ href, label, icon, active: active === key });
   const sections: NavSection[] = [];
-  let client: { name: string; sub?: string; switchHref?: string } | undefined;
+  let client: { name: string; sub?: string; switchHref?: string; photo?: string } | undefined;
 
   if (slug) {
     const c = await getClient(slug).catch(() => undefined);
-    // O cliente só vê o Onboarding enquanto ele não estiver completo; a equipe sempre vê.
-    let showOnb = admin;
-    if (isClient) {
-      const [p, d] = await Promise.all([getProject(slug), getOnboarding(slug)]).catch(() => [null, null] as const);
-      if (p && d) { const k = planKey(p.plano); showOnb = !progresso(d, acessosDoPlano(k === "growth" || k === "black")).completo; }
-    }
-    if (c) client = { name: c.name, sub: isClient ? "Área de membros" : c.specialty, switchHref: admin ? "/conteudo" : undefined };
+    // Onboarding só para quem está entrando, e o cliente só vê enquanto não estiver completo.
+    // Cliente da casa: vira "Acessos e briefing", registro interno que só a equipe vê.
+    const [p, d] = await Promise.all([getProject(slug), getOnboarding(slug)]).catch(() => [null, null] as const);
+    const ativo = !!p && onboardingAtivo(p);
+    let showOnb = admin && ativo;
+    if (isClient && p && d && ativo) { const k = planKey(p.plano); showOnb = !progresso(d, acessosDoPlano(k === "growth" || k === "black")).completo; }
+    // Foto do Instagram ligado (cache de 1h); cliente novo com Instagram ligado já aparece com a foto.
+    const photo = c?.igUserId ? (await igProfile(c.igUserId).catch(() => null))?.picture : undefined;
+    if (c) client = { name: c.name, sub: isClient ? "Área de membros" : c.specialty, switchHref: admin ? "/conteudo" : undefined, photo };
     const b = `/cliente/${slug}`;
     sections.push({
       title: admin ? "Cliente" : undefined,
@@ -44,7 +47,7 @@ export async function Shell({ children, active, session, clientSlug }: { childre
         it(`${b}/indicacoes`, "Indicações", "spark", "indicacoes"),
       ],
     });
-    if (admin) sections.push({ title: "Só a equipe", items: [it(`${b}/perfil`, "Perfil", "user", "perfil"), it(`${b}/gerar`, "Gerar", "wand", "gerar"), { href: `/api/preview?slug=${slug}`, label: "Ver como o cliente", icon: "eye", active: false }] });
+    if (admin) sections.push({ title: "Só a equipe", items: [it(`${b}/perfil`, "Perfil", "user", "perfil"), ...(!ativo ? [it(`${b}/onboarding`, "Acessos e briefing", "key", "onboarding")] : []), it(`${b}/gerar`, "Gerar", "wand", "gerar"), { href: `/api/preview?slug=${slug}`, label: "Ver como o cliente", icon: "eye", active: false }] });
   }
   if (admin) {
     sections.unshift({ title: "Equipe", items: [it("/conteudo", "Clientes", "users", "geral"), it("/admin/avisos", "Avisos", "bell", "avisos"), it("/admin/indicacoes", "Circle", "spark", "circle")] });

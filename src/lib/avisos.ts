@@ -3,10 +3,10 @@ import { agendaConfigured, clientMeetings, MEETING_LABEL, meetingDay, meetingTim
 import { listClients, type Client } from "./clients";
 import { getPosts, visibleTo } from "./content";
 import { todayISO } from "./periods";
-import { calendarAliases, getProject } from "./project";
+import { calendarAliases, getProject, onboardingAtivo } from "./project";
 import { getCrm } from "./clickup";
 import { clientContract } from "./zapsign";
-import { acessos, getOnboarding } from "./onboarding";
+import { acessos, getOnboarding, type OnboardingDoc } from "./onboarding";
 import { aEntregar, getCircle, NIVEIS } from "./circle";
 import { contratoStatus, dataCurta } from "./contrato";
 import { getNps, grupo, GRUPO_LABEL, ultima } from "./nps";
@@ -115,7 +115,8 @@ export async function buildAvisos(): Promise<Aviso[]> {
     }
 
     // Onboarding: acessos marcados pelo cliente para confirmar e briefing enviado
-    const onb = await getOnboarding(c.slug);
+    // (cliente da casa: acessos e briefing são registro interno, sem aviso)
+    const onb: OnboardingDoc = onboardingAtivo(project) ? await getOnboarding(c.slug) : { acessos: {} };
     const paraConfirmar = itensAcesso.filter((a) => onb.acessos[a.id]?.status === "feito");
     if (paraConfirmar.length) {
       out.push({
@@ -182,4 +183,16 @@ export async function buildAvisos(): Promise<Aviso[]> {
 
 export function waLink(message: string, phone?: string): string {
   return `https://wa.me/${phone ?? ""}?text=${encodeURIComponent(message)}`;
+}
+
+/** Onde a equipe resolve o aviso. */
+export function avisoPath(a: Aviso): string {
+  const b = `/cliente/${a.client.slug}`;
+  switch (a.kind) {
+    case "circle": return "/admin/indicacoes";
+    case "onboarding": return `${b}/onboarding`;
+    case "aprovar": case "ajuste": return `${b}/conteudo`;
+    case "relatorio": return `/relatorio/${a.client.slug}/${a.key.split(":").at(-1)}`;
+    default: return b;
+  }
 }
