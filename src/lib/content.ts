@@ -29,6 +29,17 @@ export interface HistoryEntry {
   note?: string;
   /** Slide/mídia específica (1-based) a que o comentário se refere. */
   slide?: number;
+  /** Parte do post do pedido de alteração, quando não é uma imagem específica. */
+  alvo?: "capa" | "legenda" | "video";
+}
+
+/** "na capa", "na imagem 3", "no vídeo"… para o texto do pedido de alteração. */
+export function ondeLabel(h: Pick<HistoryEntry, "slide" | "alvo">): string {
+  if (h.slide) return `na imagem ${h.slide}`;
+  if (h.alvo === "capa") return "na capa";
+  if (h.alvo === "legenda") return "na legenda";
+  if (h.alvo === "video") return "no vídeo";
+  return "";
 }
 
 /** Estado da publicação automática no Instagram. */

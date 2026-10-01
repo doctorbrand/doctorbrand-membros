@@ -15,7 +15,8 @@ import { AlertIcon, ArrowRightIcon, CalendarIcon, CheckIcon, ChevronLeftIcon, Ch
 import { DecisionBar, FeedFrame } from "@/components/content/ClientView";
 import { requireAuth } from "@/lib/auth";
 import { getClient, type Client } from "@/lib/clients";
-import { canScheduleAt, dayLabel, feedOrder, getPlan, getPosts, MAX_ATTEMPTS, mediaKey, mediaUrl, sameOriginVideo, scheduleOrder, STATUS_LABEL, STATUS_PILL, thumbOf, TYPE_LABEL, videoSource, visibleTo, type FeedPlan, type Post } from "@/lib/content";
+import { alteracaoKey, getAlteracaoTasks } from "@/lib/alteracoesClickup";
+import { canScheduleAt, dayLabel, feedOrder, getPlan, getPosts, MAX_ATTEMPTS, mediaKey, mediaUrl, sameOriginVideo, scheduleOrder, STATUS_LABEL, STATUS_PILL, thumbOf, TYPE_LABEL, videoSource, visibleTo, type FeedPlan, type Post, ondeLabel } from "@/lib/content";
 import { postChecks, scoreFeed, type FeedScore } from "@/lib/feedScore";
 import { igAccounts, igProfile, igRecentMedia, type IgAccount } from "@/lib/instagram";
 import { publishProblem } from "@/lib/publish";
@@ -189,7 +190,8 @@ export default async function ConteudoPage({ params, searchParams }: { params: P
           ) : selected ? (
             <PostDetail post={selected} n={num.get(selected.id)} total={order.length} slug={slug} admin={admin} base={base} client={c} plan={plan} local={local}
               prevHref={prevOf(order, selected.id, postHref)} nextHref={nextOf(order, selected.id, postHref)} afterHref={nextWaiting(order, selected.id, postHref) ?? (asClient ? `${base}?visao=cliente` : base)}
-              hasNextWaiting={!!nextWaiting(order, selected.id, postHref)} feito={sp.feito} />
+              hasNextWaiting={!!nextWaiting(order, selected.id, postHref)} feito={sp.feito}
+              taskUrl={admin && selected.status === "alteracao" ? (await getAlteracaoTasks())[alteracaoKey(slug, selected.id)]?.url : undefined} />
           ) : (
             <div className="card p-8 text-center">
               <p className="font-medium">Nenhum post planejado ainda.</p>
@@ -237,7 +239,7 @@ export default async function ConteudoPage({ params, searchParams }: { params: P
   );
 }
 
-function PostDetail({ post: p, n, total, slug, admin, base, client, plan, local, prevHref, nextHref, afterHref, hasNextWaiting, feito }: { post: Post; n?: number; total: number; slug: string; admin: boolean; base: string; client: Client; plan: FeedPlan; local: boolean; prevHref?: string; nextHref?: string; afterHref: string; hasNextWaiting: boolean; feito?: string }) {
+function PostDetail({ post: p, n, total, slug, admin, base, client, plan, local, prevHref, nextHref, afterHref, hasNextWaiting, feito, taskUrl }: { post: Post; n?: number; total: number; slug: string; admin: boolean; base: string; client: Client; plan: FeedPlan; local: boolean; prevHref?: string; nextHref?: string; afterHref: string; hasNextWaiting: boolean; feito?: string; taskUrl?: string }) {
   const canDecide = p.status === "aguardando" || p.status === "alteracao";
   const lastChange = [...p.history].reverse().find((h) => h.action === "alteracao");
   return (
@@ -269,8 +271,8 @@ function PostDetail({ post: p, n, total, slug, admin, base, client, plan, local,
 
       {p.status === "alteracao" && lastChange?.note && (
         <div className="rounded-xl border border-[#f2c6c2] bg-[#fbeae9] p-3 text-sm">
-          <b>Alteração pedida{lastChange.slide ? ` na imagem ${lastChange.slide}` : ""}:</b> {lastChange.note}
-          <span className="block text-xs text-[var(--muted)] mt-1">{lastChange.by} · {fmtWhen(lastChange.at)}</span>
+          <b>Alteração pedida{ondeLabel(lastChange) ? ` ${ondeLabel(lastChange)}` : ""}:</b> {lastChange.note}
+          <span className="block text-xs text-[var(--muted)] mt-1">{lastChange.by} · {fmtWhen(lastChange.at)}{taskUrl && <> · <a href={taskUrl} target="_blank" rel="noreferrer" className="underline">Tarefa da Alexandra no ClickUp</a></>}</span>
         </div>
       )}
 
@@ -323,14 +325,14 @@ function PostDetail({ post: p, n, total, slug, admin, base, client, plan, local,
           {[...p.history].reverse().map((h, i) => (
             <li key={i} className="text-[var(--muted)]">
               <span className="mono">{fmtWhen(h.at)}</span> · <b className="text-[var(--ink)] font-medium">{h.by}</b> {ACTION_LABEL[h.action] ?? h.action}
-              {h.slide ? ` (imagem ${h.slide})` : ""}{h.note ? `: “${h.note}”` : ""}
+              {ondeLabel(h) ? ` ${ondeLabel(h)}` : ""}{h.note ? `: “${h.note}”` : ""}
             </li>
           ))}
         </ul>
       </details>
 
       {canDecide && (
-        <DecisionBar key={p.id} status={p.status} slides={p.media.length} hasNext={hasNextWaiting}
+        <DecisionBar key={p.id} status={p.status} slides={p.media.length} type={p.type} hasNext={hasNextWaiting}
           approve={approveAndNextAction.bind(null, slug, p.id, afterHref)}
           change={changeAndNextAction.bind(null, slug, p.id, afterHref)} />
       )}

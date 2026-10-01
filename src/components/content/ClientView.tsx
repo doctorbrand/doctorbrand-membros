@@ -27,7 +27,7 @@ export function FeedFrame({ children, legend }: { children: React.ReactNode; leg
  * Aprovar ou pedir alteração. Fica presa embaixo da tela enquanto o post está aberto
  * e, ao decidir, leva para o próximo post que espera aprovação.
  */
-export function DecisionBar({ approve, change, slides, hasNext, status }: { approve: Act0; change: ActFd; slides: number; hasNext: boolean; status: string }) {
+export function DecisionBar({ approve, change, slides, hasNext, status, type }: { approve: Act0; change: ActFd; slides: number; hasNext: boolean; status: string; type?: "imagem" | "carrossel" | "reels" }) {
   const [open, setOpen] = useState(false);
   const [ok, runOk, pendingOk] = useActionState(approve, null);
   const [ch, runCh, pendingCh] = useActionState(change, null);
@@ -65,19 +65,20 @@ export function DecisionBar({ approve, change, slides, hasNext, status }: { appr
               <p id="ct-sheet-title" className="text-lg font-semibold">O que você quer mudar?</p>
               <button type="button" onClick={() => setOpen(false)} className="ct-icon-btn" aria-label="Fechar"><XIcon /></button>
             </div>
-            {slides > 1 && (
-              <div className="flex flex-col gap-2">
-                <span className="label">Onde</span>
-                <div className="flex flex-wrap gap-1.5">
-                  <button type="button" className={`ct-chip ${slide === "" ? "is-on" : ""}`} onClick={() => setSlide("")}>No post todo</button>
-                  {Array.from({ length: slides }, (_, i) => (
-                    <button key={i} type="button" className={`ct-chip ${slide === String(i + 1) ? "is-on" : ""}`} onClick={() => setSlide(String(i + 1))}>Imagem {i + 1}</button>
-                  ))}
-                </div>
-                <input type="hidden" name="slide" value={slide} />
+            <div className="flex flex-col gap-2">
+              <span className="label">Onde</span>
+              <div className="flex flex-wrap gap-1.5">
+                {[
+                  ["", "No post todo"],
+                  ...(type === "reels" ? [["video", "Vídeo"], ["capa", "Capa"]] : slides > 1 ? Array.from({ length: slides }, (_, i) => [String(i + 1), `Imagem ${i + 1}`]) : [["1", "Imagem"]]),
+                  ["legenda", "Legenda"],
+                ].map(([v, label]) => (
+                  <button key={v} type="button" className={`ct-chip ${slide === v ? "is-on" : ""}`} aria-pressed={slide === v} onClick={() => setSlide(v)}>{label}</button>
+                ))}
               </div>
-            )}
-            <textarea ref={noteRef} name="note" required rows={4} className="ct-input text-[16px]" placeholder="Ex.: trocar a foto da capa, ajustar a segunda frase da legenda…" />
+              <input type="hidden" name="slide" value={slide} />
+            </div>
+            <textarea ref={noteRef} name="note" required rows={4} className="ct-input text-[16px]" placeholder="Ex.: trocar a foto da capa, ajustar a segunda frase da legenda…" maxLength={2000} />
             {ch && !ch.ok && <p className="text-sm g-bad">{ch.message}</p>}
             <div className="flex gap-2">
               <button type="button" className="ct-btn flex-1" onClick={() => setOpen(false)}>Cancelar</button>

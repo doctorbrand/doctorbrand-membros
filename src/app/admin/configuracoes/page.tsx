@@ -31,6 +31,7 @@ export default async function ConfiguracoesPage() {
     ] },
     { titulo: "Avisos para a equipe", itens: [
       { nome: "Tarefa diária da Carol", faz: "Todo dia às 9h, uma tarefa no ClickUp com os avisos do dia, atribuída a ela.", ok: on("CLICKUP_API_TOKEN") && on("CRON_SECRET"), como: "CLICKUP_API_TOKEN + CRON_SECRET" },
+      { nome: "Ajustes para a Alexandra", faz: "Quando o cliente pede alteração num post ou capa, vira tarefa no ClickUp atribuída a ela, na lista Social Media do cliente.", ok: on("CLICKUP_API_TOKEN"), como: "CLICKUP_API_TOKEN" },
       { nome: "Canal de alertas", faz: "Aprovações, ajustes, termômetro e indicações na hora em que acontecem.", ok: on("TELEGRAM_BOT_TOKEN", "WHATSAPP_PHONE_ID", "TWILIO_ACCOUNT_SID"), como: "TELEGRAM_BOT_TOKEN (ou WhatsApp Cloud / Twilio)", opcional: true },
     ] },
   ];

@@ -5,7 +5,8 @@ import { redirect } from "next/navigation";
 import { sendAlert } from "@/lib/alerts";
 import { requireAdmin, requireAuth, type Session , PREVIEW_BLOCK } from "@/lib/auth";
 import { publicBase } from "@/lib/signed";
-import { getPosts, mediaBelongsTo, plannedAt, savePlan, savePosts, updatePost, type FeedPlan, type HistoryEntry, type Media, type Post, type PostStatus, type PostType } from "@/lib/content";
+import { tarefaAlteracao } from "@/lib/alteracoesClickup";
+import { getPosts, mediaBelongsTo, ondeLabel, plannedAt, savePlan, savePosts, updatePost, type FeedPlan, type HistoryEntry, type Media, type Post, type PostStatus, type PostType } from "@/lib/content";
 import { driveFileInfo, driveFolderFiles, driveText, FOLDER, parseDriveLinks, toMedia, type DriveFile } from "@/lib/drive";
 import { igAccounts } from "@/lib/instagram";
 import { getClient, updateClient } from "@/lib/clients";
@@ -15,8 +16,8 @@ import type { ActionResult } from "@/lib/types";
 const str = (fd: FormData, k: string) => String(fd.get(k) ?? "").trim();
 const path = (slug: string) => `/cliente/${slug}/conteudo`;
 
-function entry(s: Session, action: HistoryEntry["action"], note?: string, slide?: number): HistoryEntry {
-  return { at: new Date().toISOString(), by: s.name, role: s.role, action, ...(note ? { note } : {}), ...(slide ? { slide } : {}) };
+function entry(s: Session, action: HistoryEntry["action"], note?: string, slide?: number, alvo?: HistoryEntry["alvo"]): HistoryEntry {
+  return { at: new Date().toISOString(), by: s.name, role: s.role, action, ...(note ? { note } : {}), ...(slide ? { slide } : {}), ...(alvo ? { alvo } : {}) };
 }
 
 /** Aviso para a equipe (Telegram/WhatsApp configurados no painel). Nunca bloqueia a ação do cliente. */
@@ -60,16 +61,23 @@ export async function approveAllAction(slug: string, _prev: ActionResult | null)
 export async function requestChangeAction(slug: string, id: string, _prev: ActionResult | null, fd: FormData): Promise<ActionResult> {
   const s = await requireAuth(slug);
   if (s.preview) return PREVIEW_BLOCK;
-  const note = str(fd, "note");
-  const slide = Number(str(fd, "slide")) || undefined;
+  const note = str(fd, "note").slice(0, 2000);
+  const onde = str(fd, "slide");
+  const slide = Number(onde) || undefined;
+  const alvo = (["capa", "legenda", "video"] as const).find((a) => a === onde);
   if (!note) return { ok: false, message: "Conte o que você quer mudar." };
   let title = "";
   const p = await updatePost(slug, id, (p) => {
     title = p.title;
-    return { ...p, status: "alteracao", history: [...p.history, entry(s, "alteracao", note, slide)] };
+    return { ...p, status: "alteracao", history: [...p.history, entry(s, "alteracao", note, slide, alvo)] };
   });
   if (!p) return { ok: false, message: "Post não encontrado." };
-  if (s.role === "cliente") await notifyTeam(slug, `${s.name} pediu alteração em *${title}*${slide ? ` (imagem ${slide})` : ""}:\n"${note.slice(0, 500)}"`);
+  if (s.role === "cliente") {
+    const where = ondeLabel({ slide, alvo });
+    // Tarefa para a Alexandra no ClickUp; se falhar, o aviso à equipe sai mesmo assim.
+    const task = await tarefaAlteracao(slug, p, { by: s.name, note, onde: where || undefined });
+    await notifyTeam(slug, `${s.name} pediu alteração em *${title}*${where ? ` (${where.replace(/^(na|no) /, "")})` : ""}:\n"${note.slice(0, 500)}"${task.ok ? `\nTarefa da Alexandra: ${task.url}` : ""}`);
+  }
   revalidatePath(path(slug));
   return { ok: true, message: "Pedido enviado para a equipe." };
 }
