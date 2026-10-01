@@ -23,7 +23,7 @@ import { ContractCard } from "@/components/project/ContractCard";
 import { NpsCard } from "@/components/project/NpsCard";
 import { METODO } from "@/lib/evolucao";
 import { NextStep } from "@/components/evolucao/NextStep";
-import { arrangeMaterials, calendarAliases, getProject, MATERIAL_SLOTS, STEP_LABEL, type MaterialKind, type MaterialSlot, type ProjectStep } from "@/lib/project";
+import { arrangeMaterials, calendarAliases, getProject, isImplementacao, MATERIAL_SLOTS, STEP_LABEL, type MaterialKind, type MaterialSlot, type ProjectStep } from "@/lib/project";
 import { saveContratoAction, addMaterialAction, addStepAction, applyDefaultStepsAction, deleteMaterialAction, deleteStepAction, moveStepAction, saveProjectInfoAction, updateStepAction } from "./actions";
 
 export const dynamic = "force-dynamic";
@@ -96,6 +96,7 @@ export default async function ProjetoPage({ params, searchParams }: { params: Pr
   const mesHref = (ym: string) => `/cliente/${slug}?${asClient ? "visao=cliente&" : ""}mes=${ym}#entregas`;
 
   const mats = arrangeMaterials(project.materials);
+  const implementacao = isImplementacao(project);
   const names = [c.name, ...calendarAliases(slug, project)];
   const [work, crm, nps, zs, onb, circle] = await Promise.all([getWork(names, project.clickupFolder, today), getCrm(names), getNps(slug), clientContract(names, project.contrato?.zapsign), getOnboarding(slug), getCircle()]);
   const pk = planKey(project.plano);
@@ -197,8 +198,26 @@ export default async function ProjetoPage({ params, searchParams }: { params: Pr
             <Deliverables slug={slug} month={month} today={today} deliverables={project.deliverables ?? []} auto={auto} admin={admin} hrefFor={mesHref} fromCalendar={fromCalendar} agendaOn={meetings !== null} />
           </div>
 
-          {/* Andamento (o cliente só vê quando a equipe já registrou etapas) */}
-          {(admin || steps.length > 0) && <section className="card p-5">
+          {/* Gestão mensal: o que a equipe está produzindo agora (ClickUp) */}
+          {!implementacao && work.ok && work.data.now.length > 0 && (
+            <section className="card p-5">
+              <div className="flex items-center justify-between gap-3">
+                <h2 className="pj-h2">Em produção agora</h2>
+                <Link href={`/cliente/${slug}/evolucao${q}`} className="pj-more">Ver tudo <ArrowRightIcon size={14} /></Link>
+              </div>
+              <ul className="mt-2 flex flex-col">
+                {work.data.now.map((r, i) => (
+                  <li key={i} className="pj-step">
+                    <span className="pj-step-ic s-andamento" aria-hidden />
+                    <span className="min-w-0 flex-1"><span className="block">{r.title}</span>{/aprova/i.test(r.status) && <span className="block text-[12.5px] text-[var(--muted)]">Aguardando sua aprovação</span>}</span>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
+
+          {/* Andamento: só em projetos com começo, meio e fim (Implementação) */}
+          {implementacao && (admin || steps.length > 0) && <section className="card p-5">
             <div className="flex items-center justify-between gap-3">
               <h2 className="pj-h2">Andamento do projeto</h2>
               {steps.length > 0 && <span className="text-[13px] text-[var(--muted)] mono">{done} de {steps.length}</span>}
@@ -398,6 +417,12 @@ export default async function ProjetoPage({ params, searchParams }: { params: Pr
               <summary className="pj-edit-toggle">Plano e contato</summary>
               <ActionForm action={saveProjectInfoAction.bind(null, slug)} className="flex flex-col gap-2 mt-3">
                 <label className="flex flex-col gap-1"><span className="label">Plano</span><input name="plano" defaultValue={project.plano} placeholder="Ex.: Growth" className="ct-input" /></label>
+                <label className="flex flex-col gap-1"><span className="label">Tipo de projeto</span>
+                  <select name="tipo" defaultValue={implementacao ? "implementacao" : "mensal"} className="ct-input">
+                    <option value="mensal">Gestão mensal (recorrente)</option>
+                    <option value="implementacao">Implementação (começo, meio e fim)</option>
+                  </select>
+                  <span className="text-[12px] text-[var(--muted)]">Na Implementação aparece o Andamento com as etapas. Na gestão mensal, o que está em produção agora.</span></label>
                 <label className="flex flex-col gap-1"><span className="label">WhatsApp da equipe</span><input name="whatsapp" defaultValue={project.whatsapp} inputMode="numeric" placeholder="5521999999999" className="ct-input" /></label>
                 <label className="flex flex-col gap-1"><span className="label">WhatsApp do cliente (para os avisos)</span><input name="clienteWhatsapp" defaultValue={project.clienteWhatsapp} inputMode="numeric" placeholder="5521999999999" className="ct-input" />
                   <span className="text-[12px] text-[var(--muted)]">Só a equipe vê. Usado nos atalhos da página Avisos.</span></label>

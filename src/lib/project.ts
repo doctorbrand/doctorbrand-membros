@@ -45,8 +45,12 @@ export interface DeliveryEntry {
   url?: string;
 }
 
+export type ProjetoTipo = "implementacao" | "mensal";
+
 export interface Project {
   plano?: string;
+  /** Implementação tem começo, meio e fim (mostra as etapas); gestão mensal é recorrente. */
+  tipo?: ProjetoTipo;
   deliverables?: Deliverable[];
   /** WhatsApp da equipe para o cliente (só números, com DDI). */
   whatsapp?: string;
@@ -305,3 +309,8 @@ export async function saveProject(slug: string, p: Project, by: string): Promise
 }
 
 export { newId };
+
+/** Implementação: pelo tipo marcado ou pelo nome do plano. O resto é gestão mensal. */
+export function isImplementacao(p: Project): boolean {
+  return p.tipo ? p.tipo === "implementacao" : /implementa/i.test(p.plano ?? "");
+}
