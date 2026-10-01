@@ -471,3 +471,61 @@ export async function importListAction(slug: string, text: string, opts: { start
     return { ok: false, message: e instanceof Error ? e.message : String(e) };
   }
 }
+
+// ─── Data e hora, e reorganizar o grid ─────────────
+
+const dm = (date: string, time: string) => `${date.split("-").reverse().slice(0, 2).join("/")} às ${time}`;
+
+/** Equipe muda data e hora de um post que ainda não foi publicado. Agendado continua agendado (no novo horário). */
+export async function setDateAction(slug: string, id: string, _prev: ActionResult | null, fd: FormData): Promise<ActionResult> {
+  const s = await requireAdmin();
+  const date = str(fd, "date"), time = str(fd, "time");
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !/^\d{2}:\d{2}$/.test(time)) return { ok: false, message: "Escolha data e hora." };
+  let problem: string | null = null;
+  const p = await updatePost(slug, id, (p) => {
+    if (p.status === "publicado" || p.publish?.igMediaId) { problem = "Post já publicado."; return p; }
+    if (p.date === date && p.time === time) return p;
+    if (p.status === "agendado" && plannedAt({ date, time }).getTime() < Date.now() + 5 * 60_000) { problem = "Post agendado: escolha um horário pelo menos 5 minutos à frente."; return p; }
+    return { ...p, date, time, updatedAt: new Date().toISOString(), ...(p.status === "agendado" ? { publish: { attempts: 0 } } : {}), history: [...p.history, entry(s, "editado", `Nova data: ${dm(date, time)}`)] };
+  });
+  if (!p) return { ok: false, message: "Post não encontrado." };
+  if (problem) return { ok: false, message: problem };
+  revalidatePath(path(slug));
+  return { ok: true, message: `Data salva: ${dm(date, time)}.` };
+}
+
+/**
+ * Arrastar e soltar no grid: a ordem nova (do topo para baixo, como no Instagram) recebe os mesmos horários
+ * do planejamento, redistribuídos. Agendado que cair num horário que já passou volta para aprovado.
+ */
+export async function reorderFeedAction(slug: string, ids: string[]): Promise<ActionResult> {
+  const s = await requireAdmin();
+  const posts = await getPosts(slug);
+  const planned = posts.filter((p) => p.status !== "publicado" && !p.publish?.igMediaId);
+  const byId = new Map(planned.map((p) => [p.id, p]));
+  if (!Array.isArray(ids) || ids.length !== planned.length || new Set(ids).size !== ids.length || ids.some((id) => !byId.has(id))) {
+    return { ok: false, message: "O planejamento mudou enquanto você arrastava. Recarregue a página e tente de novo." };
+  }
+  // Horários disponíveis, do mais recente (topo do grid) para o mais antigo.
+  const slots = planned.map((p) => ({ date: p.date, time: p.time })).sort((a, b) => `${b.date}T${b.time}`.localeCompare(`${a.date}T${a.time}`));
+  const now = new Date().toISOString();
+  let moved = 0, unscheduled = 0;
+  const next = posts.map((p) => {
+    const i = ids.indexOf(p.id);
+    if (i < 0) return p;
+    const slot = slots[i];
+    if (p.date === slot.date && p.time === slot.time) return p;
+    moved++;
+    const back = p.status === "agendado" && plannedAt(slot).getTime() < Date.now() + 5 * 60_000;
+    if (back) unscheduled++;
+    return {
+      ...p, date: slot.date, time: slot.time, updatedAt: now,
+      ...(p.status === "agendado" ? (back ? { status: "aprovado" as PostStatus, publish: undefined } : { publish: { attempts: 0 } }) : {}),
+      history: [...p.history, entry(s, "editado", `Grid reorganizado: ${dm(slot.date, slot.time)}${back ? " (saiu do agendamento: horário já passou)" : ""}`)],
+    };
+  });
+  if (!moved) return { ok: true, message: "Nada mudou." };
+  await savePosts(slug, next);
+  revalidatePath(path(slug));
+  return { ok: true, message: `${moved} ${moved === 1 ? "post mudou" : "posts mudaram"} de data.${unscheduled ? ` ${unscheduled} saiu do agendamento porque o novo horário já passou.` : ""}` };
+}

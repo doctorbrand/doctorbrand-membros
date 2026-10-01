@@ -7,6 +7,7 @@ import { PostEditor } from "@/components/content/PostEditor";
 import { VideoPlayer } from "@/components/content/VideoPlayer";
 import { ZipImport } from "@/components/content/ZipImport";
 import { ListImport } from "@/components/content/ListImport";
+import { FeedGrid } from "@/components/content/FeedGrid";
 import { runSeedCovers, runSeedImports } from "@/lib/seedImports";
 import { DriveImport } from "@/components/content/DriveImport";
 import { Shell } from "@/components/Shell";
@@ -20,7 +21,7 @@ import { igAccounts, igProfile, igRecentMedia, type IgAccount } from "@/lib/inst
 import { publishProblem } from "@/lib/publish";
 import { addDays, todayISO } from "@/lib/periods";
 import { localDir } from "@/lib/store";
-import { approveAllAction, approveAndNextAction, changeAndNextAction, connectInstagramAction, disconnectInstagramAction, deletePostAction, importDriveAction, importDriveBatchAction, importListAction, importPostsAction, publishNowAction, retryPublishAction, savePlanAction, savePostAction, scheduleAction, setCoverAction, setStatusAction, unscheduleAction } from "./actions";
+import { approveAllAction, approveAndNextAction, changeAndNextAction, connectInstagramAction, disconnectInstagramAction, deletePostAction, importDriveAction, importDriveBatchAction, importListAction, importPostsAction, reorderFeedAction, setDateAction, publishNowAction, retryPublishAction, savePlanAction, savePostAction, scheduleAction, setCoverAction, setStatusAction, unscheduleAction } from "./actions";
 
 export const dynamic = "force-dynamic";
 
@@ -152,25 +153,29 @@ export default async function ConteudoPage({ params, searchParams }: { params: P
               </div>
             </div>
             <div className="ct-bio"><b>{profile?.name ?? c.name}</b>{profile?.biography ?? c.specialty}</div>
-            <div className="ct-grid">
-              {grid.map((p) => {
+            <FeedGrid
+              key={grid.map((p) => `${p.id}${p.date}${p.time}`).join("|")}
+              reorder={admin ? reorderFeedAction.bind(null, slug) : undefined}
+              items={grid.map((p) => {
                 const t = thumbOf(p);
-                return (
-                  <Link key={p.id} href={postHref(p.id)} className={`ct-cell ${selected?.id === p.id && !creating && !editing ? "is-current" : ""}`} aria-label={`Post ${num.get(p.id)}: ${p.title}, ${STATUS_LABEL[p.status]}`}>
-                    {t ? <img src={mediaUrl(t, 480)} alt="" loading="lazy" /> : <span className="absolute inset-0 grid place-items-center text-[11px] text-[var(--muted)]">sem capa</span>}
+                return {
+                  id: p.id, href: postHref(p.id), current: selected?.id === p.id && !creating && !editing,
+                  label: `Post ${num.get(p.id)}: ${p.title}, ${STATUS_LABEL[p.status]}`,
+                  content: <>
+                    {t ? <img src={mediaUrl(t, 480)} alt="" loading="lazy" draggable={false} /> : <span className="absolute inset-0 grid place-items-center text-[11px] text-[var(--muted)]">sem capa</span>}
                     <span className="ct-num">{num.get(p.id)}</span>
                     {p.type === "carrossel" ? CAROUSEL : p.type === "reels" ? REEL : null}
                     <StatusDot status={p.status} />
-                  </Link>
-                );
+                  </>,
+                };
               })}
-              {live.map((m) => (
+              tail={live.map((m) => (
                 <a key={m.id} href={m.permalink} target="_blank" rel="noreferrer" className="ct-cell is-live" aria-label="Post já publicado">
                   {m.thumb && <img src={m.thumb} alt="" loading="lazy" />}
                   {m.type === "CAROUSEL_ALBUM" ? CAROUSEL : m.type === "VIDEO" ? REEL : null}
                 </a>
               ))}
-            </div>
+            />
           </div>
         </FeedFrame>
 
@@ -255,6 +260,12 @@ function PostDetail({ post: p, n, total, slug, admin, base, client, plan, local,
         </div>
         <span className={`pill ${STATUS_PILL[p.status]}`}>{STATUS_LABEL[p.status]}</span>
       </div>
+      {admin && p.status !== "publicado" && !p.publish?.igMediaId && (
+        <details className="ct-date-edit">
+          <summary>Mudar data e hora</summary>
+          <div className="mt-2"><ScheduleForm key={`${p.id}${p.date}${p.time}`} action={setDateAction.bind(null, slug, p.id)} date={p.date} time={p.time} label="Salvar data" /></div>
+        </details>
+      )}
 
       {p.status === "alteracao" && lastChange?.note && (
         <div className="rounded-xl border border-[#f2c6c2] bg-[#fbeae9] p-3 text-sm">

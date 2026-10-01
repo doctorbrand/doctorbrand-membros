@@ -611,3 +611,10 @@ table.data.compact th, table.data.compact td { padding: 6px 8px; font-size: 12px
 .sb.is-min .sb-brand { display: none; }
 .sb-mark.is-sm { width: 32px; height: 32px; border-radius: 10px; }
 @media (max-width: 900px) { .sb.is-min .sb-brand { display: block; } }
+.ct-grid-hint { font-size: 12px; color: var(--muted); padding: 6px 10px 8px; }
+.ct-grid.is-busy { opacity: .7; pointer-events: none; }
+.ct-cell.is-draggable { cursor: grab; }
+.ct-cell.is-dragging { opacity: .35; }
+.ct-cell.is-over { outline: 3px dashed var(--ink); outline-offset: -3px; }
+.ct-date-edit summary { cursor: pointer; font-size: 13px; color: var(--muted); }
+.ct-date-edit summary:hover { color: var(--ink); }
