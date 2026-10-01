@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { LogoFull, LogoMark } from "@/components/Logo";
+import { LogoMark } from "@/components/Logo";
 import {
   BellIcon, ChecklistIcon, ChevronLeftIcon, ChevronRightIcon, GearIcon, GridIcon, HelpIcon, HomeIcon, KeyIcon, LogoutIcon,
   MegaphoneIcon, MenuIcon, EyeIcon, SparkIcon, TrendIcon, UserIcon, UsersIcon, WandIcon, XIcon,
@@ -58,7 +58,7 @@ export function Sidebar({ sections, footer, user, client, home, initialCollapsed
   return (
     <>
       <div className="sb-top">
-        <Link href={home} aria-label="DoctorBrand, início"><LogoFull className="h-[18px] text-[var(--ink)]" /></Link>
+        <Link href={home} aria-label="DoctorBrand, início" className="sb-logo"><span className="sb-mark is-sm"><LogoMark className="h-[18px] text-white" /></span><span className="font-semibold text-[15px] tracking-tight">DoctorBrand</span></Link>
         <button type="button" className="sb-burger" onClick={() => setOpen(true)} aria-label="Abrir menu"><MenuIcon /></button>
       </div>
       {open && <button type="button" className="sb-scrim" aria-label="Fechar menu" onClick={() => setOpen(false)} />}
@@ -66,7 +66,8 @@ export function Sidebar({ sections, footer, user, client, home, initialCollapsed
       <aside className={`sb ${collapsed ? "is-min" : ""} ${open ? "is-open" : ""}`} aria-label="Menu">
         <div className="sb-head">
           <Link href={home} className="sb-logo" aria-label="DoctorBrand, início">
-            {collapsed ? <span className="sb-mark"><LogoMark className="h-[22px] text-white" /></span> : <LogoFull className="h-[19px] text-[var(--ink)]" />}
+            <span className="sb-mark"><LogoMark className="h-[24px] text-white" /></span>
+            <span className="sb-brand"><span className="block font-semibold text-[15.5px] tracking-tight leading-tight">DoctorBrand</span><span className="block text-[12px] text-[var(--muted)] leading-tight mt-0.5">Área de membros</span></span>
           </Link>
           <button type="button" className="sb-close" onClick={() => setOpen(false)} aria-label="Fechar menu"><XIcon size={18} /></button>
         </div>
