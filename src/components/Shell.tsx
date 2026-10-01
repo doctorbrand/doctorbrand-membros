@@ -10,7 +10,7 @@ import { getProject, onboardingAtivo } from "@/lib/project";
 import { igProfile } from "@/lib/instagram";
 
 export type ShellActive =
-  | "geral" | "projeto" | "evolucao" | "conteudo" | "anuncios" | "ajuda" | "perfil" | "gerar"
+  | "geral" | "projeto" | "evolucao" | "conteudo" | "anuncios" | "semana" | "ajuda" | "perfil" | "gerar"
   | "avisos" | "onboarding" | "indicacoes" | "circle" | "admin" | "config" | "acessos";
 
 export async function Shell({ children, active, session, clientSlug }: { children: React.ReactNode; active: ShellActive; session?: Session | null; clientSlug?: string }) {
@@ -42,7 +42,7 @@ export async function Shell({ children, active, session, clientSlug }: { childre
         it(b, "Projeto", "home", "projeto"),
         it(`${b}/evolucao`, "Evolução", "trend", "evolucao"),
         it(`${b}/conteudo`, "Conteúdo", "grid", "conteudo"),
-        ...(ADS_CLIENTS.has(slug) ? [it(`${b}/anuncios`, "Anúncios", "megaphone", "anuncios")] : []),
+        ...(ADS_CLIENTS.has(slug) ? [it(`${b}/anuncios`, "Anúncios", "megaphone", "anuncios"), it(`${b}/semana`, "Sua semana", "calendar", "semana")] : []),
         ...(showOnb ? [it(`${b}/onboarding`, "Onboarding", "checklist", "onboarding")] : []),
         it(`${b}/indicacoes`, "Indicações", "spark", "indicacoes"),
       ],

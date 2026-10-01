@@ -5,13 +5,13 @@ import { useEffect, useState } from "react";
 import { LogoMark } from "@/components/Logo";
 import { ClientAvatar } from "@/components/ClientAvatar";
 import {
-  BellIcon, ChecklistIcon, ChevronLeftIcon, ChevronRightIcon, GearIcon, GridIcon, HelpIcon, HomeIcon, KeyIcon, LogoutIcon,
+  BellIcon, CalendarIcon, ChecklistIcon, ChevronLeftIcon, ChevronRightIcon, GearIcon, GridIcon, HelpIcon, HomeIcon, KeyIcon, LogoutIcon,
   MegaphoneIcon, MenuIcon, EyeIcon, SparkIcon, TrendIcon, UserIcon, UsersIcon, WandIcon, XIcon,
 } from "@/components/Icons";
 
 const ICONS = {
   home: HomeIcon, trend: TrendIcon, grid: GridIcon, megaphone: MegaphoneIcon, checklist: ChecklistIcon, spark: SparkIcon,
-  help: HelpIcon, eye: EyeIcon, bell: BellIcon, users: UsersIcon, key: KeyIcon, gear: GearIcon, user: UserIcon, wand: WandIcon,
+  help: HelpIcon, calendar: CalendarIcon, eye: EyeIcon, bell: BellIcon, users: UsersIcon, key: KeyIcon, gear: GearIcon, user: UserIcon, wand: WandIcon,
 } as const;
 export type IconKey = keyof typeof ICONS;
 
