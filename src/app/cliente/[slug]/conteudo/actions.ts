@@ -430,3 +430,44 @@ export async function importDriveBatchAction(slug: string, link: string, opts: {
   }
 }
 
+
+// ─── Importar uma lista colada (planejamento do Notion, por exemplo) ─────────────
+
+/**
+ * Cada post começa com uma linha "## Título | 06/10 12:00" (data e hora opcionais).
+ * Nas linhas seguintes: links do Drive (arquivo ou pasta do carrossel) e a legenda.
+ */
+function parsePostList(text: string): { title: string; agenda?: string; links: string; caption: string }[] {
+  const blocks = text.replace(/\r\n?/g, "\n").split(/^##\s+/m).map((b) => b.trim()).filter(Boolean);
+  return blocks.map((b) => {
+    const [head, ...rest] = b.split("\n");
+    const [title, agenda] = head.split("|").map((x) => x.trim());
+    const links: string[] = [], caption: string[] = [];
+    for (const line of rest) (/^\s*https?:\/\/(drive|docs)\.google\.com\/\S+\s*$/i.test(line) ? links : caption).push(line.trim());
+    return { title: title || "Post", agenda: agenda || undefined, links: links.join("\n"), caption: caption.join("\n").replace(/\n{3,}/g, "\n\n").trim() };
+  });
+}
+
+export async function importListAction(slug: string, text: string, opts: { start: string; everyDays: number; times: string[]; send: boolean }): Promise<ActionResult> {
+  await requireAdmin();
+  const list = parsePostList(text);
+  if (!list.length) return { ok: false, message: "Cole os posts, cada um começando com uma linha “## Título | data”." };
+  if (list.length > 60) return { ok: false, message: "Importe no máximo 60 posts por vez." };
+  try {
+    const avisos: string[] = [];
+    const read = await Promise.all(list.map(async (p) => {
+      const { files, folders } = parseDriveLinks(p.links);
+      let media: Media[] = [];
+      for (const f of folders) media.push(...(await driveFolderFiles(f)).map(toMedia).filter((m): m is Media => !!m));
+      for (const id of files) { const m = toMedia(await driveFileInfo(id)); if (m) media.push(m); }
+      if (media.length > 10) { avisos.push(`“${p.title}” tinha ${media.length} arquivos; entraram os 10 primeiros.`); media = media.slice(0, 10); }
+      return { title: p.title, caption: p.caption, media, agenda: p.agenda };
+    }));
+    const empty = read.find((r) => !r.media.length);
+    if (empty) return { ok: false, message: `“${empty.title}”: sem imagem ou vídeo (ou os arquivos não estão compartilhados como “qualquer pessoa com o link”).` };
+    const r = await importPostsAction(slug, read, opts);
+    return r.ok && avisos.length ? { ...r, message: `${r.message} ${avisos.join(" ")}` } : r;
+  } catch (e) {
+    return { ok: false, message: e instanceof Error ? e.message : String(e) };
+  }
+}
