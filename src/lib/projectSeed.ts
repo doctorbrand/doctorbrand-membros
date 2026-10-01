@@ -76,4 +76,13 @@ export const SEED_MATERIALS: Record<string, ProjectMaterial[]> = {
     { id: "fer2", kind: "documento", title: "Audiovisual", url: "https://drive.google.com/drive/folders/1PerE1eQNbVShuqll3ONKD_3HiabDVgR_" },
     { id: "fer3", kind: "documento", title: "Social media", url: "https://drive.google.com/drive/folders/1frDjEJoYrJ4-hHgiIUv1aXlxKHO5rZ7H" },
   ],
+  "cecilia-favre": [
+    { id: "cec0", kind: "documento", title: "Pasta do projeto", url: "https://drive.google.com/drive/folders/1JnYtAJggTSVkPl5sRmPk7_2eETOWMgMe" },
+    { id: "cec1", kind: "identidade", title: "Identidade visual", url: "https://drive.google.com/drive/folders/1YwEsBxdhTAYa61EChR6AR_i8WEQGmDNp" },
+    { id: "cec2", kind: "moodboard", title: "Moodboard e roteiros de captação", url: "https://drive.google.com/file/d/1uRjPuzIor9sbA-YtsQ5wxJNn9p1amptU/view" },
+    { id: "cec3", kind: "roteiro", title: "Roteiros da captação 19/06", url: "https://docs.google.com/document/d/1eLnl3_UDtZKY_kRSkGHypOaGWNJtLcrEhcqSj-ehJos/edit" },
+    { id: "cec4", kind: "planejamento", title: "Ideias de post orgânico", url: "https://docs.google.com/document/d/1nnMGs_mIfLG1fpgwR9IWzn2BQR-4pvTaCOO6HXZXqfM/edit" },
+    { id: "cec5", kind: "documento", title: "Audiovisual", url: "https://drive.google.com/drive/folders/1n1FBSqJEVWfWhcLBgXycR1LwovxFmEVV" },
+    { id: "cec6", kind: "documento", title: "Social media", url: "https://drive.google.com/drive/folders/1-PfnChx1F67klBMxmUvjhCZMs8g2EDZE" },
+  ],
 };

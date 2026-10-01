@@ -276,6 +276,7 @@ export const DEFAULT_ALIASES: Record<string, string[]> = {
   "eric-reis": ["COER"],
   "erica-barros": ["EB Dermatologia"],
   "brunno-bernardo": ["Brunno B.", "Brunno Bernardo", "Dr. Brunno"],
+  "cecilia-favre": ["Cecilia Favre", "Cecília F.", "Dra. Cecília"],
 };
 
 export function calendarAliases(slug: string, p: Project): string[] {
@@ -289,12 +290,18 @@ const CONTRACT_SEED: Record<string, Contrato> = {
   "flavio-pinheiro": { inicio: "2026-09-05", meses: 6, regra: "mensal" },
 };
 
+/** Plano de cada cliente conforme o CRM do ClickUp (Clientes Ativos, out/2026). Vale enquanto a equipe não salvar outro. */
+const PLANO_SEED: Record<string, string> = {
+  "brunno-bernardo": "Core", "cecilia-favre": "Core", "eric-reis": "Core", "jose-mauro": "Core",
+  "carlos-picasso": "Growth", "danilo-tacinari": "Growth", "erica-barros": "Growth", "flavio-pinheiro": "Growth", "viegas": "Growth", "vivian-ferrari": "Growth",
+};
+
 /** WhatsApp padrão da equipe DoctorBrand, quando o projeto não tem um próprio. */
 export const TEAM_WHATSAPP = "5521993280308";
 
 export async function getProject(slug: string): Promise<Project> {
   const p = await loadProject(slug);
-  return { ...p, whatsapp: p.whatsapp || TEAM_WHATSAPP, contrato: p.contrato ?? CONTRACT_SEED[slug] };
+  return { ...p, plano: p.plano || PLANO_SEED[slug] || PLANO_SEED[seedKey(slug)], whatsapp: p.whatsapp || TEAM_WHATSAPP, contrato: p.contrato ?? CONTRACT_SEED[slug] };
 }
 
 async function loadProject(slug: string): Promise<Project> {
