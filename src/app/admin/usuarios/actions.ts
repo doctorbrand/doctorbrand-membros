@@ -10,6 +10,15 @@ import { createUser, deleteUser, generatePassword, resetPassword, updateUser, ty
 /** Resultado com a senha, mostrada uma única vez para a equipe mandar ao dono do acesso. */
 export type AccessResult = ActionResult & { cred?: { name: string; email: string; password: string; message: string } };
 
+/** "equipe" ou "cliente:<slug>"; aceita também os campos antigos role/clientSlug. */
+function vinculo(fd: FormData): { role: Role; clientSlug?: string } {
+  const v = String(fd.get("vinculo") ?? "");
+  if (v === "equipe") return { role: "admin" };
+  if (v.startsWith("cliente:")) return { role: "cliente", clientSlug: v.slice(8) || undefined };
+  const role = (String(fd.get("role") ?? "cliente") === "admin" ? "admin" : "cliente") as Role;
+  return { role, clientSlug: role === "cliente" ? String(fd.get("clientSlug") ?? "") || undefined : undefined };
+}
+
 const first = (name: string) => name.replace(/^(dra?\.?\s+)/i, "").split(" ")[0];
 
 function mensagem(name: string, email: string, password: string, role: Role): string {
@@ -22,8 +31,8 @@ function mensagem(name: string, email: string, password: string, role: Role): st
 export async function createAccessAction(_prev: AccessResult | null, fd: FormData): Promise<AccessResult> {
   await requireAdmin();
   try {
-    const role = (String(fd.get("role") ?? "cliente") === "admin" ? "admin" : "cliente") as Role;
-    const clientSlug = role === "cliente" ? String(fd.get("clientSlug") ?? "") : undefined;
+    const { role, clientSlug } = vinculo(fd);
+    if (role === "cliente" && !clientSlug) throw new Error("Escolha de qual cliente é o acesso.");
     if (clientSlug && !(await getClient(clientSlug))) throw new Error("Cliente não encontrado.");
     const name = String(fd.get("name") ?? "").trim();
     const email = String(fd.get("email") ?? "").trim().toLowerCase();
@@ -48,8 +57,10 @@ export async function resetAccessAction(id: string, _prev: AccessResult | null):
 export async function updateAccessAction(id: string, _prev: AccessResult | null, fd: FormData): Promise<AccessResult> {
   await requireAdmin();
   try {
-    const role = (String(fd.get("role") ?? "cliente") === "admin" ? "admin" : "cliente") as Role;
-    await updateUser(id, { name: String(fd.get("name") ?? ""), email: String(fd.get("email") ?? ""), role, clientSlug: role === "cliente" ? String(fd.get("clientSlug") ?? "") || undefined : undefined });
+    const { role, clientSlug } = vinculo(fd);
+    if (role === "cliente" && !clientSlug) throw new Error("Escolha de qual cliente é o acesso.");
+    if (clientSlug && !(await getClient(clientSlug))) throw new Error("Cliente não encontrado.");
+    await updateUser(id, { name: String(fd.get("name") ?? ""), email: String(fd.get("email") ?? "").trim().toLowerCase(), role, clientSlug });
     revalidatePath("/admin/usuarios");
     return { ok: true, message: "Acesso atualizado." };
   } catch (e) { return { ok: false, message: e instanceof Error ? e.message : String(e) }; }
