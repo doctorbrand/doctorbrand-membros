@@ -18,9 +18,12 @@ export function mediaUrl(m: Media | undefined, width = 1080): string | undefined
   return m.path ? `/api/media?p=${encodeURIComponent(m.path)}` : undefined;
 }
 
-/** Vídeo tocável: player do Drive (streaming adaptativo, leve) ou arquivo do Blob. */
+/**
+ * Vídeo tocável. Drive: player nativo pelo nosso domínio (encaixa no 9:16 como no Instagram);
+ * se o arquivo não estiver aberto por link, cai para o player do Drive.
+ */
 export function videoSource(m: Media): { iframe?: string; src?: string } {
-  if (m.driveId) return { iframe: `${DRIVE_WEB}/file/d/${encodeURIComponent(m.driveId)}/preview` };
+  if (m.driveId) return { src: `/api/drive/stream?id=${encodeURIComponent(m.driveId)}`, iframe: `${DRIVE_WEB}/file/d/${encodeURIComponent(m.driveId)}/preview` };
   return { src: m.path ? `/api/media?p=${encodeURIComponent(m.path)}` : undefined };
 }
 

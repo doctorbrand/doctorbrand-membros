@@ -4,11 +4,15 @@ import { useState } from "react";
 
 /**
  * Vídeo leve: mostra a capa e só carrega o vídeo quando a pessoa clica.
- * Drive: player do próprio Drive (streaming adaptativo, não baixa o arquivo inteiro).
+ * Player nativo no formato do post (9:16 no Reels); o do Drive só como reserva.
  */
 export function VideoPlayer({ poster, iframe, src, vertical, label }: { poster?: string; iframe?: string; src?: string; vertical?: boolean; label?: string }) {
   const [play, setPlay] = useState(false);
+  const [nativeFailed, setNativeFailed] = useState(false);
   const ratio = vertical ? "9 / 16" : "4 / 5";
+  if (play && src && !nativeFailed) {
+    return <video src={src} poster={poster} controls autoPlay playsInline onError={() => iframe && setNativeFailed(true)} className="w-full rounded-[14px] bg-black block" style={{ aspectRatio: ratio, objectFit: "cover" }} />;
+  }
   if (play && iframe) {
     return <iframe src={iframe} allow="autoplay; fullscreen" allowFullScreen className="w-full rounded-[14px] bg-black block" style={{ aspectRatio: ratio, border: 0 }} title={label ?? "Vídeo"} />;
   }

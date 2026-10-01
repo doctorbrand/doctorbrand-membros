@@ -101,15 +101,24 @@ export async function copyDriveToBlob(slug: string, m: Media): Promise<Media> {
   const r = await driveFetch(m.driveId);
   const type = (r.headers.get("content-type") ?? "").split(";")[0].trim();
   if (!r.ok || !r.body || type === "text/html") throw new Error(`Não consegui baixar “${m.name ?? m.driveId}” do Drive. Confira o compartilhamento.`);
-  const ext = m.kind === "video" ? "mp4" : /png/.test(type) ? "png" : "jpg";
+  // O Instagram só publica imagem em JPG: PNG (capa ou carrossel) vira JPG aqui, sem perder qualidade visível.
+  const converte = m.kind === "image" && type !== "image/jpeg";
+  const ext = m.kind === "video" ? "mp4" : "jpg";
   const path = `content-media/${slug}/drive/${m.driveId}.${ext}`;
+  const body: ReadableStream<Uint8Array> | Buffer = converte ? await toJpeg(Buffer.from(await r.arrayBuffer())) : r.body;
   const dir = localDir();
   if (dir) {
     const fs = await import("fs/promises");
     await fs.mkdir(`${dir}/content-media/${slug}/drive`, { recursive: true });
-    await fs.writeFile(`${dir}/${path}`, new Uint8Array(await r.arrayBuffer()));
+    await fs.writeFile(`${dir}/${path}`, Buffer.isBuffer(body) ? new Uint8Array(body) : new Uint8Array(await new Response(body).arrayBuffer()));
   } else {
-    await put(path, r.body, { access: "private", contentType: type || undefined, multipart: true, allowOverwrite: true, addRandomSuffix: false });
+    await put(path, body, { access: "private", contentType: converte ? "image/jpeg" : type || undefined, multipart: true, allowOverwrite: true, addRandomSuffix: false });
   }
-  return { ...m, path };
+  return { ...m, path, ...(converte ? { mime: "image/jpeg" } : {}) };
+}
+
+/** PNG, WebP etc. para JPG (fundo branco onde houver transparência). */
+export async function toJpeg(input: Buffer): Promise<Buffer> {
+  const sharp = (await import("sharp")).default;
+  return sharp(input).rotate().flatten({ background: "#ffffff" }).jpeg({ quality: 92, mozjpeg: true }).toBuffer();
 }
