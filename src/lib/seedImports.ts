@@ -1,5 +1,7 @@
 import { getPosts, savePosts, type Media, type Post, type PostType } from "./content";
-import { readDoc, writeDoc } from "./store";
+import { put } from "@vercel/blob";
+import { toJpeg } from "./drive";
+import { localDir, readDoc, writeDoc } from "./store";
 
 /**
  * Planejamentos trazidos de fora (Notion) que entram sozinhos na área do cliente, uma vez só,
@@ -93,6 +95,76 @@ export async function runSeedImports(slug?: string): Promise<{ key: string; crea
   }
   } finally {
     await writeDoc("locks/seed-imports", { until: 0 }).catch(() => undefined);
+  }
+  return out;
+}
+
+/**
+ * Capas dos Reels exportadas do Canva (GRID SET/OUT - Brunno Bernardo). Os links de exportação valem cerca de 1 hora:
+ * o servidor baixa, guarda no Blob e coloca como capa. Se o link vencer, nada muda e a equipe sobe a capa no app.
+ */
+interface SeedCovers { key: string; slug: string; covers: { title: string; url: string }[] }
+export const SEED_COVERS: SeedCovers[] = [
+  {
+    key: "brunno-bernardo:out-nov-2026:capas",
+    slug: "brunno-bernardo",
+    covers: [
+      { title: "O que \"antes e depois\" não mostra", url: "https://export-download.canva.com/3fG_I/DAHU6_3fG_I/-1/0/0003-1354975209801100298.jpg?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=AKIAQYCGKMUH5AO7UJ26%2F20261001%2Fus-east-1%2Fs3%2Faws4_request&X-Amz-Date=20261001T030831Z&X-Amz-Expires=46851&X-Amz-Signature=ab8195a3c6add568112836a9bc476817dff11de79c773eb83bd9064b9767293d&X-Amz-SignedHeaders=host%3Bx-amz-expected-bucket-owner&response-expires=Thu%2C%2001%20Oct%202026%2016%3A09%3A22%20GMT" },
+      { title: "Rinomodelação não diminui o nariz", url: "https://export-download.canva.com/3fG_I/DAHU6_3fG_I/-1/0/0004-1354975209801100298.jpg?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=AKIAQYCGKMUH5AO7UJ26%2F20260930%2Fus-east-1%2Fs3%2Faws4_request&X-Amz-Date=20260930T153937Z&X-Amz-Expires=88605&X-Amz-Signature=fbf71019edf40eadc907e1de0f89e841ecad8abbb7f38fbeb30d93b04c09a7ad&X-Amz-SignedHeaders=host%3Bx-amz-expected-bucket-owner&response-expires=Thu%2C%2001%20Oct%202026%2016%3A16%3A22%20GMT" },
+      { title: "Se você ainda vai emagrecer, não opere agora", url: "https://export-download.canva.com/3fG_I/DAHU6_3fG_I/-1/0/0006-1354975209801100298.jpg?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=AKIAQYCGKMUH5AO7UJ26%2F20261001%2Fus-east-1%2Fs3%2Faws4_request&X-Amz-Date=20261001T084208Z&X-Amz-Expires=27876&X-Amz-Signature=f62d0720b7aa02abcb1c9286ad2befbbc9e21afa0fe96f29e979ded839309935&X-Amz-SignedHeaders=host%3Bx-amz-expected-bucket-owner&response-expires=Thu%2C%2001%20Oct%202026%2016%3A26%3A44%20GMT" },
+      { title: "Atrofia mamária pós-gestacional", url: "https://export-download.canva.com/3fG_I/DAHU6_3fG_I/-1/0/0008-1354975209801100298.jpg?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=AKIAQYCGKMUH5AO7UJ26%2F20261001%2Fus-east-1%2Fs3%2Faws4_request&X-Amz-Date=20261001T045822Z&X-Amz-Expires=41965&X-Amz-Signature=68f53e670ed277052cf1ce322498b99d89b5c0ab779a7eafcb80b84b798d47af&X-Amz-SignedHeaders=host%3Bx-amz-expected-bucket-owner&response-expires=Thu%2C%2001%20Oct%202026%2016%3A37%3A47%20GMT" },
+      { title: "Três erros que denunciam uma rinoplastia", url: "https://export-download.canva.com/3fG_I/DAHU6_3fG_I/-1/0/0010-1354975209801100298.jpg?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=AKIAQYCGKMUH5AO7UJ26%2F20261001%2Fus-east-1%2Fs3%2Faws4_request&X-Amz-Date=20261001T100059Z&X-Amz-Expires=20947&X-Amz-Signature=cecd1b9a2df1cc8723f528e0bbaf57ef18249904cbd138cc9914756f5d6b9907&X-Amz-SignedHeaders=host%3Bx-amz-expected-bucket-owner&response-expires=Thu%2C%2001%20Oct%202026%2015%3A50%3A06%20GMT" },
+      { title: "Permita-se ser sua primeira escolha", url: "https://export-download.canva.com/3fG_I/DAHU6_3fG_I/-1/0/0011-1354975209801100298.jpg?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=AKIAQYCGKMUH5AO7UJ26%2F20260930%2Fus-east-1%2Fs3%2Faws4_request&X-Amz-Date=20260930T165856Z&X-Amz-Expires=83176&X-Amz-Signature=99ff1bcf4b37c526d161229f75e51d46d1ddf11a14ffeb044a1a86147ca0cdbd&X-Amz-SignedHeaders=host%3Bx-amz-expected-bucket-owner&response-expires=Thu%2C%2001%20Oct%202026%2016%3A05%3A12%20GMT" },
+      { title: "Resolver tudo numa cirurgia nem sempre vale a pena", url: "https://export-download.canva.com/3fG_I/DAHU6_3fG_I/-1/0/0012-1354975209801100298.jpg?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=AKIAQYCGKMUH5AO7UJ26%2F20260930%2Fus-east-1%2Fs3%2Faws4_request&X-Amz-Date=20260930T215918Z&X-Amz-Expires=64075&X-Amz-Signature=c1643ca2ede703cfea87873ab2c930654ec456e435101bbe12f3705ae64e74cb&X-Amz-SignedHeaders=host%3Bx-amz-expected-bucket-owner&response-expires=Thu%2C%2001%20Oct%202026%2015%3A47%3A13%20GMT" },
+      { title: "Nem toda consulta termina em cirurgia", url: "https://export-download.canva.com/3fG_I/DAHU6_3fG_I/-1/0/0013-1354975209801100298.jpg?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=AKIAQYCGKMUH5AO7UJ26%2F20260930%2Fus-east-1%2Fs3%2Faws4_request&X-Amz-Date=20260930T221332Z&X-Amz-Expires=63881&X-Amz-Signature=814a17424e92e425fe3204949a3690dad14b665c000b04ace1818735466446e4&X-Amz-SignedHeaders=host%3Bx-amz-expected-bucket-owner&response-expires=Thu%2C%2001%20Oct%202026%2015%3A58%3A13%20GMT" },
+    ],
+  },
+];
+
+async function saveCover(slug: string, postId: string, jpg: Buffer): Promise<Media> {
+  const path = `content-media/${slug}/covers/canva-${postId}.jpg`;
+  const dir = localDir();
+  if (dir) {
+    const fs = await import("fs/promises");
+    await fs.mkdir(`${dir}/content-media/${slug}/covers`, { recursive: true });
+    await fs.writeFile(`${dir}/${path}`, new Uint8Array(jpg));
+  } else {
+    await put(path, jpg, { access: "private", contentType: "image/jpeg", allowOverwrite: true, addRandomSuffix: false });
+  }
+  return { path, kind: "image", name: "capa.jpg", mime: "image/jpeg" };
+}
+
+/** Coloca as capas nos Reels que ainda não têm capa. Só marca como feito quando todas entraram. */
+export async function runSeedCovers(slug?: string): Promise<{ key: string; covers: number; erros: string[] }[]> {
+  const pend = SEED_COVERS.filter((s) => !slug || s.slug === slug);
+  if (!pend.length) return [];
+  const done = await readDoc<Record<string, string>>("seed-imports", {});
+  const out: { key: string; covers: number; erros: string[] }[] = [];
+  for (const s of pend) {
+    if (done[s.key]) continue;
+    const posts = await getPosts(s.slug);
+    let n = 0;
+    const erros: string[] = [];
+    for (const c of s.covers) {
+      const p = posts.find((x) => x.title === c.title && x.type === "reels");
+      if (!p) { erros.push(`sem post: ${c.title}`); continue; }
+      if (p.cover) { n++; continue; }
+      try {
+        const r = await fetch(c.url, { cache: "no-store" });
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        const raw = Buffer.from(await r.arrayBuffer());
+        const jpg = (r.headers.get("content-type") ?? "").includes("jpeg") ? raw : await toJpeg(raw);
+        p.cover = await saveCover(s.slug, p.id, jpg);
+        p.updatedAt = new Date().toISOString();
+        p.history = [...p.history, { at: p.updatedAt, by: "DoctorBrand", role: "admin", action: "capa", note: "Capa do Canva (GRID SET/OUT)" }];
+        n++;
+      } catch (e) {
+        erros.push(`${c.title}: ${e instanceof Error ? e.message : String(e)}`);
+      }
+    }
+    if (n) await savePosts(s.slug, posts);
+    if (!erros.length) { done[s.key] = new Date().toISOString(); await writeDoc("seed-imports", done); }
+    out.push({ key: s.key, covers: n, erros });
   }
   return out;
 }
