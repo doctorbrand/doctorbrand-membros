@@ -618,3 +618,19 @@ table.data.compact th, table.data.compact td { padding: 6px 8px; font-size: 12px
 .ct-cell.is-over { outline: 3px dashed var(--ink); outline-offset: -3px; }
 .ct-date-edit summary { cursor: pointer; font-size: 13px; color: var(--muted); }
 .ct-date-edit summary:hover { color: var(--ink); }
+.ac-grid { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); gap: 16px; align-items: start; }
+@media (max-width: 900px) { .ac-grid { grid-template-columns: 1fr; } }
+.ac-client { padding: 14px 0; border-top: 1px solid var(--line); }
+.ac-client:first-child { border-top: 0; }
+.ac-users { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; padding-left: 40px; }
+.ac-row { border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; background: #fff; }
+.ac-row.is-removed { color: var(--muted); font-size: 13px; }
+.ac-del { font-size: 12.5px; color: var(--muted); padding: 6px 4px; }
+.ac-del:hover { color: var(--bad); }
+.ac-form { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.ac-form .ct-input { flex: 1 1 180px; min-width: 0; }
+.ac-cred { margin-top: 10px; border: 1px solid #d7ebdf; background: #f5faf7; border-radius: 12px; padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; }
+.ac-cred-grid { display: grid; grid-template-columns: max-content 1fr; gap: 2px 12px; font-size: 13.5px; }
+.ac-cred-grid dt { color: var(--muted); }
+.ac-msg { white-space: pre-line; font-size: 12.5px; color: var(--muted); background: #fff; border-radius: 10px; padding: 8px 10px; border: 1px solid var(--line); }
+@media (max-width: 640px) { .ac-users { padding-left: 0; } }

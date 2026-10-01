@@ -3,31 +3,61 @@
 import { revalidatePath } from "next/cache";
 import type { ActionResult } from "@/lib/types";
 import { requireAdmin } from "@/lib/auth";
-import { createUser, deleteUser, updateUser, type Role } from "@/lib/users";
+import { getClient } from "@/lib/clients";
+import { publicBase } from "@/lib/signed";
+import { createUser, deleteUser, generatePassword, resetPassword, updateUser, type Role } from "@/lib/users";
 
-export async function createUserAction(_prev: ActionResult | null, fd: FormData): Promise<ActionResult> {
+/** Resultado com a senha, mostrada uma única vez para a equipe mandar ao dono do acesso. */
+export type AccessResult = ActionResult & { cred?: { name: string; email: string; password: string; message: string } };
+
+const first = (name: string) => name.replace(/^(dra?\.?\s+)/i, "").split(" ")[0];
+
+function mensagem(name: string, email: string, password: string, role: Role): string {
+  const base = publicBase();
+  return role === "admin"
+    ? `Oi, ${first(name)}! Seu acesso de equipe à área de membros da DoctorBrand:\n${base}/login\nE-mail: ${email}\nSenha: ${password}`
+    : `Olá, ${first(name)}! Seu acesso à área de membros da DoctorBrand está pronto. Lá você aprova os posts, acompanha o projeto e fala com a equipe.\n${base}/login\nE-mail: ${email}\nSenha: ${password}\nGuarde esta senha. Se esquecer, é só pedir uma nova para a equipe.`;
+}
+
+export async function createAccessAction(_prev: AccessResult | null, fd: FormData): Promise<AccessResult> {
   await requireAdmin();
   try {
-    const role = String(fd.get("role") ?? "cliente") as Role;
-    await createUser({ name: String(fd.get("name") ?? ""), email: String(fd.get("email") ?? ""), role, clientSlug: role === "cliente" ? String(fd.get("clientSlug") ?? "") : undefined, password: String(fd.get("password") ?? "") });
+    const role = (String(fd.get("role") ?? "cliente") === "admin" ? "admin" : "cliente") as Role;
+    const clientSlug = role === "cliente" ? String(fd.get("clientSlug") ?? "") : undefined;
+    if (clientSlug && !(await getClient(clientSlug))) throw new Error("Cliente não encontrado.");
+    const name = String(fd.get("name") ?? "").trim();
+    const email = String(fd.get("email") ?? "").trim().toLowerCase();
+    const typed = String(fd.get("password") ?? "").trim();
+    const password = typed || generatePassword();
+    if (/^\S+@\S+\.\S+$/.test(email) === false) throw new Error("E-mail inválido.");
+    await createUser({ name, email, role, clientSlug, password });
     revalidatePath("/admin/usuarios");
-    return { ok: true, message: "Acesso criado." };
+    return { ok: true, message: "Acesso criado.", cred: { name, email, password, message: mensagem(name, email, password, role) } };
   } catch (e) { return { ok: false, message: e instanceof Error ? e.message : String(e) }; }
 }
 
-export async function updateUserAction(_prev: ActionResult | null, fd: FormData): Promise<ActionResult> {
+export async function resetAccessAction(id: string, _prev: AccessResult | null): Promise<AccessResult> {
   await requireAdmin();
   try {
-    const role = String(fd.get("role") ?? "cliente") as Role;
-    await updateUser(String(fd.get("id") ?? ""), { name: String(fd.get("name") ?? ""), email: String(fd.get("email") ?? ""), role, clientSlug: String(fd.get("clientSlug") ?? "") || undefined, password: String(fd.get("password") ?? "") || undefined });
+    const { user, password } = await resetPassword(id);
+    revalidatePath("/admin/usuarios");
+    return { ok: true, message: "Senha nova gerada. A antiga deixou de funcionar.", cred: { name: user.name, email: user.email, password, message: mensagem(user.name, user.email, password, user.role) } };
+  } catch (e) { return { ok: false, message: e instanceof Error ? e.message : String(e) }; }
+}
+
+export async function updateAccessAction(id: string, _prev: AccessResult | null, fd: FormData): Promise<AccessResult> {
+  await requireAdmin();
+  try {
+    const role = (String(fd.get("role") ?? "cliente") === "admin" ? "admin" : "cliente") as Role;
+    await updateUser(id, { name: String(fd.get("name") ?? ""), email: String(fd.get("email") ?? ""), role, clientSlug: role === "cliente" ? String(fd.get("clientSlug") ?? "") || undefined : undefined });
     revalidatePath("/admin/usuarios");
     return { ok: true, message: "Acesso atualizado." };
   } catch (e) { return { ok: false, message: e instanceof Error ? e.message : String(e) }; }
 }
 
-export async function deleteUserAction(_prev: ActionResult | null, fd: FormData): Promise<ActionResult> {
+export async function deleteAccessAction(id: string, _prev: AccessResult | null): Promise<AccessResult> {
   await requireAdmin();
-  await deleteUser(String(fd.get("id") ?? ""));
+  await deleteUser(id);
   revalidatePath("/admin/usuarios");
   return { ok: true, message: "Acesso removido." };
 }

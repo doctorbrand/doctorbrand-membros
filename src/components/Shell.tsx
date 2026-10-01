@@ -11,7 +11,7 @@ import { igProfile } from "@/lib/instagram";
 
 export type ShellActive =
   | "geral" | "projeto" | "evolucao" | "conteudo" | "anuncios" | "ajuda" | "perfil" | "gerar"
-  | "avisos" | "onboarding" | "indicacoes" | "circle" | "admin" | "config";
+  | "avisos" | "onboarding" | "indicacoes" | "circle" | "admin" | "config" | "acessos";
 
 export async function Shell({ children, active, session, clientSlug }: { children: React.ReactNode; active: ShellActive; session?: Session | null; clientSlug?: string }) {
   const isClient = session?.role === "cliente";
@@ -50,7 +50,7 @@ export async function Shell({ children, active, session, clientSlug }: { childre
     if (admin) sections.push({ title: "Só a equipe", items: [it(`${b}/perfil`, "Perfil", "user", "perfil"), ...(!ativo ? [it(`${b}/onboarding`, "Acessos e briefing", "key", "onboarding")] : []), it(`${b}/gerar`, "Gerar", "wand", "gerar"), { href: `/api/preview?slug=${slug}`, label: "Ver como o cliente", icon: "eye", active: false }] });
   }
   if (admin) {
-    sections.unshift({ title: "Equipe", items: [it("/conteudo", "Clientes", "users", "geral"), it("/admin/avisos", "Avisos", "bell", "avisos"), it("/admin/indicacoes", "Circle", "spark", "circle")] });
+    sections.unshift({ title: "Equipe", items: [it("/conteudo", "Clientes", "users", "geral"), it("/admin/avisos", "Avisos", "bell", "avisos"), it("/admin/indicacoes", "Circle", "spark", "circle"), it("/admin/usuarios", "Acessos", "key", "acessos")] });
   }
 
   const footer: NavItem[] = [
