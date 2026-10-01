@@ -89,7 +89,7 @@ export default async function EvolucaoPage({ params, searchParams }: { params: P
         </div>
         <div className="ct-hero-actions">
           <Link href={`/relatorio/${slug}/${reportMonth}`} className="ct-btn ct-btn-dark inline-flex items-center gap-1.5"><DocIcon size={15} /> Relatório de {monthName(reportMonth)}</Link>
-          {admin && <Link href={`/cliente/${slug}/evolucao?visao=cliente`} className="ct-btn inline-flex items-center gap-1.5"><EyeIcon /> Ver como o cliente</Link>}
+          {admin && <a href={`/api/preview?slug=${slug}&volta=${encodeURIComponent(`/cliente/${slug}/evolucao`)}`} className="ct-btn inline-flex items-center gap-1.5"><EyeIcon /> Ver como o cliente</a>}
         </div>
       </section>
 

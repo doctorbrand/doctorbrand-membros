@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { sendAlert } from "@/lib/alerts";
-import { requireAdmin, requireAuth } from "@/lib/auth";
+import { requireAdmin, requireAuth , PREVIEW_BLOCK } from "@/lib/auth";
 import { addIndicacao, getCircle, LIMITE_ATIVAS, marcarEntregue, setStatus, STATUS_LABEL, type IndicacaoStatus } from "@/lib/circle";
 import { getClient } from "@/lib/clients";
 import { publicBase } from "@/lib/signed";
@@ -12,6 +12,7 @@ const str = (fd: FormData, k: string) => String(fd.get(k) ?? "").trim();
 
 export async function indicarAction(slug: string, _prev: ActionResult | null, fd: FormData): Promise<ActionResult> {
   const s = await requireAuth(slug);
+  if (s.preview) return PREVIEW_BLOCK;
   const nome = str(fd, "nome").slice(0, 120), contato = str(fd, "contato").slice(0, 120);
   if (!nome || !contato) return { ok: false, message: "Informe o nome e um contato (WhatsApp ou Instagram)." };
   if (!fd.get("aviso")) return { ok: false, message: "Confirme que o colega sabe que a DoctorBrand vai entrar em contato." };

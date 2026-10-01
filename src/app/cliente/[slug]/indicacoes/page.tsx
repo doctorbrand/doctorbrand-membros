@@ -39,7 +39,7 @@ export default async function IndicacoesPage({ params, searchParams }: { params:
           <h1 className="mt-1.5">Indique um colega. <i>Suba de nível.</i></h1>
           <p className="text-[14px] sm:text-[15px] text-[var(--muted)] mt-2 max-w-xl">Indique médicos com quem você tem afinidade real. Quando a indicação vira cliente, você conquista o próximo nível. Não é dinheiro: é acesso, status e proximidade estratégica.</p>
         </div>
-        {admin && <div className="ct-hero-actions"><Link href="/admin/indicacoes" className="ct-btn">Todas as indicações</Link><Link href={`/cliente/${slug}/indicacoes?visao=cliente`} className="ct-btn">Ver como o cliente</Link></div>}
+        {admin && <div className="ct-hero-actions"><Link href="/admin/indicacoes" className="ct-btn">Todas as indicações</Link><a href={`/api/preview?slug=${slug}&volta=${encodeURIComponent(`/cliente/${slug}/indicacoes`)}`} className="ct-btn">Ver como o cliente</a></div>}
       </section>
 
       <div className="pj-grid">

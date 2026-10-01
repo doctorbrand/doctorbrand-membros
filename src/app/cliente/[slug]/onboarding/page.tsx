@@ -43,7 +43,7 @@ export default async function OnboardingPage({ params, searchParams }: { params:
           <p className="text-[14px] sm:text-[15px] text-[var(--muted)] mt-2 max-w-xl">Os acessos que a equipe precisa e o briefing sobre você e sua clínica. Nenhuma senha é pedida aqui: tudo é feito por convite, e você pode parar e continuar depois.</p>
         </div>
         <div className="ct-hero-actions">
-          {admin && <Link href={`/cliente/${slug}/onboarding?visao=cliente`} className="ct-btn inline-flex items-center gap-1.5"><EyeIcon /> Ver como o cliente</Link>}
+          {admin && <a href={`/api/preview?slug=${slug}&volta=${encodeURIComponent(`/cliente/${slug}/onboarding`)}`} className="ct-btn inline-flex items-center gap-1.5"><EyeIcon /> Ver como o cliente</a>}
         </div>
       </section>
 

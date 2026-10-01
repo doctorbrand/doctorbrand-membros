@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { sendAlert } from "@/lib/alerts";
-import { requireAdmin, requireAuth } from "@/lib/auth";
+import { requireAdmin, requireAuth , PREVIEW_BLOCK } from "@/lib/auth";
 import { getClient } from "@/lib/clients";
 import { acessos, BRIEFING, getOnboarding, saveOnboarding } from "@/lib/onboarding";
 import { getProfile, saveProfile } from "@/lib/profile";
@@ -14,6 +14,7 @@ const done = (slug: string, message: string): ActionResult => { revalidatePath(`
 /** Cliente marca um acesso como feito (com nota opcional). A equipe confirma depois. */
 export async function marcarAcessoAction(slug: string, id: string, _prev: ActionResult | null, fd: FormData): Promise<ActionResult> {
   const s = await requireAuth(slug);
+  if (s.preview) return PREVIEW_BLOCK;
   if (!acessos().some((a) => a.id === id)) return { ok: false, message: "Item inválido." };
   const nota = String(fd.get("nota") ?? "").trim().slice(0, 300) || undefined;
   if (/senha|password/i.test(nota ?? "")) return { ok: false, message: "Não escreva senhas aqui. Use o convite de acesso descrito acima." };
@@ -25,7 +26,8 @@ export async function marcarAcessoAction(slug: string, id: string, _prev: Action
 }
 
 export async function desfazerAcessoAction(slug: string, id: string, _prev: ActionResult | null): Promise<ActionResult> {
-  await requireAuth(slug);
+  const s = await requireAuth(slug);
+  if (s.preview) return PREVIEW_BLOCK;
   const d = await getOnboarding(slug);
   delete d.acessos[id];
   await saveOnboarding(slug, d);
@@ -43,6 +45,7 @@ export async function confirmarAcessoAction(slug: string, id: string, _prev: Act
 /** Salva o briefing (rascunho ou envio). No envio, avisa a equipe. */
 export async function salvarBriefingAction(slug: string, _prev: ActionResult | null, fd: FormData): Promise<ActionResult> {
   const s = await requireAuth(slug);
+  if (s.preview) return PREVIEW_BLOCK;
   const enviar = String(fd.get("intent")) === "enviar";
   const respostas = Object.fromEntries(BRIEFING.map((q) => [q.key, String(fd.get(q.key) ?? "").trim().slice(0, 3000)]).filter(([, v]) => v));
   if (enviar && Object.keys(respostas).length < 4) return { ok: false, message: "Responda pelo menos 4 perguntas para enviar. Você pode salvar e continuar depois." };

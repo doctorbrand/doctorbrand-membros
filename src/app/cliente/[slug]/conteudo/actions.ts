@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { sendAlert } from "@/lib/alerts";
-import { requireAdmin, requireAuth, type Session } from "@/lib/auth";
+import { requireAdmin, requireAuth, type Session , PREVIEW_BLOCK } from "@/lib/auth";
 import { publicBase } from "@/lib/signed";
 import { getPosts, mediaBelongsTo, plannedAt, savePlan, savePosts, updatePost, type FeedPlan, type HistoryEntry, type Media, type Post, type PostStatus, type PostType } from "@/lib/content";
 import { driveFileInfo, driveFolderFiles, driveText, FOLDER, parseDriveLinks, toMedia, type DriveFile } from "@/lib/drive";
@@ -27,6 +27,7 @@ async function notifyTeam(slug: string, text: string) {
 
 export async function approvePostAction(slug: string, id: string, _prev: ActionResult | null): Promise<ActionResult> {
   const s = await requireAuth(slug);
+  if (s.preview) return PREVIEW_BLOCK;
   let title = "";
   const p = await updatePost(slug, id, (p) => {
     if (!["aguardando", "alteracao"].includes(p.status)) return p;
@@ -41,6 +42,7 @@ export async function approvePostAction(slug: string, id: string, _prev: ActionR
 
 export async function approveAllAction(slug: string, _prev: ActionResult | null): Promise<ActionResult> {
   const s = await requireAuth(slug);
+  if (s.preview) return PREVIEW_BLOCK;
   const posts = await getPosts(slug);
   let n = 0;
   const next = posts.map((p) => {
@@ -57,6 +59,7 @@ export async function approveAllAction(slug: string, _prev: ActionResult | null)
 
 export async function requestChangeAction(slug: string, id: string, _prev: ActionResult | null, fd: FormData): Promise<ActionResult> {
   const s = await requireAuth(slug);
+  if (s.preview) return PREVIEW_BLOCK;
   const note = str(fd, "note");
   const slide = Number(str(fd, "slide")) || undefined;
   if (!note) return { ok: false, message: "Conte o que você quer mudar." };
@@ -177,6 +180,7 @@ export async function deletePostAction(slug: string, id: string, _prev: ActionRe
 /** Cliente ou equipe agenda um post aprovado para a data/hora escolhida. */
 export async function scheduleAction(slug: string, id: string, _prev: ActionResult | null, fd: FormData): Promise<ActionResult> {
   const s = await requireAuth(slug);
+  if (s.preview) return PREVIEW_BLOCK;
   const c = await getClient(slug);
   if (!c?.igUserId) return { ok: false, message: "A conta do Instagram ainda não está ligada. A equipe DoctorBrand precisa conectar antes de agendar." };
   const date = str(fd, "date"), time = str(fd, "time");
@@ -200,6 +204,7 @@ export async function scheduleAction(slug: string, id: string, _prev: ActionResu
 
 export async function unscheduleAction(slug: string, id: string, _prev: ActionResult | null): Promise<ActionResult> {
   const s = await requireAuth(slug);
+  if (s.preview) return PREVIEW_BLOCK;
   const p = await updatePost(slug, id, (p) => (p.status === "agendado" && !p.publish?.igMediaId
     ? { ...p, status: "aprovado", publish: undefined, history: [...p.history, entry(s, "voltou", "Agendamento cancelado")] } : p));
   if (!p) return { ok: false, message: "Post não encontrado." };
@@ -290,6 +295,7 @@ export async function importDriveAction(text: string): Promise<DriveImport> {
 /** Troca a capa do Reels (frame do vídeo ou imagem enviada). Cliente e equipe. */
 export async function setCoverAction(slug: string, id: string, coverJson: string, offsetMs: number | null): Promise<ActionResult> {
   const s = await requireAuth(slug);
+  if (s.preview) return PREVIEW_BLOCK;
   const cover = parseMedia(coverJson, slug)[0];
   if (!cover || cover.kind !== "image") return { ok: false, message: "Capa inválida." };
   let err: string | null = null;

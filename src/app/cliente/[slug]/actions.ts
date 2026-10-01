@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requireAdmin, requireAuth } from "@/lib/auth";
+import { requireAdmin, requireAuth , PREVIEW_BLOCK } from "@/lib/auth";
 import { sendAlert } from "@/lib/alerts";
 import { getClient } from "@/lib/clients";
 import { addNps, adiarNps, grupo, GRUPO_LABEL } from "@/lib/nps";
@@ -195,6 +195,7 @@ export async function saveContratoAction(slug: string, _prev: ActionResult | nul
 
 export async function responderNpsAction(slug: string, _prev: ActionResult | null, fd: FormData): Promise<ActionResult> {
   const s = await requireAuth(slug);
+  if (s.preview) return PREVIEW_BLOCK;
   if (s.role !== "cliente") return { ok: false, message: "Só o cliente responde. Esta é a prévia do que ele vê." };
   const score = Number(str(fd, "score"));
   if (!Number.isInteger(score) || score < 0 || score > 10) return { ok: false, message: "Escolha uma nota de 0 a 10." };
@@ -208,6 +209,7 @@ export async function responderNpsAction(slug: string, _prev: ActionResult | nul
 
 export async function adiarNpsAction(slug: string, _prev: ActionResult | null): Promise<ActionResult> {
   const s = await requireAuth(slug);
+  if (s.preview) return PREVIEW_BLOCK;
   if (s.role === "cliente") await adiarNps(slug);
   revalidatePath(path(slug), "layout");
   return { ok: true, message: "Tudo bem, perguntamos outro dia." };

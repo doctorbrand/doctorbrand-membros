@@ -128,7 +128,7 @@ export default async function ProjetoPage({ params, searchParams }: { params: Pr
           {waiting > 0
             ? <Link href={conteudo} className="ct-btn ct-btn-primary ct-btn-lg">{waiting === 1 ? "Aprovar 1 post" : `Aprovar ${waiting} posts`} <ArrowRightIcon /></Link>
             : <Link href={conteudo} className="ct-btn ct-btn-lg">Ver o planejamento <ArrowRightIcon /></Link>}
-          {admin && <Link href={`/cliente/${slug}?visao=cliente`} className="ct-btn inline-flex items-center gap-1.5"><EyeIcon /> Ver como o cliente</Link>}
+          {admin && <a href={`/api/preview?slug=${slug}`} className="ct-btn inline-flex items-center gap-1.5"><EyeIcon /> Ver como o cliente</a>}
         </div>
       </section>
 

@@ -108,7 +108,7 @@ export default async function ConteudoPage({ params, searchParams }: { params: P
       {admin && (
         <div className="flex flex-wrap items-center gap-3 mb-4">
           <Link href="/conteudo" className="text-sm text-[var(--muted)]">← Todos os clientes</Link>
-          <Link href={`${base}?visao=cliente`} className="ct-btn inline-flex items-center gap-1.5"><EyeIcon /> Ver como o cliente</Link>
+          <a href={`/api/preview?slug=${slug}&volta=${encodeURIComponent(`/cliente/${slug}/conteudo`)}`} className="ct-btn inline-flex items-center gap-1.5"><EyeIcon /> Ver como o cliente</a>
           <ZipImport slug={slug} action={importPostsAction.bind(null, slug)} local={local} defaultStart={nextDay} everyDays={Math.max(1, Math.round(7 / plan.postsPerWeek))} />
           <DriveImport action={importDriveBatchAction.bind(null, slug)} defaultStart={nextDay} everyDays={Math.max(1, Math.round(7 / plan.postsPerWeek))} />
         </div>

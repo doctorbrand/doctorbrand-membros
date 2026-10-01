@@ -11,7 +11,14 @@ export interface Session {
   name: string;
   userId?: string;
   clientSlug?: string;
+  /** Equipe vendo a área exatamente como o cliente vê (nada é salvo). */
+  preview?: boolean;
+  /** Nome de quem está na visualização (a equipe). */
+  realName?: string;
 }
+
+export const PREVIEW_COOKIE = "db_preview";
+export const PREVIEW_BLOCK = { ok: false, message: "Modo visualização: você está vendo como o cliente. Nada é salvo." } as const;
 
 const secret = () => process.env.PANEL_PASSWORD ?? "";
 
@@ -32,7 +39,8 @@ function verifyUser(token: string | undefined): string | null {
   return sig === good ? id : null;
 }
 
-export async function getSession(): Promise<Session | null> {
+/** Sessão de verdade, sem a visualização como cliente. */
+export async function getRealSession(): Promise<Session | null> {
   if (!secret()) return null;
   const jar = await cookies();
   if (jar.get(COOKIE)?.value === expectedToken()) return { role: "admin", name: "Fernando (senha mestre)" };
@@ -42,6 +50,21 @@ export async function getSession(): Promise<Session | null> {
     if (u) return { role: u.role, name: u.name, userId: u.id, clientSlug: u.clientSlug };
   }
   return null;
+}
+
+/**
+ * Sessão usada pelas páginas. Se a equipe ativou "Ver como o cliente", devolve uma sessão de cliente
+ * daquele cliente, para a área inteira (menu, páginas e permissões) ficar igual à dele.
+ */
+export async function getSession(): Promise<Session | null> {
+  const real = await getRealSession();
+  if (real?.role !== "admin") return real;
+  const slug = (await cookies()).get(PREVIEW_COOKIE)?.value;
+  if (!slug) return real;
+  const { getClient } = await import("./clients");
+  const c = await getClient(slug).catch(() => undefined);
+  if (!c) return real;
+  return { role: "cliente", name: c.name, clientSlug: c.slug, preview: true, realName: real.name };
 }
 
 export async function isAuthed(): Promise<boolean> {
