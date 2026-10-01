@@ -72,12 +72,13 @@ export async function isAuthed(): Promise<boolean> {
 }
 
 /** Exige login. Acesso de cliente só enxerga a própria página. */
+/** Sem slug: páginas de todos (Ajuda). Com slug: o cliente só entra nas páginas dele. */
 export async function requireAuth(allowedSlug?: string): Promise<Session> {
   const s = await getSession();
   if (!s) redirect("/login");
   if (s.role === "cliente") {
     if (!s.clientSlug) redirect("/login?erro=sem-cliente");
-    if (allowedSlug !== s.clientSlug) redirect(`/cliente/${s.clientSlug}`);
+    if (allowedSlug !== undefined && allowedSlug !== s.clientSlug) redirect(`/cliente/${s.clientSlug}`);
   }
   return s;
 }
