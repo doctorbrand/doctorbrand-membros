@@ -7,6 +7,7 @@ import { PostEditor } from "@/components/content/PostEditor";
 import { VideoPlayer } from "@/components/content/VideoPlayer";
 import { ZipImport } from "@/components/content/ZipImport";
 import { ListImport } from "@/components/content/ListImport";
+import { runSeedImports } from "@/lib/seedImports";
 import { DriveImport } from "@/components/content/DriveImport";
 import { Shell } from "@/components/Shell";
 import { AlertIcon, ArrowRightIcon, CalendarIcon, CheckIcon, ChevronLeftIcon, ChevronRightIcon, ClockIcon, EyeIcon, MenuIcon, PencilIcon } from "@/components/Icons";
@@ -48,6 +49,8 @@ export default async function ConteudoPage({ params, searchParams }: { params: P
   const c = await getClient(slug);
   if (!c) notFound();
 
+  // Planejamento trazido de fora entra na primeira vez que a equipe abre a página.
+  if (admin) await runSeedImports(slug).catch(() => undefined);
   const [all, plan, profile, live, accounts] = await Promise.all([getPosts(slug), getPlan(slug), igProfile(c.igUserId), igRecentMedia(c.igUserId, 15), admin ? igAccounts() : Promise.resolve([] as IgAccount[])]);
   const local = !!localDir();
   const nextDay = addDays(todayISO(), 1);

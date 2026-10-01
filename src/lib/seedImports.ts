@@ -62,11 +62,19 @@ export const SEED_IMPORTS: SeedImport[] = [
 
 const typeOf = (media: Media[]): PostType => (media.length > 1 ? "carrossel" : media[0].kind === "video" ? "reels" : "imagem");
 
-/** Aplica os planejamentos ainda não importados. Devolve o que entrou. */
-export async function runSeedImports(): Promise<{ key: string; created: number }[]> {
+/** Aplica os planejamentos ainda não importados (de um cliente ou de todos). Devolve o que entrou. */
+export async function runSeedImports(slug?: string): Promise<{ key: string; created: number }[]> {
+  const pend = SEED_IMPORTS.filter((s) => !slug || s.slug === slug);
+  if (!pend.length) return [];
   const done = await readDoc<Record<string, string>>("seed-imports", {});
+  if (pend.every((s) => done[s.key])) return [];
+  // Trava curta: a página e a rodada automática não importam ao mesmo tempo.
+  const lock = await readDoc<{ until?: number }>("locks/seed-imports", {});
+  if ((lock.until ?? 0) > Date.now()) return [];
+  await writeDoc("locks/seed-imports", { until: Date.now() + 30_000 });
   const out: { key: string; created: number }[] = [];
-  for (const s of SEED_IMPORTS) {
+  try {
+  for (const s of pend) {
     if (done[s.key]) continue;
     const posts = await getPosts(s.slug);
     const have = new Set(posts.flatMap((p) => p.media.map((m) => m.driveId).filter(Boolean)));
@@ -82,6 +90,9 @@ export async function runSeedImports(): Promise<{ key: string; created: number }
     done[s.key] = now;
     await writeDoc("seed-imports", done);
     out.push({ key: s.key, created: created.length });
+  }
+  } finally {
+    await writeDoc("locks/seed-imports", { until: 0 }).catch(() => undefined);
   }
   return out;
 }
