@@ -15,6 +15,7 @@ const API = () => (process.env.CLICKUP_API_URL ?? "https://api.clickup.com/api/v
 const ALEXANDRA = () => Number(process.env.CLICKUP_ALEXANDRA_ID ?? 118039934);
 const FALLBACK_LIST = () => process.env.CLICKUP_AVISOS_LIST ?? "1400320000002416";
 const DOC = "alteracoes/clickup";
+const TESTE_DOC = "alteracoes/teste";
 
 export interface AlteracaoTask { taskId: string; url: string; at: string }
 export const getAlteracaoTasks = () => readDoc<Record<string, AlteracaoTask>>(DOC, {});
@@ -62,7 +63,7 @@ function prazo(post: Post, now = Date.now()): { due: number; priority: number } 
 export type AlteracaoResult = { ok: true; url: string; comment: boolean } | { ok: false; error: string };
 
 /** Cria a tarefa (ou comenta na que já está aberta). Nunca lança erro: quem chama não pode travar o pedido do cliente. */
-export async function tarefaAlteracao(slug: string, post: Post, pedido: { by: string; note: string; onde?: string }): Promise<AlteracaoResult> {
+export async function tarefaAlteracao(slug: string, post: Post, pedido: { by: string; note: string; onde?: string }, teste = false): Promise<AlteracaoResult> {
   if (!clickupOn()) return { ok: false, error: "ClickUp não configurado (CLICKUP_API_TOKEN)." };
   try {
     const key = alteracaoKey(slug, post.id);
@@ -71,7 +72,7 @@ export async function tarefaAlteracao(slug: string, post: Post, pedido: { by: st
     const onde = pedido.onde ? ` ${pedido.onde}` : " no post";
     const quote = pedido.note.split(/\r?\n/).map((l) => `> ${l}`).join("\n");
 
-    const prev = (await getAlteracaoTasks())[key];
+    const prev = teste ? undefined : (await getAlteracaoTasks())[key];
     if (prev) {
       const open = await cu<{ status?: { type?: string } }>("GET", `/task/${prev.taskId}`).then((t) => t.status?.type !== "closed" && t.status?.type !== "done").catch(() => false);
       if (open) {
@@ -83,6 +84,7 @@ export async function tarefaAlteracao(slug: string, post: Post, pedido: { by: st
     const list = await listaDoCliente(slug);
     const { due, priority } = prazo(post);
     const markdown_content = [
+      ...(teste ? ["**Teste da integração, feito pela equipe. Não é um pedido real: pode concluir ou apagar.**", ""] : []),
       `**${pedido.by}** pediu alteração${onde} pela área de membros.`,
       "",
       quote,
@@ -93,13 +95,36 @@ export async function tarefaAlteracao(slug: string, post: Post, pedido: { by: st
       "Depois de ajustar, troque a mídia ou a capa no post e mande de novo para aprovação. O cliente recebe a nova versão lá.",
     ].join("\n");
     const task = await cu<{ id: string; url: string }>("POST", `/list/${list.id}/task`, {
-      name: `Ajuste pedido · ${client?.name ?? slug} · ${post.title}${pedido.onde ? ` (${pedido.onde.replace(/^(na|no) /, "")})` : ""}`,
-      markdown_content, assignees: [ALEXANDRA()], due_date: due, due_date_time: true, priority, tags: ["ajuste-cliente"],
+      name: `${teste ? "[TESTE] " : ""}Ajuste pedido · ${client?.name ?? slug} · ${post.title}${pedido.onde ? ` (${pedido.onde.replace(/^(na|no) /, "")})` : ""}`,
+      markdown_content, assignees: [ALEXANDRA()], due_date: due, due_date_time: true, priority,
     });
-    const all = await getAlteracaoTasks();
-    await writeDoc(DOC, { ...all, [key]: { taskId: task.id, url: task.url, at: new Date().toISOString() } });
+    if (teste) {
+      await writeDoc(TESTE_DOC, { taskId: task.id, url: task.url, at: new Date().toISOString(), folder: list.folder ?? "lista de avisos" });
+    } else {
+      const all = await getAlteracaoTasks();
+      await writeDoc(DOC, { ...all, [key]: { taskId: task.id, url: task.url, at: new Date().toISOString() } });
+    }
     return { ok: true, url: task.url, comment: false };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : String(e) };
   }
+}
+
+export const getTesteAlteracao = () => readDoc<(AlteracaoTask & { folder: string }) | null>(TESTE_DOC, null);
+
+/**
+ * Teste de ponta a ponta, disparado pela equipe: cria uma tarefa [TESTE] para a Alexandra,
+ * pelo mesmo caminho de um pedido real, no primeiro cliente com pasta no ClickUp.
+ */
+export async function testeAlteracao(by: string, slugs: string[]): Promise<AlteracaoResult & { folder?: string }> {
+  if (!clickupOn()) return { ok: false, error: "ClickUp não configurado (CLICKUP_API_TOKEN)." };
+  let slug = slugs[0];
+  for (const s of slugs) {
+    if ((await listaDoCliente(s)).folder) { slug = s; break; }
+  }
+  if (!slug) return { ok: false, error: "Nenhum cliente cadastrado." };
+  const em3 = new Date(Date.now() + 3 * 86_400_000).toISOString().slice(0, 10);
+  const post = { id: `teste-${Date.now()}`, type: "reels", title: "Post de teste", caption: "", date: em3, time: "12:00", media: [], status: "alteracao", createdAt: "", updatedAt: "", history: [] } as unknown as Post;
+  const r = await tarefaAlteracao(slug, post, { by, note: "Trocar a capa por um frame olhando para a câmera.", onde: "na capa" }, true);
+  return r.ok ? { ...r, folder: (await getTesteAlteracao())?.folder } : r;
 }

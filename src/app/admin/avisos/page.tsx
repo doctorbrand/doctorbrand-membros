@@ -5,7 +5,8 @@ import { CopyButton } from "@/components/avisos/CopyButton";
 import { ArrowUpRightIcon, ChatIcon, CheckIcon } from "@/components/Icons";
 import { requireAdmin } from "@/lib/auth";
 import { AVISO_LABEL, avisoPath, buildAvisos, getSent, waLink, type Aviso } from "@/lib/avisos";
-import { clickupAction, markSentAction, undoSentAction } from "./actions";
+import { clickupAction, markSentAction, testeAlexandraAction, undoSentAction } from "./actions";
+import { getTesteAlteracao } from "@/lib/alteracoesClickup";
 import { getAvisosTask } from "@/lib/avisosClickup";
 import { clickupOn } from "@/lib/clickup";
 import { todayISO } from "@/lib/periods";
@@ -18,7 +19,7 @@ const hora = (iso: string) => new Date(iso).toLocaleString("pt-BR", { timeZone: 
 
 export default async function AvisosPage() {
   const session = await requireAdmin();
-  const [avisos, sent, clients, task] = await Promise.all([buildAvisos(), getSent(), listClients(), getAvisosTask()]);
+  const [avisos, sent, clients, task, teste] = await Promise.all([buildAvisos(), getSent(), listClients(), getAvisosTask(), getTesteAlteracao()]);
   const taskHoje = task?.date === todayISO() ? task : null;
   const lastScores = (await Promise.all(clients.map((c) => getNps(c.slug).then((d) => ultima(d)?.score)))).filter((x): x is number => x !== undefined);
   const nps = npsScore(lastScores);
@@ -52,6 +53,18 @@ export default async function AvisosPage() {
             </span>
           </span>
           <ActionButton action={clickupAction} label={taskHoje ? "Atualizar agora" : "Enviar agora"} variant="ghost" />
+        </div>
+      )}
+      {clickupOn() && (
+        <div className="card av-cu">
+          <span className="min-w-0 flex-1">
+            <span className="block font-medium">Ajustes do cliente para a Alexandra</span>
+            <span className="block text-[13px] text-[var(--muted)]">
+              Quando o cliente pede ajuste num post ou capa, vira tarefa dela no ClickUp, na lista Social Media do cliente.{" "}
+              {teste && <>Último teste: {hora(teste.at)}, em {teste.folder}. <a href={teste.url} target="_blank" rel="noreferrer" className="underline underline-offset-2">Abrir tarefa</a></>}
+            </span>
+          </span>
+          <ActionButton action={testeAlexandraAction} label="Criar tarefa de teste" variant="ghost" confirm="Criar uma tarefa [TESTE] para a Alexandra no ClickUp? Ela recebe a notificação." />
         </div>
       )}
 
