@@ -5,6 +5,7 @@ import { listClients } from "@/lib/clients";
 import { isDue, stepPublish } from "@/lib/publish";
 import { publicBase } from "@/lib/signed";
 import { readDoc, storeEnabled, writeDoc } from "@/lib/store";
+import { runSeedImports } from "@/lib/seedImports";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -27,6 +28,9 @@ export async function GET(req: Request) {
   const lock = await readDoc<{ until?: number }>("locks/publish", {});
   if ((lock.until ?? 0) > Date.now()) return NextResponse.json({ skipped: "outra rodada em andamento" });
   await writeDoc("locks/publish", { until: Date.now() + 58_000 });
+
+  // Planejamentos trazidos de fora (Notion) entram uma vez, como rascunho.
+  const seeded = await runSeedImports().catch((e) => [{ key: "erro", created: 0, error: e instanceof Error ? e.message : String(e) }]);
 
   const started = Date.now();
   const report: { client: string; post: string; outcome: string; message: string }[] = [];
@@ -55,5 +59,5 @@ export async function GET(req: Request) {
   } finally {
     await writeDoc("locks/publish", { until: 0 }).catch(() => undefined);
   }
-  return NextResponse.json({ ok: true, ran: report.length, report });
+  return NextResponse.json({ ok: true, ran: report.length, report, ...(seeded.length ? { seeded } : {}) });
 }
