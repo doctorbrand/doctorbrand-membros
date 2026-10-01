@@ -7,7 +7,7 @@ import { createHmac, timingSafeEqual } from "crypto";
 const key = () => `${process.env.PANEL_PASSWORD ?? ""}:media-public:v1`;
 const sign = (p: string, exp: number) => createHmac("sha256", key()).update(`${p}|${exp}`).digest("hex");
 
-export const publicBase = () => (process.env.PUBLIC_BASE_URL ?? "https://login.doctorbrand.co").replace(/\/$/, "");
+export const publicBase = () => (process.env.PUBLIC_BASE_URL ?? "https://members.doctorbrand.co").replace(/\/$/, "");
 
 export function signedMediaUrl(path: string, ttlSeconds = 24 * 3600): string {
   const exp = Math.floor(Date.now() / 1000) + ttlSeconds;

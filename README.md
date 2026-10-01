@@ -1,6 +1,6 @@
 # DoctorBrand · Área de membros
 
-Área do cliente DoctorBrand (login.doctorbrand.co): o cliente vê o planejamento de conteúdo como um feed fiel do Instagram, aprova, pede alteração (por slide), escolhe a capa do Reels e agenda. O post aprovado e agendado publica sozinho no Instagram, em qualidade original.
+Área do cliente DoctorBrand (members.doctorbrand.co): o cliente vê o planejamento de conteúdo como um feed fiel do Instagram, aprova, pede alteração (por slide), escolhe a capa do Reels e agenda. O post aprovado e agendado publica sozinho no Instagram, em qualidade original.
 
 Projeto separado do Painel de Tráfego. Nada daqui lê ou mexe em campanhas.
 
@@ -20,14 +20,14 @@ Projeto separado do Painel de Tráfego. Nada daqui lê ou mexe em campanhas.
 | `BLOB_READ_WRITE_TOKEN` | Criada ao conectar um Blob **privado** ao projeto. Guarda clientes, acessos, posts e mídias. |
 | `META_ACCESS_TOKEN` | Token do System User com `instagram_basic`, `instagram_content_publish`, `pages_show_list`, `pages_read_engagement`. |
 | `CRON_SECRET` | Chave do agendador de publicação. |
-| `PUBLIC_BASE_URL` | `https://login.doctorbrand.co` |
+| `PUBLIC_BASE_URL` | `https://members.doctorbrand.co` |
 | `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID` (opcional) | Aviso para a equipe quando o cliente aprova, pede alteração ou agenda. WhatsApp Cloud também funciona (ver `src/lib/alerts.ts`). |
 | `GOOGLE_API_KEY` (opcional) | Lista pastas grandes do Drive pela API. Sem ela, usa a visualização pública da pasta. |
 
 ## Agendador (grátis)
 
 O plano Hobby da Vercel só roda cron diário, então a publicação usa o cron-job.org:
-`GET https://login.doctorbrand.co/api/cron/publish?key=<CRON_SECRET>` a cada 5 minutos.
+`GET https://members.doctorbrand.co/api/cron/publish?key=<CRON_SECRET>` a cada 5 minutos.
 
 ## Rodar local
 

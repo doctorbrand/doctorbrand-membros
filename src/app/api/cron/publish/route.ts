@@ -12,7 +12,7 @@ export const maxDuration = 60;
 /**
  * Publica os posts agendados cuja hora chegou.
  * Chamado a cada 5 min por um agendador externo gratuito (cron-job.org):
- *   GET https://login.doctorbrand.co/api/cron/publish?key=<CRON_SECRET>
+ *   GET https://members.doctorbrand.co/api/cron/publish?key=<CRON_SECRET>
  * Também aceita `Authorization: Bearer <CRON_SECRET>` (formato do Vercel Cron).
  */
 export async function GET(req: Request) {
