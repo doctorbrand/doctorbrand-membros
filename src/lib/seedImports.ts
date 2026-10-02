@@ -1,4 +1,5 @@
-import { getPosts, savePosts, type Media, type Post, type PostType } from "./content";
+import { getPlan, getPosts, savePosts, type FeedPlan, type Media, type Post, type PostType } from "./content";
+import { tarefaAlteracao } from "./alteracoesClickup";
 import { put } from "@vercel/blob";
 import { toJpeg } from "./drive";
 import { localDir, readDoc, writeDoc } from "./store";
@@ -165,6 +166,106 @@ export async function runSeedCovers(slug?: string): Promise<{ key: string; cover
     if (n) await savePosts(s.slug, posts);
     if (!erros.length) { done[s.key] = new Date().toISOString(); await writeDoc("seed-imports", done); }
     out.push({ key: s.key, covers: n, erros });
+  }
+  return out;
+}
+
+/**
+ * Decisões que o cliente já tomou fora da área de membros (checklist de aprovação no Notion) e o pilar de cada post.
+ * Aplica uma vez: pilar só onde ainda não há; status só em post que ainda está em rascunho ou aguardando;
+ * legenda só se continua igual à importada. Pedido de alteração vira tarefa da Alexandra no ClickUp.
+ */
+type PilarKey = "autoridade" | "educa" | "prova" | "bastidor" | "convers";
+interface SeedDecision { title: string; pilar: PilarKey; decisao?: "aprovado" | "alteracao"; nota?: string; legenda?: { de: string; para: string } }
+interface SeedDecisions { key: string; slug: string; por: string; fonte: string; itens: SeedDecision[] }
+
+export const SEED_DECISIONS: SeedDecisions[] = [
+  {
+    key: "brunno-bernardo:out-nov-2026:decisoes",
+    slug: "brunno-bernardo",
+    por: "Brunno Bernardo",
+    fonte: "Notion (Planejamento de Conteúdo OUT/NOV)",
+    itens: [
+      { title: "O que \"antes e depois\" não mostra", pilar: "educa", decisao: "aprovado",
+        legenda: { de: "Todo mundo escolhe cirurgião pelo antes e depois. É o pior jeito possível.", para: "Todo mundo escolhe cirurgião pelo antes e depois. Mas tem uma forma mais inteligente de fazer isso…" } },
+      { title: "A cirurgia começa na caneta. Não no bisturi.", pilar: "autoridade", decisao: "aprovado" },
+      { title: "Rinomodelação não diminui o nariz", pilar: "educa", decisao: "aprovado" },
+      { title: "Três erros que denunciam uma rinoplastia", pilar: "educa", decisao: "aprovado" },
+      { title: "Eu não sou o cirurgião de todo mundo", pilar: "autoridade", decisao: "alteracao",
+        nota: "Reprovado, trocar o post. Não gostei dos temas, não gostei de tantas fotos só minhas, repetiu fotos do carrossel anterior. Não gosto de ficar falando coisas negativas (\"eu não sou\", \"não cometa esses erros\", \"se você pensou isso, pensou errado\")." },
+      { title: "Dia do Médico: um \"antes e depois\" que quero compartilhar", pilar: "prova", decisao: "alteracao",
+        nota: "Reprovado, trocar o post. Vou adicionar mais fotos." },
+      { title: "Se você ainda vai emagrecer, não opere agora", pilar: "educa", decisao: "aprovado" },
+      { title: "É assim que eu me preparo pra operar", pilar: "bastidor", decisao: "alteracao",
+        nota: "Reprovado, trocar o post (sem comentário no Notion)." },
+      { title: "Atrofia mamária pós-gestacional", pilar: "convers", decisao: "aprovado" },
+      { title: "Permita-se ser sua primeira escolha", pilar: "convers", decisao: "aprovado" },
+      { title: "Resolver tudo numa cirurgia nem sempre vale a pena", pilar: "educa" },
+      { title: "Nem toda consulta termina em cirurgia", pilar: "autoridade", decisao: "aprovado" },
+    ],
+  },
+];
+
+const flatTxt = (s: string) => s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+
+/** Pilar com o nome que o plano do cliente usa ("Educação", "Educativo"…); sem correspondência, fica sem pilar. */
+function pilarDoPlano(plan: FeedPlan, k: PilarKey): string | undefined {
+  return plan.pillars.find((p) => flatTxt(p.name).includes(k))?.name;
+}
+
+export async function runSeedDecisions(slug?: string): Promise<{ key: string; pilares: number; aprovados: number; alteracoes: number; tarefas: string[]; erros: string[] }[]> {
+  const pend = SEED_DECISIONS.filter((s) => !slug || s.slug === slug);
+  if (!pend.length) return [];
+  const done = await readDoc<Record<string, string>>("seed-imports", {});
+  if (pend.every((s) => done[s.key])) return [];
+  const lock = await readDoc<{ until?: number }>("locks/seed-decisoes", {});
+  if ((lock.until ?? 0) > Date.now()) return [];
+  await writeDoc("locks/seed-decisoes", { until: Date.now() + 60_000 });
+  const out: { key: string; pilares: number; aprovados: number; alteracoes: number; tarefas: string[]; erros: string[] }[] = [];
+  try {
+    for (const s of pend) {
+      if (done[s.key]) continue;
+      const [posts, plan] = await Promise.all([getPosts(s.slug), getPlan(s.slug)]);
+      const erros: string[] = [];
+      const pedidos: { post: Post; nota: string }[] = [];
+      let pilares = 0, aprovados = 0;
+      const now = new Date().toISOString();
+      for (const it of s.itens) {
+        const p = posts.find((x) => x.title === it.title);
+        if (!p) { erros.push(`sem post: ${it.title}`); continue; }
+        const hist = [...p.history];
+        const pillar = pilarDoPlano(plan, it.pilar);
+        let mudou = false;
+        if (!p.pillar && pillar) { p.pillar = pillar; pilares++; mudou = true; }
+        let legendaNova = false;
+        if (it.legenda && p.caption === it.legenda.de) { p.caption = it.legenda.para; legendaNova = true; mudou = true; }
+        if (it.decisao && (p.status === "rascunho" || p.status === "aguardando")) {
+          if (legendaNova) hist.push({ at: now, by: "DoctorBrand", role: "admin", action: "editado", note: `Legenda igual à versão aprovada no ${s.fonte}` });
+          if (it.decisao === "aprovado") {
+            hist.push({ at: now, by: s.por, role: "cliente", action: "aprovado", note: `Aprovado pelo cliente no ${s.fonte}` });
+            p.status = "aprovado";
+            aprovados++;
+          } else {
+            const nota = it.nota ?? "Pedido de alteração registrado no Notion.";
+            hist.push({ at: now, by: s.por, role: "cliente", action: "alteracao", note: `${nota} (registrado no ${s.fonte})` });
+            p.status = "alteracao";
+            pedidos.push({ post: p, nota });
+          }
+        }
+        if (mudou || hist.length !== p.history.length) { p.history = hist; p.updatedAt = now; }
+      }
+      await savePosts(s.slug, posts);
+      // Marca antes das tarefas: uma segunda rodada não cria tarefa repetida no ClickUp.
+      if (!erros.length) { done[s.key] = now; await writeDoc("seed-imports", done); }
+      const tarefas: string[] = [];
+      for (const r of pedidos) {
+        const t = await tarefaAlteracao(s.slug, r.post, { by: `${s.por} (pelo Notion)`, note: r.nota });
+        tarefas.push(t.ok ? t.url : `erro: ${t.error}`);
+      }
+      out.push({ key: s.key, pilares, aprovados, alteracoes: pedidos.length, tarefas, erros });
+    }
+  } finally {
+    await writeDoc("locks/seed-decisoes", { until: 0 }).catch(() => undefined);
   }
   return out;
 }
