@@ -73,6 +73,8 @@ export interface Post {
   pillar?: string;
   /** Link do Drive de onde vieram as mídias (pasta ou arquivo). "Atualizar do Drive" relê daqui. */
   source?: string;
+  /** Roteiro e direção para a equipe produzir (gerado no painel). Só a equipe vê. */
+  roteiro?: string;
   /** Data e hora planejadas (America/Sao_Paulo). */
   date: string;         // YYYY-MM-DD
   time: string;         // HH:MM

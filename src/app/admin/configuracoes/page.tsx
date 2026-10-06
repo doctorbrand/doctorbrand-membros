@@ -18,6 +18,7 @@ export default async function ConfiguracoesPage() {
     ] },
     { titulo: "Conteúdo e Instagram", itens: [
       { nome: "Meta (Instagram)", faz: "Publica os posts aprovados e lê o feed.", ok: on("META_ACCESS_TOKEN"), como: "META_ACCESS_TOKEN" },
+      { nome: "Gerar conteúdo no painel", faz: "Na aba Gerar de cada cliente, o Claude cria as peças ali mesmo e elas viram rascunhos do planejamento. Cobrado por uso na conta da API do Claude.", ok: on("ANTHROPIC_API_KEY"), como: "ANTHROPIC_API_KEY (console.anthropic.com)", opcional: true },
       { nome: "Publicação automática", faz: "Publica os posts aprovados na hora marcada.", ok: on("CRON_SECRET"), como: "CRON_SECRET + agendamento no cron-job.org" },
       { nome: "Apify", faz: "Lê perfis do Instagram sem conta ligada (diagnóstico).", ok: on("APIFY_TOKEN"), como: "APIFY_TOKEN", opcional: true },
       { nome: "Google Drive", faz: "Importa mídias de pastas do Drive.", ok: on("GOOGLE_API_KEY"), como: "GOOGLE_API_KEY", opcional: true },

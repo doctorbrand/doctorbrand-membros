@@ -1,3 +1,4 @@
+import type { Peca } from "./claudeGen";
 import { readDoc, writeDoc } from "./store";
 
 /** Tipos de conteúdo que a equipe pede para a IA gerar, com as quantidades oferecidas na tela. */
@@ -22,6 +23,19 @@ export interface ContentOrder {
   foco?: string;
   /** Pedido completo como vai para o Claude (perfil, plano, histórico deste cliente). */
   texto?: string;
+  /** Resultado da geração feita no painel (API do Claude). */
+  geracao?: Geracao;
+}
+
+export interface Geracao {
+  model: string;
+  at: string;
+  pecas: Peca[];
+  perguntas: string[];
+  input: number;
+  output: number;
+  /** Índices das peças que já viraram rascunho no planejamento (índice → id do post). */
+  criados: Record<string, string>;
 }
 
 export const getOrders = (slug: string) => readDoc<ContentOrder[]>(`pedidos/${slug}`, []);
@@ -33,4 +47,14 @@ export async function getOrder(slug: string, id: string): Promise<ContentOrder |
 export async function saveOrder(slug: string, o: ContentOrder): Promise<void> {
   const cur = await getOrders(slug);
   await writeDoc(`pedidos/${slug}`, [o, ...cur].slice(0, 50));
+}
+
+/** Atualiza um pedido (por exemplo, juntando um lote gerado). */
+export async function updateOrder(slug: string, id: string, fn: (o: ContentOrder) => ContentOrder): Promise<ContentOrder | undefined> {
+  const cur = await getOrders(slug);
+  const i = cur.findIndex((o) => o.id === id);
+  if (i < 0) return undefined;
+  cur[i] = fn(cur[i]);
+  await writeDoc(`pedidos/${slug}`, cur);
+  return cur[i];
 }

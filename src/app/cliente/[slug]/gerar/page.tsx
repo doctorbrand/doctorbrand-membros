@@ -8,9 +8,12 @@ import { getPlan, getPosts, TYPE_LABEL } from "@/lib/content";
 import { getAudits } from "@/lib/feedAudit";
 import { getOrders, ORDER_TYPES } from "@/lib/orders";
 import { getProfile, PROFILE_FIELDS, profileCompleteness } from "@/lib/profile";
-import { saveOrderAction } from "./actions";
+import { criarRascunhosAction, gerarLoteAction, saveOrderAction } from "./actions";
+import { claudeOn, custoUSD } from "@/lib/claudeGen";
 
 export const dynamic = "force-dynamic";
+/** Cada lote gerado pela API do Claude roda numa chamada; dá folga para os lotes mais longos. */
+export const maxDuration = 300;
 
 const SKILL_NAME = "gerar-conteudo-cliente";
 
@@ -37,6 +40,7 @@ export default async function GerarPage({ params }: { params: Promise<{ slug: st
     ultima_leitura_do_feed: audit ? { nota: audit.total, quando: audit.at.slice(0, 10), pontos: audit.items.filter((i) => i.tip).map((i) => `${i.label}: ${i.tip}`) } : undefined,
   };
   const done = profileCompleteness(p);
+  const ultimaGerada = orders.find((o) => o.geracao?.pecas.length);
 
   return (
     <Shell active="gerar" session={session} clientSlug={slug}>
@@ -53,7 +57,9 @@ export default async function GerarPage({ params }: { params: Promise<{ slug: st
         </div>
       </div>
 
-      <OrderBuilder types={ORDER_TYPES.map((t) => ({ ...t, options: [...t.options] }))} servicos={servicos} context={context} save={saveOrderAction.bind(null, slug)} skill={SKILL_NAME} />
+      <OrderBuilder types={ORDER_TYPES.map((t) => ({ ...t, options: [...t.options] }))} servicos={servicos} context={context} save={saveOrderAction.bind(null, slug)} skill={SKILL_NAME}
+        slug={slug} apiOn={claudeOn()} gerar={gerarLoteAction.bind(null, slug)} criar={criarRascunhosAction.bind(null, slug)}
+        ultima={ultimaGerada ? { id: ultimaGerada.id, pecas: ultimaGerada.geracao!.pecas, perguntas: ultimaGerada.geracao!.perguntas, custo: custoUSD(ultimaGerada.geracao!.model, ultimaGerada.geracao!.input, ultimaGerada.geracao!.output), criados: ultimaGerada.geracao!.criados ?? {} } : undefined} />
 
       {orders.length > 0 && (
         <section className="mt-6 flex flex-col gap-2">

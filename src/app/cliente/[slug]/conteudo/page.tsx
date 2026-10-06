@@ -300,6 +300,13 @@ function PostDetail({ post: p, n, total, slug, admin, base, client, plan, local,
         <div className="ct-caption">{p.caption || <span className="text-[var(--muted)]">Sem legenda.</span>}</div>
       </div>
 
+      {admin && p.roteiro && (
+        <details className="ct-roteiro text-sm" open={!p.media.length}>
+          <summary className="label cursor-pointer">Roteiro e direção (só a equipe vê)</summary>
+          <pre>{p.roteiro}</pre>
+        </details>
+      )}
+
       {admin && <PostChecks post={p} plan={plan} />}
 
       <PublishBlock post={p} slug={slug} admin={admin} client={client} />
