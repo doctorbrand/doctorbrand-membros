@@ -99,3 +99,38 @@ export function IconAction({ action, label, children }: { action: Act0; label: s
     </form>
   );
 }
+
+/**
+ * Atualizar do Drive: o link da pasta (ou do arquivo) fica editável e, ao atualizar,
+ * as lâminas do post são trocadas pela versão atual do Drive.
+ */
+export function DriveRefresh({ action, source, status }: { action: ActFd; source?: string; status: string }) {
+  const [state, run, pending] = useActionState(action, null);
+  // Abre sozinho quando há ajuste pedido; depois de atualizar, continua aberto para mostrar o resultado.
+  const [open, setOpen] = useState(status === "alteracao");
+  const approved = status === "aprovado" || status === "agendado";
+  return (
+    <details className="ct-date-edit w-full" open={open || !!state} onToggle={(e) => setOpen((e.currentTarget as HTMLDetailsElement).open)}>
+    <summary>Atualizar lâminas do Drive{source ? "" : " (sem link salvo)"}</summary>
+    <form action={run} className="ct-drive-refresh mt-2">
+      <label className="flex flex-col gap-1">
+        <span className="label">Link do Drive</span>
+        <input name="source" defaultValue={source ?? ""} placeholder="Link da pasta das lâminas ou do vídeo" className="ct-input" />
+      </label>
+      {approved
+        ? <p className="text-xs text-[var(--muted)]">O post já foi aprovado: se as lâminas mudarem, ele volta para o cliente aprovar.</p>
+        : status !== "aguardando" && (
+          <label className="flex items-center gap-2 text-sm">
+            <input type="checkbox" name="send" defaultChecked={status === "alteracao"} />
+            Enviar para o cliente aprovar depois de atualizar
+          </label>
+        )}
+      <div className="flex flex-wrap items-center gap-2">
+        <button disabled={pending} className="ct-btn ct-btn-dark">{pending ? "Lendo o Drive…" : "Atualizar do Drive"}</button>
+        <span className="text-xs text-[var(--muted)]">Troca as lâminas pela versão atual da pasta, na ordem dos nomes dos arquivos.</span>
+      </div>
+      <Msg state={state} pending={false} />
+    </form>
+    </details>
+  );
+}

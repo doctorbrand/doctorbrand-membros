@@ -19,6 +19,8 @@ export interface Media {
   kind: "image" | "video";
   name?: string;
   mime?: string;
+  /** Versão da mídia: muda quando a equipe atualiza do Drive, para a miniatura não ficar presa no cache. */
+  rev?: number;
 }
 
 export interface HistoryEntry {
@@ -69,6 +71,8 @@ export interface Post {
   coverOffsetMs?: number;
   /** Pilar editorial (das metas do cliente). */
   pillar?: string;
+  /** Link do Drive de onde vieram as mídias (pasta ou arquivo). "Atualizar do Drive" relê daqui. */
+  source?: string;
   /** Data e hora planejadas (America/Sao_Paulo). */
   date: string;         // YYYY-MM-DD
   time: string;         // HH:MM

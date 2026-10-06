@@ -679,3 +679,4 @@ table.data.compact th, table.data.compact td { padding: 6px 8px; font-size: 12px
 .wk-bars .ad-month-bar { max-width: 40px; }
 .wk-check { flex: none; width: 22px; height: 22px; border-radius: 999px; display: grid; place-items: center; background: #e6f4ec; color: var(--good); margin-top: 1px; }
 @media (max-width: 520px) { .wk-bars { gap: 4px; } .wk-bars .ad-month-v, .wk-bars .ad-month-c { font-size: 10.5px; } .wk-bars .ad-month-l { font-size: 10.5px; } }
+.ct-drive-refresh { display: flex; flex-direction: column; gap: 10px; padding: 12px; border: 1px solid var(--line); border-radius: 12px; background: #fafaf8; }

@@ -14,7 +14,7 @@ export const mediaKey = (m: Media) => m.driveId ? `drive:${m.driveId}` : `blob:$
  */
 export function mediaUrl(m: Media | undefined, width = 1080): string | undefined {
   if (!m) return undefined;
-  if (m.driveId) return `${DRIVE_WEB}/thumbnail?id=${encodeURIComponent(m.driveId)}&sz=w${width}`;
+  if (m.driveId) return `${DRIVE_WEB}/thumbnail?id=${encodeURIComponent(m.driveId)}&sz=w${width}${m.rev ? `&v=${m.rev}` : ""}`;
   return m.path ? `/api/media?p=${encodeURIComponent(m.path)}` : undefined;
 }
 

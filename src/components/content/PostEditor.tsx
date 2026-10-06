@@ -25,6 +25,7 @@ export function PostEditor({ slug, action, post, defaultDate, pillars, importDri
   const [cover, setCover] = useState<Item | undefined>(post?.cover ? withPreview(post.cover) : undefined);
   const [caption, setCaption] = useState(post?.caption ?? "");
   const [links, setLinks] = useState("");
+  const [source, setSource] = useState(post?.source ?? "");
   const [busy, setBusy] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [note, setNote] = useState<string | null>(null);
@@ -44,6 +45,7 @@ export function PostEditor({ slug, action, post, defaultDate, pillars, importDri
     place(r.media.map(withPreview), t);
     if (r.cover) setCover(withPreview(r.cover));
     if (r.caption && !caption.trim()) setCaption(r.caption);
+    setSource(links.trim());
     setLinks("");
     setNote(`${r.message}${t !== type ? ` Formato ajustado para ${t === "reels" ? "Reels" : "Carrossel"}.` : ""}${r.caption ? " Legenda lida do legenda.txt." : ""}${r.cover ? " Capa encontrada." : ""}`);
   }
@@ -137,6 +139,10 @@ export function PostEditor({ slug, action, post, defaultDate, pillars, importDri
                 onChange={(e) => { fromComputer(e.target.files); e.target.value = ""; }} disabled={!!busy} />
             </label>
           </div>
+          <label className="flex flex-col gap-1">
+            <span className="label">Link salvo do Drive</span>
+            <input name="source" value={source} onChange={(e) => setSource(e.target.value)} className="ct-input" placeholder="Pasta das lâminas ou arquivo do vídeo (usado em “Atualizar do Drive”)" />
+          </label>
           <p className="text-xs text-[var(--muted)]">Pasta do post: arquivos numerados (1.jpg, 2.jpg… ou o vídeo), <b>legenda.txt</b> e, no Reels, <b>capa.jpg</b> se quiser. Compartilhe a pasta do cliente como “qualquer pessoa com o link”.</p>
         </div>
         {type === "reels" && (

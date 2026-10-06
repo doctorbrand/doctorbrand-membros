@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ActionForm } from "@/components/ActionForm";
-import { ActionButton, ConnectInstagram, DeleteIconButton, ScheduleForm } from "@/components/content/ContentActions";
+import { ActionButton, ConnectInstagram, DeleteIconButton, DriveRefresh, ScheduleForm } from "@/components/content/ContentActions";
 import { CoverPicker } from "@/components/content/CoverPicker";
 import { PostEditor } from "@/components/content/PostEditor";
 import { VideoPlayer } from "@/components/content/VideoPlayer";
@@ -9,7 +9,7 @@ import { MediaImg } from "@/components/content/MediaImg";
 import { ZipImport } from "@/components/content/ZipImport";
 import { ListImport } from "@/components/content/ListImport";
 import { FeedGrid } from "@/components/content/FeedGrid";
-import { runSeedCovers, runSeedDecisions, runSeedImports } from "@/lib/seedImports";
+import { runSeedCovers, runSeedDecisions, runSeedImports, runSeedSources } from "@/lib/seedImports";
 import { DriveImport } from "@/components/content/DriveImport";
 import { Shell } from "@/components/Shell";
 import { AlertIcon, ArrowRightIcon, CalendarIcon, CheckIcon, ChevronLeftIcon, ChevronRightIcon, ClockIcon, EyeIcon, MenuIcon, PencilIcon } from "@/components/Icons";
@@ -23,7 +23,7 @@ import { igAccounts, igProfile, igRecentMedia, type IgAccount } from "@/lib/inst
 import { publishProblem } from "@/lib/publish";
 import { addDays, todayISO } from "@/lib/periods";
 import { localDir } from "@/lib/store";
-import { approveAllAction, approveAndNextAction, changeAndNextAction, connectInstagramAction, disconnectInstagramAction, deletePostAction, importDriveAction, importDriveBatchAction, importListAction, importPostsAction, reorderFeedAction, setDateAction, publishNowAction, retryPublishAction, savePlanAction, savePostAction, scheduleAction, setCoverAction, setStatusAction, unscheduleAction } from "./actions";
+import { approveAllAction, approveAndNextAction, changeAndNextAction, connectInstagramAction, disconnectInstagramAction, deletePostAction, importDriveAction, importDriveBatchAction, refreshDriveAction, importListAction, importPostsAction, reorderFeedAction, setDateAction, publishNowAction, retryPublishAction, savePlanAction, savePostAction, scheduleAction, setCoverAction, setStatusAction, unscheduleAction } from "./actions";
 
 export const dynamic = "force-dynamic";
 
@@ -53,7 +53,7 @@ export default async function ConteudoPage({ params, searchParams }: { params: P
   if (!c) notFound();
 
   // Planejamento trazido de fora entra na primeira vez que a equipe abre a página.
-  if (admin) { await runSeedImports(slug).catch(() => undefined); await runSeedCovers(slug).catch(() => undefined); await runSeedDecisions(slug).catch(() => undefined); }
+  if (admin) { await runSeedImports(slug).catch(() => undefined); await runSeedCovers(slug).catch(() => undefined); await runSeedDecisions(slug).catch(() => undefined); await runSeedSources(slug).catch(() => undefined); }
   const [all, plan, profile, live, accounts] = await Promise.all([getPosts(slug), getPlan(slug), igProfile(c.igUserId), igRecentMedia(c.igUserId, 15), admin ? igAccounts() : Promise.resolve([] as IgAccount[])]);
   const local = !!localDir();
   const nextDay = addDays(todayISO(), 1);
@@ -313,6 +313,7 @@ function PostDetail({ post: p, n, total, slug, admin, base, client, plan, local,
               <DeleteIconButton action={deletePostAction.bind(null, slug, p.id)} confirm={`Excluir "${p.title}" do planejamento?`} label="Excluir post" />
             </span>
           </div>
+          {p.status !== "publicado" && <DriveRefresh key={p.id} action={refreshDriveAction.bind(null, slug, p.id)} source={p.source} status={p.status} />}
           {(p.status === "rascunho" || p.status === "alteracao") && <ActionButton action={setStatusAction.bind(null, slug, p.id, "aguardando")} label="Enviar para aprovação" />}
           {(p.status === "aprovado" || p.status === "agendado") && <ActionButton action={publishNowAction.bind(null, slug, p.id)} label="Publicar agora" variant="dark" confirm="Publicar agora no Instagram do cliente?" />}
           {(p.status === "aprovado" || p.status === "agendado") && <ActionButton action={setStatusAction.bind(null, slug, p.id, "publicado")} label="Já publiquei manualmente" />}

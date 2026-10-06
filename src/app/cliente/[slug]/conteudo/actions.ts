@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import { sendAlert } from "@/lib/alerts";
 import { requireAdmin, requireAuth, type Session , PREVIEW_BLOCK } from "@/lib/auth";
 import { publicBase } from "@/lib/signed";
-import { tarefaAlteracao } from "@/lib/alteracoesClickup";
+import { comentarAlteracao, tarefaAlteracao } from "@/lib/alteracoesClickup";
 import { getPosts, mediaBelongsTo, ondeLabel, plannedAt, savePlan, savePosts, updatePost, type FeedPlan, type HistoryEntry, type Media, type Post, type PostStatus, type PostType } from "@/lib/content";
 import { driveFileInfo, driveFolderFiles, driveText, FOLDER, parseDriveLinks, toMedia, type DriveFile } from "@/lib/drive";
 import { igAccounts } from "@/lib/instagram";
@@ -113,7 +113,7 @@ function parseMedia(raw: string, slug: string): Media[] {
     return arr.flatMap((m): Media[] => {
       if (!m) return [];
       const kind = m.kind === "video" ? "video" : "image";
-      const base = { kind, ...(m.name ? { name: String(m.name).slice(0, 200) } : {}), ...(m.mime ? { mime: String(m.mime).slice(0, 80) } : {}) } as Media;
+      const base = { kind, ...(m.name ? { name: String(m.name).slice(0, 200) } : {}), ...(m.mime ? { mime: String(m.mime).slice(0, 80) } : {}), ...(typeof m.rev === "number" ? { rev: m.rev } : {}) } as Media;
       if (typeof m.driveId === "string" && /^[\w-]{10,}$/.test(m.driveId)) return [{ ...base, driveId: m.driveId, ...(m.path && mediaBelongsTo(m.path, slug) ? { path: m.path } : {}) }];
       if (typeof m.path === "string" && mediaBelongsTo(m.path, slug)) return [{ ...base, path: m.path }];
       return [];
@@ -133,6 +133,7 @@ export async function savePostAction(slug: string, _prev: ActionResult | null, f
   const cover = parseMedia(str(fd, "cover"), slug)[0];
   const coverOffsetMs = Number(str(fd, "coverOffsetMs")) || undefined;
   const pillar = str(fd, "pillar") || undefined;
+  const source = str(fd, "source").slice(0, 2000) || undefined;
   const send = str(fd, "intent") === "enviar";
 
   if (!title) return { ok: false, message: "Dê um título interno ao post." };
@@ -157,9 +158,9 @@ export async function savePostAction(slug: string, _prev: ActionResult | null, f
     let keep: PostStatus = send ? "aguardando" : old.status === "rascunho" ? "rascunho" : old.status;
     let note: string | undefined;
     if (wasApproved && !sameContent) { keep = "aguardando"; note = "Conteúdo alterado depois da aprovação: volta para o cliente aprovar."; }
-    posts[i] = { ...old, type, title, caption, date, time, media, cover, coverOffsetMs, pillar, status: keep, publish: undefined, updatedAt: now, history: [...old.history, entry(s, keep === "aguardando" && keep !== old.status ? "enviado" : "editado", note)] };
+    posts[i] = { ...old, type, title, caption, date, time, media, cover, coverOffsetMs, pillar, source, status: keep, publish: undefined, updatedAt: now, history: [...old.history, entry(s, keep === "aguardando" && keep !== old.status ? "enviado" : "editado", note)] };
   } else {
-    const post: Post = { id: crypto.randomUUID(), type, title, caption, date, time, media, cover, coverOffsetMs, pillar, status, createdAt: now, updatedAt: now, history: [entry(s, "criado"), ...(send ? [entry(s, "enviado")] : [])] };
+    const post: Post = { id: crypto.randomUUID(), type, title, caption, date, time, media, cover, coverOffsetMs, pillar, source, status, createdAt: now, updatedAt: now, history: [entry(s, "criado"), ...(send ? [entry(s, "enviado")] : [])] };
     posts.push(post);
   }
   await savePosts(slug, posts);
@@ -276,28 +277,86 @@ export interface DriveImport { ok: boolean; message: string; media?: Media[]; co
  * Lê links do Drive (arquivos ou pasta). Pasta: arquivos em ordem de nome (1, 2, 3…);
  * `legenda.txt` vira a legenda e uma imagem chamada `capa…` vira a capa do Reels.
  */
+/** Lê links do Drive (pastas e arquivos): mídias em ordem de nome, capa ("capa.jpg") e legenda.txt. */
+async function readDriveLinks(text: string): Promise<{ media: Media[]; cover?: Media; caption?: string }> {
+  const { files, folders } = parseDriveLinks(text);
+  if (!files.length && !folders.length) throw new Error("Cole links do Google Drive (arquivos ou uma pasta).");
+  const media: Media[] = [];
+  let caption: string | undefined;
+  let cover: Media | undefined;
+  for (const f of folders) {
+    const list = await driveFolderFiles(f);
+    const txt = list.find((x) => /legenda.*\.txt$|caption.*\.txt$/i.test(x.name) || x.mime === "text/plain");
+    if (txt && caption === undefined) caption = await driveText(txt.id).catch(() => undefined);
+    const capa = list.find((x) => /^capa\b/i.test(x.name) && x.mime.startsWith("image/"));
+    if (capa && !cover) cover = toMedia(capa) ?? undefined;
+    for (const x of list) { if (x === txt || x === capa) continue; const m = toMedia(x); if (m) media.push(m); }
+  }
+  for (const id of files) { const m = toMedia(await driveFileInfo(id)); if (m) media.push(m); }
+  if (!media.length) throw new Error("Nenhuma imagem ou vídeo encontrado nesses links.");
+  return { media, cover, caption };
+}
+
 export async function importDriveAction(text: string): Promise<DriveImport> {
   await requireAdmin();
-  const { files, folders } = parseDriveLinks(text);
-  if (!files.length && !folders.length) return { ok: false, message: "Cole links do Google Drive (arquivos ou uma pasta)." };
   try {
-    const media: Media[] = [];
-    let caption: string | undefined;
-    let cover: Media | undefined;
-    for (const f of folders) {
-      const list = await driveFolderFiles(f);
-      const txt = list.find((x) => /legenda.*\.txt$|caption.*\.txt$/i.test(x.name) || x.mime === "text/plain");
-      if (txt && caption === undefined) caption = await driveText(txt.id).catch(() => undefined);
-      const capa = list.find((x) => /^capa\b/i.test(x.name) && x.mime.startsWith("image/"));
-      if (capa && !cover) cover = toMedia(capa) ?? undefined;
-      for (const x of list) { if (x === txt || x === capa) continue; const m = toMedia(x); if (m) media.push(m); }
-    }
-    for (const id of files) { const m = toMedia(await driveFileInfo(id)); if (m) media.push(m); }
-    if (!media.length) return { ok: false, message: "Nenhuma imagem ou vídeo encontrado nesses links." };
+    const { media, cover, caption } = await readDriveLinks(text);
     return { ok: true, message: `${media.length} arquivo${media.length > 1 ? "s" : ""} do Drive.`, media, cover, caption };
   } catch (e) {
     return { ok: false, message: e instanceof Error ? e.message : String(e) };
   }
+}
+
+/**
+ * Atualizar do Drive: relê o link do post (pasta ou arquivo) e troca as lâminas pela versão atual.
+ * O link pode ser editado aqui. Conteúdo que muda volta para o cliente aprovar (aprovado/agendado sempre volta);
+ * se havia tarefa de ajuste aberta da Alexandra, ela recebe um comentário de que o ajuste foi feito.
+ */
+export async function refreshDriveAction(slug: string, id: string, _prev: ActionResult | null, fd: FormData): Promise<ActionResult> {
+  const s = await requireAdmin();
+  const link = str(fd, "source");
+  const send = fd.get("send") === "on";
+  const posts = await getPosts(slug);
+  const old = posts.find((p) => p.id === id);
+  if (!old) return { ok: false, message: "Post não encontrado." };
+  if (old.status === "publicado") return { ok: false, message: "Post já publicado: as lâminas não mudam mais." };
+  const source = link || old.source || "";
+  if (!source) return { ok: false, message: "Cole o link do Drive (pasta das lâminas ou o arquivo do vídeo)." };
+  let read: Awaited<ReturnType<typeof readDriveLinks>>;
+  try { read = await readDriveLinks(source); } catch (e) { return { ok: false, message: e instanceof Error ? e.message : String(e) }; }
+
+  const rev = Date.now();
+  let media = read.media;
+  let aviso = "";
+  if (old.type === "reels") {
+    const video = media.find((m) => m.kind === "video");
+    if (!video) return { ok: false, message: "Não achei vídeo nesse link do Drive." };
+    media = [video];
+  } else if (old.type === "imagem" && media.length > 1) {
+    media = media.slice(0, 1);
+  } else if (media.length > 10) {
+    aviso = ` O Instagram aceita 10 por carrossel: ficaram de fora ${media.slice(10).map((m) => m.name ?? "").filter(Boolean).join(", ") || `${media.length - 10} arquivo(s)`}.`;
+    media = media.slice(0, 10);
+  }
+  // Sem o caminho do Blob: na publicação o sistema copia de novo a versão atual do Drive.
+  media = media.map(({ path: _p, ...m }) => ({ ...m, rev }));
+  const type: PostType = old.type === "reels" ? "reels" : media.length > 1 ? "carrossel" : "imagem";
+  const cover = read.cover ? { ...read.cover, rev } : old.cover;
+  const sameIds = JSON.stringify(old.media.map((m) => m.driveId)) === JSON.stringify(media.map((m) => m.driveId));
+
+  const wasApproved = old.status === "aprovado" || old.status === "agendado";
+  // Aprovado ou agendado sempre volta para aprovação (nada vai ao ar sem o cliente ver a versão final).
+  const status: PostStatus = wasApproved || send ? "aguardando" : old.status;
+  const resumo = `${media.length} ${media.length === 1 ? "arquivo" : "arquivos"}${sameIds ? ", mesmos arquivos (versão nova)" : ""}`;
+  const now = new Date().toISOString();
+  const hist: HistoryEntry[] = [entry(s, "editado", `Lâminas atualizadas do Drive (${resumo})`)];
+  if (status === "aguardando" && old.status !== "aguardando") hist.push(entry(s, "enviado", wasApproved ? "Conteúdo alterado depois da aprovação: volta para o cliente aprovar." : "Ajuste feito: enviado de novo para aprovação."));
+  const i = posts.indexOf(old);
+  posts[i] = { ...old, type, media, cover, source, status, ...(status !== old.status ? { publish: undefined } : {}), updatedAt: now, history: [...old.history, ...hist] };
+  await savePosts(slug, posts);
+  if (old.status === "alteracao") await comentarAlteracao(slug, id, `Ajuste feito por ${s.name}: lâminas atualizadas do Drive (${resumo})${status === "aguardando" ? " e post enviado de novo para o cliente aprovar" : ""}.`).catch(() => undefined);
+  revalidatePath(path(slug));
+  return { ok: true, message: `Lâminas atualizadas (${resumo}).${status === "aguardando" && old.status !== "aguardando" ? " Enviado para o cliente aprovar." : ""}${aviso}` };
 }
 
 /** Troca a capa do Reels (frame do vídeo ou imagem enviada). Cliente e equipe. */
@@ -345,7 +404,7 @@ export async function savePlanAction(slug: string, _prev: ActionResult | null, f
 
 // ─── Importar pacote (.zip) ────────────────────────────────────────────
 
-export interface ImportItem { title: string; caption: string; media: Media[]; cover?: Media; agenda?: string }
+export interface ImportItem { title: string; caption: string; media: Media[]; cover?: Media; agenda?: string; source?: string }
 
 function addDaysISO(date: string, days: number): string {
   const d = new Date(`${date}T12:00:00Z`);
@@ -374,6 +433,7 @@ export async function importPostsAction(slug: string, items: ImportItem[], opts:
     created.push({
       id: crypto.randomUUID(), type, title: String(it.title || `Post ${i + 1}`).slice(0, 120), caption, media,
       cover: type === "reels" ? cover : undefined,
+      ...(it.source ? { source: String(it.source).slice(0, 2000) } : {}),
       ...(() => {
         const auto = { date: addDaysISO(opts.start, i * every), time: times.length ? times[i % times.length] : "12:00" };
         const fixed = it.agenda ? parseAgenda(String(it.agenda), Number(opts.start.slice(0, 4))) : {};
@@ -425,7 +485,7 @@ export async function importDriveBatchAction(slug: string, link: string, opts: {
       const capa = list.find((x) => /^capa\b/i.test(x.name) && x.mime.startsWith("image/"));
       const media = list.filter((x) => x !== txt && x !== ag && x !== capa).map(toMedia).filter((m): m is Media => !!m);
       const [caption, agenda] = await Promise.all([txt ? driveText(txt.id).catch(() => "") : "", ag ? driveText(ag.id).catch(() => "") : ""]);
-      return { title: titleFromFolder(sub.name), caption, media, cover: capa ? toMedia(capa) ?? undefined : undefined, agenda: agenda || undefined };
+      return { title: titleFromFolder(sub.name), caption, media, cover: capa ? toMedia(capa) ?? undefined : undefined, agenda: agenda || undefined, source: `https://drive.google.com/drive/folders/${sub.id}` };
     }));
     const empty = read.find((r) => !r.media.length);
     if (empty) return { ok: false, message: `“${empty.title}”: sem imagem ou vídeo (ou os arquivos não estão compartilhados).` };
@@ -469,7 +529,7 @@ export async function importListAction(slug: string, text: string, opts: { start
       for (const f of folders) media.push(...(await driveFolderFiles(f)).map(toMedia).filter((m): m is Media => !!m));
       for (const id of files) { const m = toMedia(await driveFileInfo(id)); if (m) media.push(m); }
       if (media.length > 10) { avisos.push(`“${p.title}” tinha ${media.length} arquivos; entraram os 10 primeiros.`); media = media.slice(0, 10); }
-      return { title: p.title, caption: p.caption, media, agenda: p.agenda };
+      return { title: p.title, caption: p.caption, media, agenda: p.agenda, source: p.links };
     }));
     const empty = read.find((r) => !r.media.length);
     if (empty) return { ok: false, message: `“${empty.title}”: sem imagem ou vídeo (ou os arquivos não estão compartilhados como “qualquer pessoa com o link”).` };

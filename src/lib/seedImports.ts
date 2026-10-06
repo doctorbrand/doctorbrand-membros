@@ -269,3 +269,48 @@ export async function runSeedDecisions(slug?: string): Promise<{ key: string; pi
   }
   return out;
 }
+
+/** Link do Drive de cada post (do planejamento no Notion), para "Atualizar do Drive". Só preenche onde não há link. */
+const F = (id: string) => `https://drive.google.com/drive/folders/${id}`;
+const A = (id: string) => `https://drive.google.com/file/d/${id}/view`;
+export const SEED_SOURCES: { key: string; slug: string; links: Record<string, string> }[] = [
+  {
+    key: "brunno-bernardo:out-nov-2026:links",
+    slug: "brunno-bernardo",
+    links: {
+      "O que \"antes e depois\" não mostra": A("1Soy8tYfeP-EP6bRO9NJFDD-CjbTWteeZ"),
+      "A cirurgia começa na caneta. Não no bisturi.": F("11D1c_XNc744f43V32XBHXOxLrvokcehE"),
+      "Rinomodelação não diminui o nariz": A("1sRocZ_SXz19fmsP8pabZZwWBC2qqZsWq"),
+      "Três erros que denunciam uma rinoplastia": A("1TnB1R3egE6qitJkEpH-ObVuXEmuF6y6l"),
+      "Eu não sou o cirurgião de todo mundo": F("1lEsc9JhystoHFFZ-dM88lU46u8ZtQGRh"),
+      "Dia do Médico: um \"antes e depois\" que quero compartilhar": F("1u9e502hVLCW1nhbxVF_4G1Xe1D0lLz0u"),
+      "Se você ainda vai emagrecer, não opere agora": A("19W5j63RWu6g3-ZtvdZ_RxUvICXhBmyKP"),
+      "É assim que eu me preparo pra operar": F("1tF-rCfmk9_v9ZY1lXsSSyQdENvqr34a-"),
+      "Atrofia mamária pós-gestacional": A("1ArTHsU7HtsuzVYUQYV9JHiDX6DGz18u5"),
+      "Permita-se ser sua primeira escolha": A("1HpFjp8RKWmdLC2CAmz845C5fO4bkbwfk"),
+      "Resolver tudo numa cirurgia nem sempre vale a pena": A("1FcfbIow5ramFKUEhXVE-7nVdywOTCJLe"),
+      "Nem toda consulta termina em cirurgia": A("14Pq5b2FTPKrk0s1dVxSCnv4LqJwMsaNO"),
+    },
+  },
+];
+
+export async function runSeedSources(slug?: string): Promise<{ key: string; links: number }[]> {
+  const pend = SEED_SOURCES.filter((s) => !slug || s.slug === slug);
+  if (!pend.length) return [];
+  const done = await readDoc<Record<string, string>>("seed-imports", {});
+  const out: { key: string; links: number }[] = [];
+  for (const s of pend) {
+    if (done[s.key]) continue;
+    const posts = await getPosts(s.slug);
+    let n = 0;
+    for (const p of posts) {
+      const link = s.links[p.title];
+      if (link && !p.source) { p.source = link; n++; }
+    }
+    if (n) await savePosts(s.slug, posts);
+    done[s.key] = new Date().toISOString();
+    await writeDoc("seed-imports", done);
+    out.push({ key: s.key, links: n });
+  }
+  return out;
+}

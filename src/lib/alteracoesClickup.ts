@@ -128,3 +128,18 @@ export async function testeAlteracao(by: string, slugs: string[]): Promise<Alter
   const r = await tarefaAlteracao(slug, post, { by, note: "Trocar a capa por um frame olhando para a câmera.", onde: "na capa" }, true);
   return r.ok ? { ...r, folder: (await getTesteAlteracao())?.folder } : r;
 }
+
+/** Comenta na tarefa de ajuste do post, se ainda estiver aberta (ex.: "ajuste feito"). Não lança erro. */
+export async function comentarAlteracao(slug: string, postId: string, texto: string): Promise<boolean> {
+  if (!clickupOn()) return false;
+  try {
+    const t = (await getAlteracaoTasks())[alteracaoKey(slug, postId)];
+    if (!t) return false;
+    const st = await cu<{ status?: { type?: string } }>("GET", `/task/${t.taskId}`).then((x) => x.status?.type);
+    if (st === "closed" || st === "done") return false;
+    await cu("POST", `/task/${t.taskId}/comment`, { comment_text: texto, notify_all: true });
+    return true;
+  } catch {
+    return false;
+  }
+}
