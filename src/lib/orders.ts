@@ -34,6 +34,8 @@ export interface Geracao {
   perguntas: string[];
   input: number;
   output: number;
+  /** Custo somado dos lotes (US$), já com o desconto do cache. */
+  custo?: number;
   /** Índices das peças que já viraram rascunho no planejamento (índice → id do post). */
   criados: Record<string, string>;
 }

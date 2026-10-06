@@ -59,7 +59,7 @@ export default async function GerarPage({ params }: { params: Promise<{ slug: st
 
       <OrderBuilder types={ORDER_TYPES.map((t) => ({ ...t, options: [...t.options] }))} servicos={servicos} context={context} save={saveOrderAction.bind(null, slug)} skill={SKILL_NAME}
         slug={slug} apiOn={claudeOn()} gerar={gerarLoteAction.bind(null, slug)} criar={criarRascunhosAction.bind(null, slug)}
-        ultima={ultimaGerada ? { id: ultimaGerada.id, pecas: ultimaGerada.geracao!.pecas, perguntas: ultimaGerada.geracao!.perguntas, custo: custoUSD(ultimaGerada.geracao!.model, ultimaGerada.geracao!.input, ultimaGerada.geracao!.output), criados: ultimaGerada.geracao!.criados ?? {} } : undefined} />
+        ultima={ultimaGerada ? { id: ultimaGerada.id, pecas: ultimaGerada.geracao!.pecas, perguntas: ultimaGerada.geracao!.perguntas, custo: ultimaGerada.geracao!.custo ?? custoUSD(ultimaGerada.geracao!.model, ultimaGerada.geracao!.input, ultimaGerada.geracao!.output), criados: ultimaGerada.geracao!.criados ?? {} } : undefined} />
 
       {orders.length > 0 && (
         <section className="mt-6 flex flex-col gap-2">

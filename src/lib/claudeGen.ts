@@ -19,9 +19,10 @@ const PRICE: Record<string, [number, number]> = {
   "claude-opus-5-5": [4, 20],
   "claude-haiku-4-5": [1, 5],
 };
-export function custoUSD(model: string, input: number, output: number): number {
+/** Custo em US$. Cache: gravar custa 1,25x a entrada e ler custa 10% dela. */
+export function custoUSD(model: string, input: number, output: number, cacheWrite = 0, cacheRead = 0): number {
   const [i, o] = PRICE[Object.keys(PRICE).find((k) => model.startsWith(k)) ?? "claude-sonnet-5-5"];
-  return (input * i + output * o) / 1_000_000;
+  return (input * i + output * o + cacheWrite * i * 1.25 + cacheRead * i * 0.1) / 1_000_000;
 }
 
 /** Uma peça gerada. Campos que não se aplicam ao tipo vêm vazios. */
@@ -94,22 +95,25 @@ Regras obrigatórias:
 - Português do Brasil, sóbrio, técnico e curto. Sem travessões. Sem frases motivacionais ou genéricas. Emoji na legenda só se o perfil do cliente usar.
 - Não invente dados, números, depoimentos, técnicas ou títulos. O que faltar vira uma pergunta curta em "perguntas".`;
 
-export interface Lote { pecas: Peca[]; perguntas: string[]; input: number; output: number; model: string }
+export interface Lote { pecas: Peca[]; perguntas: string[]; input: number; output: number; model: string; custo: number }
 
 /** Gera `n` peças de um tipo. `jaGeradas` evita repetir títulos dentro do mesmo pedido. */
 export async function gerarLote(pedido: string, tipo: OrderType, label: string, n: number, jaGeradas: string[]): Promise<Lote> {
   if (!claudeOn()) throw new Error("A geração no painel precisa da variável ANTHROPIC_API_KEY no Vercel.");
   const model = MODEL();
+  // O pedido (perfil, plano, histórico) é igual em todos os lotes do mesmo pedido: vai no system com cache,
+  // e a partir do segundo lote essa parte custa 10% do preço de entrada.
   const user = [
-    pedido,
-    "",
     `Agora gere ${n} ${n === 1 ? "peça" : "peças"} do tipo "${tipo}" (${label}).`,
     jaGeradas.length ? `Já geradas neste pedido (não repita o tema): ${jaGeradas.join(" | ")}` : "",
   ].filter(Boolean).join("\n");
   const body = {
     model,
     max_tokens: 16000,
-    system: SYSTEM,
+    system: [
+      { type: "text", text: SYSTEM },
+      { type: "text", text: `Pedido deste cliente:\n\n${pedido}`, cache_control: { type: "ephemeral" } },
+    ],
     // Sem pensamento longo antes de responder: mais rápido, cabe no tempo da função.
     thinking: { type: "between_tools" },
     messages: [{ role: "user", content: user }],
@@ -130,7 +134,7 @@ export async function gerarLote(pedido: string, tipo: OrderType, label: string, 
   }
   const j = (await res.json().catch(() => ({}))) as {
     content?: { type: string; text?: string }[];
-    usage?: { input_tokens?: number; output_tokens?: number };
+    usage?: { input_tokens?: number; output_tokens?: number; cache_creation_input_tokens?: number; cache_read_input_tokens?: number };
     stop_reason?: string;
     error?: { type?: string; message?: string };
   };
@@ -146,5 +150,8 @@ export async function gerarLote(pedido: string, tipo: OrderType, label: string, 
   let parsed: { pecas?: Peca[]; perguntas?: string[] };
   try { parsed = JSON.parse(text); } catch { throw new Error("A resposta do Claude veio fora do formato. Tente de novo."); }
   const pecas = (parsed.pecas ?? []).slice(0, n).map((p) => ({ ...p, tipo }));
-  return { pecas, perguntas: parsed.perguntas ?? [], input: j.usage?.input_tokens ?? 0, output: j.usage?.output_tokens ?? 0, model };
+  const u = j.usage ?? {};
+  const input = u.input_tokens ?? 0, output = u.output_tokens ?? 0;
+  const custo = custoUSD(model, input, output, u.cache_creation_input_tokens ?? 0, u.cache_read_input_tokens ?? 0);
+  return { pecas, perguntas: parsed.perguntas ?? [], input: input + (u.cache_creation_input_tokens ?? 0) + (u.cache_read_input_tokens ?? 0), output, model, custo };
 }

@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { requireAdmin } from "@/lib/auth";
 import { ORDER_TYPES, getOrder, saveOrder, updateOrder, type ContentOrder, type OrderType } from "@/lib/orders";
-import { custoUSD, gerarLote, type Peca } from "@/lib/claudeGen";
+import { gerarLote, type Peca } from "@/lib/claudeGen";
 import { getPlan, getPosts, savePosts, type Post, type PostType } from "@/lib/content";
 import { signPath } from "@/lib/signed";
 import type { ActionResult } from "@/lib/types";
@@ -28,15 +28,15 @@ export async function gerarLoteAction(slug: string, orderId: string, tipoRaw: st
   const tipo = tipoRaw as OrderType;
   const order = await getOrder(slug, orderId);
   if (!def || !order?.texto) return { ok: false, message: "Pedido não encontrado. Monte o pedido de novo." };
-  const qtd = Math.max(1, Math.min(4, Math.round(n)));
+  const qtd = Math.max(1, Math.min(5, Math.round(n)));
   try {
     const ja = (order.geracao?.pecas ?? []).map((p) => p.titulo).filter(Boolean);
     const lote = await gerarLote(order.texto, tipo, `${def.label}: ${def.hint}`, qtd, ja);
     await updateOrder(slug, orderId, (o) => {
       const g = o.geracao ?? { model: lote.model, at: new Date().toISOString(), pecas: [], perguntas: [], input: 0, output: 0, criados: {} };
-      return { ...o, geracao: { ...g, model: lote.model, pecas: [...g.pecas, ...lote.pecas], perguntas: [...new Set([...g.perguntas, ...lote.perguntas])], input: g.input + lote.input, output: g.output + lote.output } };
+      return { ...o, geracao: { ...g, model: lote.model, pecas: [...g.pecas, ...lote.pecas], perguntas: [...new Set([...g.perguntas, ...lote.perguntas])], input: g.input + lote.input, output: g.output + lote.output, custo: (g.custo ?? 0) + lote.custo } };
     });
-    return { ok: true, message: `${lote.pecas.length} ${def.label.toLowerCase()} gerados.`, pecas: lote.pecas, perguntas: lote.perguntas, custo: custoUSD(lote.model, lote.input, lote.output) };
+    return { ok: true, message: `${lote.pecas.length} ${def.label.toLowerCase()} gerados.`, pecas: lote.pecas, perguntas: lote.perguntas, custo: lote.custo };
   } catch (e) {
     return { ok: false, message: e instanceof Error ? e.message : String(e) };
   }

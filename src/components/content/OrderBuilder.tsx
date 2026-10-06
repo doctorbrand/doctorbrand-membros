@@ -12,7 +12,7 @@ type Gerar = (orderId: string, tipo: string, n: number) => Promise<ActionResult 
 export interface Ultima { id: string; pecas: Peca[]; perguntas: string[]; custo: number; criados: Record<string, string> }
 
 /** Peças por chamada: Reels e anúncios são longos; o resto cabe mais por vez. */
-const LOTE: Record<string, number> = { reels: 2, anuncios: 3, carrosseis: 3, pessoais: 4, estaticos: 4, stories: 3 };
+const LOTE: Record<string, number> = { reels: 2, anuncios: 4, carrosseis: 3, pessoais: 4, estaticos: 4, stories: 5 };
 
 const PERIODOS = ["Próxima semana", "Próximas 2 semanas", "Próximo mês"];
 
