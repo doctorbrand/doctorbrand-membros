@@ -3,6 +3,7 @@ import { tarefaAlteracao } from "./alteracoesClickup";
 import { put } from "@vercel/blob";
 import { driveFileInfo, driveFolderFiles, parseDriveLinks, toJpeg, toMedia } from "./drive";
 import { localDir, readDoc, writeDoc } from "./store";
+import { publicBase } from "./signed";
 
 /**
  * Planejamentos trazidos de fora (Notion) que entram sozinhos na área do cliente, uma vez só,
@@ -157,7 +158,7 @@ export async function runSeedImports(slug?: string): Promise<{ key: string; crea
  * Capas dos Reels exportadas do Canva (GRID SET/OUT - Brunno Bernardo). Os links de exportação valem cerca de 1 hora:
  * o servidor baixa, guarda no Blob e coloca como capa. Se o link vencer, nada muda e a equipe sobe a capa no app.
  */
-interface SeedCovers { key: string; slug: string; covers: { title: string; url: string }[] }
+interface SeedCovers { key: string; slug: string; nota?: string; covers: { title: string; url: string }[] }
 export const SEED_COVERS: SeedCovers[] = [
   {
     key: "brunno-bernardo:out-nov-2026:capas",
@@ -171,6 +172,18 @@ export const SEED_COVERS: SeedCovers[] = [
       { title: "Permita-se ser sua primeira escolha", url: "https://export-download.canva.com/3fG_I/DAHU6_3fG_I/-1/0/0011-1354975209801100298.jpg?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=AKIAQYCGKMUH5AO7UJ26%2F20260930%2Fus-east-1%2Fs3%2Faws4_request&X-Amz-Date=20260930T165856Z&X-Amz-Expires=83176&X-Amz-Signature=99ff1bcf4b37c526d161229f75e51d46d1ddf11a14ffeb044a1a86147ca0cdbd&X-Amz-SignedHeaders=host%3Bx-amz-expected-bucket-owner&response-expires=Thu%2C%2001%20Oct%202026%2016%3A05%3A12%20GMT" },
       { title: "Resolver tudo numa cirurgia nem sempre vale a pena", url: "https://export-download.canva.com/3fG_I/DAHU6_3fG_I/-1/0/0012-1354975209801100298.jpg?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=AKIAQYCGKMUH5AO7UJ26%2F20260930%2Fus-east-1%2Fs3%2Faws4_request&X-Amz-Date=20260930T215918Z&X-Amz-Expires=64075&X-Amz-Signature=c1643ca2ede703cfea87873ab2c930654ec456e435101bbe12f3705ae64e74cb&X-Amz-SignedHeaders=host%3Bx-amz-expected-bucket-owner&response-expires=Thu%2C%2001%20Oct%202026%2015%3A47%3A13%20GMT" },
       { title: "Nem toda consulta termina em cirurgia", url: "https://export-download.canva.com/3fG_I/DAHU6_3fG_I/-1/0/0013-1354975209801100298.jpg?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=AKIAQYCGKMUH5AO7UJ26%2F20260930%2Fus-east-1%2Fs3%2Faws4_request&X-Amz-Date=20260930T221332Z&X-Amz-Expires=63881&X-Amz-Signature=814a17424e92e425fe3204949a3690dad14b665c000b04ace1818735466446e4&X-Amz-SignedHeaders=host%3Bx-amz-expected-bucket-owner&response-expires=Thu%2C%2001%20Oct%202026%2015%3A58%3A13%20GMT" },
+    ],
+  },
+  {
+    // Capas enviadas pela equipe (Canva, GRID SET/OUT - Cecilia), servidas pelo próprio app em /seed.
+    key: "cecilia-favre:set-out-2026:capas",
+    slug: "cecilia-favre",
+    nota: "Capa do Canva (GRID SET/OUT - Cecilia)",
+    covers: [
+      { title: "Consulta online e pacientes de fora", url: "/seed/c7f3a9e1/cecilia-4.jpg" },
+      { title: "Flacidez no rosto e no pescoço", url: "/seed/c7f3a9e1/cecilia-5.jpg" },
+      { title: "Lipo e firmeza da pele", url: "/seed/c7f3a9e1/cecilia-6.jpg" },
+      { title: "Abdominoplastia: técnica, cicatriz e recuperação", url: "/seed/c7f3a9e1/cecilia-7.jpg" },
     ],
   },
 ];
@@ -204,13 +217,13 @@ export async function runSeedCovers(slug?: string): Promise<{ key: string; cover
       if (!p) { erros.push(`sem post: ${c.title}`); continue; }
       if (p.cover) { n++; continue; }
       try {
-        const r = await fetch(c.url, { cache: "no-store" });
+        const r = await fetch(c.url.startsWith("/") ? `${publicBase()}${c.url}` : c.url, { cache: "no-store" });
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
         const raw = Buffer.from(await r.arrayBuffer());
         const jpg = (r.headers.get("content-type") ?? "").includes("jpeg") ? raw : await toJpeg(raw);
         p.cover = await saveCover(s.slug, p.id, jpg);
         p.updatedAt = new Date().toISOString();
-        p.history = [...p.history, { at: p.updatedAt, by: "DoctorBrand", role: "admin", action: "capa", note: "Capa do Canva (GRID SET/OUT)" }];
+        p.history = [...p.history, { at: p.updatedAt, by: "DoctorBrand", role: "admin", action: "capa", note: s.nota ?? "Capa do Canva (GRID SET/OUT)" }];
         n++;
       } catch (e) {
         erros.push(`${c.title}: ${e instanceof Error ? e.message : String(e)}`);
