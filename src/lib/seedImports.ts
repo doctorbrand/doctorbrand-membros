@@ -1,7 +1,7 @@
 import { getPlan, getPosts, savePosts, type FeedPlan, type Media, type Post, type PostType } from "./content";
 import { tarefaAlteracao } from "./alteracoesClickup";
 import { put } from "@vercel/blob";
-import { toJpeg } from "./drive";
+import { driveFileInfo, driveFolderFiles, parseDriveLinks, toJpeg, toMedia } from "./drive";
 import { localDir, readDoc, writeDoc } from "./store";
 
 /**
@@ -9,7 +9,11 @@ import { localDir, readDoc, writeDoc } from "./store";
  * como rascunho: a equipe revisa e envia para aprovação. Roda junto com a publicação automática.
  * Posts cujo vídeo ou arte já estiver na área do cliente não são duplicados.
  */
-interface SeedPost { title: string; caption: string; date: string; time: string; media: Media[] }
+/**
+ * Post de um planejamento. Mídias: a lista pronta (`media`) ou o link do Drive (`link`, pasta ou arquivo),
+ * que o servidor lê na hora da importação. Sem mídia (post pessoal ainda por produzir), entra vazio com `type`.
+ */
+interface SeedPost { title: string; caption: string; date: string; time: string; media?: Media[]; link?: string; type?: PostType; pilar?: PilarKey; nota?: string }
 interface SeedImport { key: string; slug: string; nota: string; posts: SeedPost[] }
 
 const v = (driveId: string, name: string): Media => ({ driveId, kind: "video", name, mime: "video/mp4" });
@@ -61,7 +65,50 @@ export const SEED_IMPORTS: SeedImport[] = [
         caption: "Metade do meu trabalho acontece fora do centro cirúrgico." },
     ],
   },
+  {
+    key: "cecilia-favre:set-out-2026",
+    slug: "cecilia-favre",
+    nota: "Trazido do Notion (Planejamento SET/OUT). Ordem conforme o grid; posts 1 a 3 já publicados ficaram de fora. Datas sugeridas: ajuste no planejamento.",
+    posts: [
+      { title: "Abdominoplastia: técnica, cicatriz e recuperação", date: "2026-10-10", time: "12:00", link: "https://drive.google.com/file/d/1JximLBlqTn5TPUwgAqbKQFuRUmn2X5zH/view", pilar: "educa",
+        caption: "A técnica certa define onde fica a cicatriz, quanto contorno é possível e quanto tempo leva a recuperação.\nAbdominoplastia bem planejada entrega contorno, força abdominal e uma cicatriz bem posicionada. Não é só tirar a pele.\nTem dúvida sobre o seu caso? Comenta aqui ou me chama pelo link da bio." },
+      { title: "Dá tempo antes do verão?", date: "2026-10-12", time: "12:00", link: "https://drive.google.com/drive/folders/1VUE0PI0t8yrnNcy6Z6Jr592LPB3RN_nr", pilar: "educa",
+        caption: "Todo fim de ano chega a mesma pergunta: dá tempo antes do verão?\nDá. Mas o que muda é como o seu verão vai ser.\nCirurgia exige recuperação e proteção do sol. Toxina e preenchimento têm resultados mais rápidos. Ultrassom e bioestimuladores começam agora e evoluem nos meses seguintes. Laser também é possível, com os cuidados certos com o sol.\nNão existe uma resposta única. Existe o que faz sentido para você, sabendo o que vem junto. 🤍\nQuer planejar o seu? Me chama." },
+      { title: "Post pessoal: dump família", date: "2026-10-14", time: "12:00", type: "carrossel", pilar: "bastidor", caption: "", nota: "Post pessoal: fotos ainda por escolher." },
+      { title: "Lipo e firmeza da pele", date: "2026-10-15", time: "12:00", link: "https://drive.google.com/file/d/1Yc4QJP7yZqZcgTzdey0mqgFqw7DJYAST/view", pilar: "educa",
+        caption: "Lipoaspiração remove a gordura. Mas se a pele não tiver firmeza, o contorno pode piorar. Não melhorar.\n\nÉ por isso que em alguns casos eu associo uma tecnologia que atua por dentro, estimulando a retração da pele e o colágeno na mesma cirurgia. Não é obrigatória pra todo mundo. Mas quando a paciente tem flacidez junto com a gordura localizada, é ela que faz o acabamento.\nDúvidas nos comentários ou pelo link da bio." },
+      { title: "Outubro Rosa: prótese e rastreio", date: "2026-10-16", time: "12:00", link: "https://drive.google.com/drive/folders/1mOaNShcH0DPupaGTPZqiSywxEDXoAbMa", pilar: "educa",
+        caption: "A mama continua precisando do mesmo acompanhamento: consultas e exames de rastreio na idade indicada, assim como quem nunca colocou implante.\nOutubro Rosa não é sobre a cirurgia. É sobre continuar cuidando de você depois dela.\nSalve e envie para quem tem prótese e ainda tinha essa dúvida." },
+      { title: "Dia do Médico", date: "2026-10-18", time: "10:00", link: "https://drive.google.com/drive/folders/1EoGklqorO6mbW0GSLgArFZEdD6vfimwj", pilar: "autoridade",
+        caption: "A cirurgia plástica, para mim, é uma extensão das minhas paixões em forma de trabalho.\nFoi na residência, no Hospital da Plástica do Rio, que isso ganhou outra dimensão. Quando alguém senta à sua frente e confia o próprio corpo às suas mãos, o olhar para a beleza se transforma em técnica, critério e responsabilidade.\nEu sei a importância de cuidar porque também sei ser cuidada. É por isso que o Cuidadoras de Maria existe.\nHoje, no Dia do Médico, quero agradecer a cada paciente que confiou em mim e me permitiu participar da sua história." },
+      { title: "A rotina por trás do \"não fiz nada\"", date: "2026-10-21", time: "12:00", link: "https://drive.google.com/drive/folders/17vB8TLpPXmkaJowS6m88pThXyqqSrTZn", pilar: "educa",
+        caption: "O que parece “não fiz nada” é, muitas vezes, uma rotina de manutenção que começa cedo, com pouco, e nunca para.\nToxina, bioestimuladores, ultrassom microfocado, preenchimento em pontos estratégicos, musculação e skincare diário.\nNada disso faz milagre sozinho. O resultado está na combinação e, principalmente, no critério.\nSe você quer entender por onde começar no seu caso, a consulta é o lugar certo.\nLink na bio." },
+      { title: "Post pessoal: diário da noiva", date: "2026-10-23", time: "12:00", type: "reels", pilar: "bastidor", caption: "", nota: "Post pessoal (dump ou Reel): material ainda por escolher." },
+      { title: "Flacidez no rosto e no pescoço", date: "2026-10-26", time: "12:00", link: "https://drive.google.com/file/d/1CwyyryPRaP2Ink6-5D9yDrcS_2yf2QbF/view", pilar: "convers",
+        nota: "No Notion, o link deste Reel é o mesmo do post 2 (pós-operatório, já publicado): confira o vídeo certo e use Atualizar do Drive.",
+        caption: "Se você começou a perceber flacidez no rosto ou no pescoço e quer entender o que faz sentido pro seu caso, a avaliação é o lugar certo pra essa conversa. Link na bio." },
+      { title: "Escolher um cirurgião é escolher uma trajetória", date: "2026-10-28", time: "12:00", link: "https://drive.google.com/drive/folders/1TMprlb-Ft8KBqFVs_Po4-wlRI1sXZJ17", pilar: "autoridade",
+        caption: "Ao escolher um cirurgião, você escolhe mais do que uma técnica. Escolhe um olhar e uma trajetória.\n\nA minha foi construída a partir de uma formação sólida em cirurgia plástica, da convivência profissional com grandes referências da especialidade e, principalmente, da construção de um olhar e critérios próprios sobre cada paciente e cada caso.\n\nSe você está pensando em realizar uma cirurgia, conhecer a trajetória do profissional que estará ao seu lado também faz parte da sua escolha." },
+      { title: "Post pessoal: dump lookinhos", date: "2026-10-30", time: "12:00", type: "carrossel", pilar: "bastidor", caption: "", nota: "Post pessoal: fotos ainda por escolher." },
+      { title: "Consulta online e pacientes de fora", date: "2026-11-02", time: "12:00", link: "https://drive.google.com/file/d/1y8vPfDgJJXv0Y6eOImg1tyCaaOmVjS87/view", pilar: "convers",
+        caption: "A consulta online não substitui a avaliação presencial antes da cirurgia, mas permite que você saiba se está falando com a cirurgiã certa antes de se deslocar.\nE para quem vem de fora: atendo em francês e inglês também. 🇫🇷🇧🇷\nO primeiro passo não precisa ser o mais difícil. Às vezes, é só uma conversa.\nPour mes patientes francophones : envoyez-moi un message, je vous réponds personnellement.\nLink na bio." },
+    ],
+  },
 ];
+
+/** Lê o link do Drive do post: pasta (arquivos em ordem de nome, até 10) ou arquivo. Falha não bloqueia a importação. */
+async function mediaDoLink(link?: string): Promise<{ media: Media[]; falhou: boolean }> {
+  if (!link) return { media: [], falhou: false };
+  try {
+    const { files, folders } = parseDriveLinks(link);
+    const media: Media[] = [];
+    for (const f of folders) for (const x of await driveFolderFiles(f)) { if (/^capa\b/i.test(x.name)) continue; const m = toMedia(x); if (m) media.push(m); }
+    for (const id of files) { const m = toMedia(await driveFileInfo(id)); if (m) media.push(m); }
+    return { media: media.slice(0, 10), falhou: !media.length };
+  } catch {
+    return { media: [], falhou: true };
+  }
+}
 
 const typeOf = (media: Media[]): PostType => (media.length > 1 ? "carrossel" : media[0].kind === "video" ? "reels" : "imagem");
 
@@ -74,21 +121,27 @@ export async function runSeedImports(slug?: string): Promise<{ key: string; crea
   // Trava curta: a página e a rodada automática não importam ao mesmo tempo.
   const lock = await readDoc<{ until?: number }>("locks/seed-imports", {});
   if ((lock.until ?? 0) > Date.now()) return [];
-  await writeDoc("locks/seed-imports", { until: Date.now() + 30_000 });
+  await writeDoc("locks/seed-imports", { until: Date.now() + 90_000 });
   const out: { key: string; created: number }[] = [];
   try {
   for (const s of pend) {
     if (done[s.key]) continue;
-    const posts = await getPosts(s.slug);
+    const [posts, plan] = await Promise.all([getPosts(s.slug), getPlan(s.slug)]);
     const have = new Set(posts.flatMap((p) => p.media.map((m) => m.driveId).filter(Boolean)));
     const now = new Date().toISOString();
-    const created: Post[] = s.posts
-      .filter((p) => !p.media.some((m) => m.driveId && have.has(m.driveId)))
-      .map((p) => ({
-        id: crypto.randomUUID(), type: typeOf(p.media), title: p.title, caption: p.caption, media: p.media,
-        date: p.date, time: p.time, status: "rascunho", createdAt: now, updatedAt: now,
-        history: [{ at: now, by: "DoctorBrand", role: "admin", action: "criado", note: s.nota }],
-      }));
+    const resolved = await Promise.all(s.posts.map(async (p) => ({ p, ...(p.media ? { media: p.media, falhou: false } : await mediaDoLink(p.link)) })));
+    const created: Post[] = resolved
+      .filter(({ media }) => !media.some((m) => m.driveId && have.has(m.driveId)))
+      .map(({ p, media, falhou }) => {
+        const pillar = p.pilar ? pilarDoPlano(plan, p.pilar) : undefined;
+        const nota = [s.nota, p.nota, falhou ? "Não consegui ler o Drive na importação: use Atualizar do Drive neste post." : ""].filter(Boolean).join(" ");
+        return {
+          id: crypto.randomUUID(), type: media.length ? typeOf(media) : p.type ?? "imagem", title: p.title, caption: p.caption, media,
+          date: p.date, time: p.time, status: "rascunho" as const, ...(pillar ? { pillar } : {}), ...(p.link ? { source: p.link } : {}),
+          createdAt: now, updatedAt: now,
+          history: [{ at: now, by: "DoctorBrand", role: "admin" as const, action: "criado" as const, note: nota }],
+        };
+      });
     if (created.length) await savePosts(s.slug, [...posts, ...created]);
     done[s.key] = now;
     await writeDoc("seed-imports", done);
