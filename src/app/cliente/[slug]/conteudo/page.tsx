@@ -164,7 +164,7 @@ export default async function ConteudoPage({ params, searchParams }: { params: P
                   id: p.id, href: postHref(p.id), current: selected?.id === p.id && !creating && !editing,
                   label: `Post ${num.get(p.id)}: ${p.title}, ${STATUS_LABEL[p.status]}`,
                   content: <>
-                    {t ? <MediaImg src={mediaUrl(t, 480)} loading="lazy" draggable={false} /> : <span className="absolute inset-0 grid place-items-center text-[11px] text-[var(--muted)]">sem capa</span>}
+                    {t ? <MediaImg src={mediaUrl(t, 480)} loading="lazy" draggable={false} /> : <span className="ct-pessoal">Post pessoal</span>}
                     <span className="ct-num">{num.get(p.id)}</span>
                     {p.type === "carrossel" ? CAROUSEL : p.type === "reels" ? REEL : null}
                     <StatusDot status={p.status} />
@@ -210,7 +210,7 @@ export default async function ConteudoPage({ params, searchParams }: { params: P
                   <div key={p.id} className="ct-row-wrap">
                   <Link href={postHref(p.id)} className={`ct-row ${selected?.id === p.id && !creating && !editing ? "is-current" : ""}`}>
                     <span className="n">{String(num.get(p.id)).padStart(2, "0")}</span>
-                    {t ? <MediaImg src={mediaUrl(t, 160)} loading="lazy" small className="w-12 h-[60px] rounded-lg" /> : <span className="w-12 h-[60px] rounded-lg bg-[#eee]" />}
+                    {t ? <MediaImg src={mediaUrl(t, 160)} loading="lazy" small className="w-12 h-[60px] rounded-lg" /> : <span className="ct-pessoal is-small w-12 h-[60px] rounded-lg">Pessoal</span>}
                     <span className="min-w-0">
                       <span className="label block">{TYPE_LABEL[p.type]} · {dayLabel(p.date, p.time)}</span>
                       <span className="block font-medium truncate">{p.title}</span>

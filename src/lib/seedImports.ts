@@ -175,8 +175,8 @@ export const SEED_COVERS: SeedCovers[] = [
   },
 ];
 
-async function saveCover(slug: string, postId: string, jpg: Buffer): Promise<Media> {
-  const path = `content-media/${slug}/covers/canva-${postId}.jpg`;
+export async function saveCover(slug: string, postId: string, jpg: Buffer): Promise<Media> {
+  const path = `content-media/${slug}/covers/capa-${postId}-${Date.now()}.jpg`;
   const dir = localDir();
   if (dir) {
     const fs = await import("fs/promises");
