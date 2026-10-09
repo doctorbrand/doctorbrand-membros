@@ -23,7 +23,7 @@ import { igAccounts, igProfile, igRecentMedia, type IgAccount } from "@/lib/inst
 import { publishProblem } from "@/lib/publish";
 import { addDays, todayISO } from "@/lib/periods";
 import { localDir } from "@/lib/store";
-import { approveAllAction, approveAndNextAction, changeAndNextAction, connectInstagramAction, disconnectInstagramAction, deletePostAction, importDriveAction, importDriveBatchAction, refreshDriveAction, importListAction, importPostsAction, reorderFeedAction, setDateAction, publishNowAction, retryPublishAction, savePlanAction, savePostAction, scheduleAction, setCoverAction, setStatusAction, unscheduleAction } from "./actions";
+import { approveAllAction, approveAndNextAction, changeAndNextAction, connectInstagramAction, refreshIgAccountsAction, disconnectInstagramAction, deletePostAction, importDriveAction, importDriveBatchAction, refreshDriveAction, importListAction, importPostsAction, reorderFeedAction, setDateAction, publishNowAction, retryPublishAction, savePlanAction, savePostAction, scheduleAction, setCoverAction, setStatusAction, unscheduleAction } from "./actions";
 
 export const dynamic = "force-dynamic";
 
@@ -126,7 +126,7 @@ export default async function ConteudoPage({ params, searchParams }: { params: P
         <section className="card p-4 mb-4 flex flex-col gap-2">
           <p className="font-medium">Ligar o Instagram deste cliente</p>
           <p className="text-sm text-[var(--muted)]">Necessário para a prévia com os posts reais e para publicar sozinho no horário. Sem senha: usa o acesso da DoctorBrand no Business Manager.</p>
-          <ConnectInstagram action={connectInstagramAction.bind(null, slug)} accounts={accounts.map((a) => ({ igUserId: a.igUserId, username: a.username, pageName: a.pageName }))} />
+          <ConnectInstagram action={connectInstagramAction.bind(null, slug)} refresh={refreshIgAccountsAction.bind(null, slug)} accounts={accounts.map((a) => ({ igUserId: a.igUserId, username: a.username, pageName: a.pageName }))} />
         </section>
       )}
 
@@ -135,7 +135,7 @@ export default async function ConteudoPage({ params, searchParams }: { params: P
           <summary className="cursor-pointer text-sm"><b>Instagram ligado:</b> @{profile?.username ?? c.igUserId} <span className="text-[var(--muted)] underline ml-1">editar</span></summary>
           <div className="flex flex-col gap-3 mt-3">
             <p className="text-sm text-[var(--muted)]">Ligou a conta errada? Escolha a certa e clique em Ligar. Os posts e agendamentos do cliente continuam como estão.</p>
-            <ConnectInstagram action={connectInstagramAction.bind(null, slug)} accounts={accounts.filter((a) => a.igUserId !== c.igUserId).map((a) => ({ igUserId: a.igUserId, username: a.username, pageName: a.pageName }))} />
+            <ConnectInstagram action={connectInstagramAction.bind(null, slug)} refresh={refreshIgAccountsAction.bind(null, slug)} accounts={accounts.filter((a) => a.igUserId !== c.igUserId).map((a) => ({ igUserId: a.igUserId, username: a.username, pageName: a.pageName }))} />
             <ActionButton action={disconnectInstagramAction.bind(null, slug)} label="Desligar o Instagram" confirm="Desligar o Instagram deste cliente? Nada publica sozinho até ligar de novo." />
           </div>
         </details>

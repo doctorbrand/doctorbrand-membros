@@ -1,6 +1,6 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidatePath, updateTag } from "next/cache";
 import { redirect } from "next/navigation";
 import { sendAlert } from "@/lib/alerts";
 import { requireAdmin, requireAuth, type Session , PREVIEW_BLOCK } from "@/lib/auth";
@@ -8,7 +8,7 @@ import { publicBase } from "@/lib/signed";
 import { comentarAlteracao, tarefaAlteracao } from "@/lib/alteracoesClickup";
 import { getPosts, mediaBelongsTo, ondeLabel, plannedAt, savePlan, savePosts, updatePost, type FeedPlan, type HistoryEntry, type Media, type Post, type PostStatus, type PostType } from "@/lib/content";
 import { driveFileInfo, driveFolderFiles, driveText, FOLDER, parseDriveLinks, toMedia, type DriveFile } from "@/lib/drive";
-import { igAccounts } from "@/lib/instagram";
+import { IG_ACCOUNTS_TAG, igAccounts } from "@/lib/instagram";
 import { getClient, updateClient } from "@/lib/clients";
 import { publishProblem, stepPublish } from "@/lib/publish";
 import type { ActionResult } from "@/lib/types";
@@ -259,6 +259,15 @@ export async function connectInstagramAction(slug: string, _prev: ActionResult |
   await updateClient(slug, { igUserId: acc.igUserId, pageId: acc.pageId }, s.name);
   revalidatePath(path(slug));
   return { ok: true, message: `Ligado a @${acc.username ?? acc.igUserId}.` };
+}
+
+/** Busca de novo as contas que o token da Meta enxerga (depois de dar acesso a um cliente novo no Business Manager). */
+export async function refreshIgAccountsAction(slug: string, _prev: ActionResult | null): Promise<ActionResult> {
+  await requireAdmin();
+  updateTag(IG_ACCOUNTS_TAG);
+  const n = (await igAccounts()).length;
+  revalidatePath(path(slug));
+  return { ok: true, message: `Lista atualizada: ${n} ${n === 1 ? "conta" : "contas"}.` };
 }
 
 /** Desliga a conta do Instagram (para corrigir uma ligação errada). */

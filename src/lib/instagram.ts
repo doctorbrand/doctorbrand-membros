@@ -24,12 +24,12 @@ export interface IgMedia {
   timestamp?: string;
 }
 
-async function graph<T>(path: string, revalidate: number): Promise<T | null> {
+async function graph<T>(path: string, revalidate: number, tags?: string[]): Promise<T | null> {
   const token = process.env.META_ACCESS_TOKEN;
   if (!token) return null;
   try {
     const sep = path.includes("?") ? "&" : "?";
-    const res = await fetch(`${API}/${path}${sep}access_token=${token}`, { next: { revalidate } });
+    const res = await fetch(`${API}/${path}${sep}access_token=${token}`, { next: { revalidate, ...(tags ? { tags } : {}) } });
     if (!res.ok) return null;
     return (await res.json()) as T;
   } catch {
@@ -52,12 +52,15 @@ export async function igRecentMedia(igUserId: string | undefined, limit = 18): P
   return (j?.data ?? []).map((m) => ({ id: m.id, type: m.media_type, thumb: m.media_type === "VIDEO" ? m.thumbnail_url : m.media_url, permalink: m.permalink, timestamp: m.timestamp }));
 }
 
+/** Tag do cache da lista de contas: o botão "Atualizar lista" limpa na hora, sem esperar os 10 minutos. */
+export const IG_ACCOUNTS_TAG = "ig-accounts";
+
 export interface IgAccount { igUserId: string; username?: string; pageId: string; pageName: string }
 
 /** Contas do Instagram que o token de sistema enxerga (páginas com conta profissional ligada). */
 export async function igAccounts(): Promise<IgAccount[]> {
   const j = await graph<{ data?: { id: string; name: string; instagram_business_account?: { id: string; username?: string } }[] }>(
-    "me/accounts?fields=id,name,instagram_business_account{id,username}&limit=100", 600);
+    "me/accounts?fields=id,name,instagram_business_account{id,username}&limit=100", 600, [IG_ACCOUNTS_TAG]);
   return (j?.data ?? []).filter((p) => p.instagram_business_account).map((p) => ({
     igUserId: p.instagram_business_account!.id, username: p.instagram_business_account!.username, pageId: p.id, pageName: p.name,
   }));

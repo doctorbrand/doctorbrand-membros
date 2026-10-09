@@ -75,18 +75,27 @@ export function ScheduleForm({ action, date, time, label = "Agendar publicação
 }
 
 /** Ligar a conta do Instagram do cliente (lista vinda da Meta). */
-export function ConnectInstagram({ action, accounts }: { action: ActFd; accounts: { igUserId: string; username?: string; pageName: string }[] }) {
+export function ConnectInstagram({ action, refresh, accounts }: { action: ActFd; refresh: Act0; accounts: { igUserId: string; username?: string; pageName: string }[] }) {
   const [state, run, pending] = useActionState(action, null);
-  if (accounts.length === 0) return <p className="text-sm text-[var(--muted)]">O token da Meta não enxerga nenhuma conta profissional do Instagram. Dê acesso à Página do cliente ao System User no Business Manager.</p>;
+  const [rState, runRefresh, refreshing] = useActionState(refresh, null);
   return (
-    <form action={run} className="flex flex-wrap items-center gap-2">
-      <select name="igUserId" className="ct-input max-w-xs" required defaultValue="">
-        <option value="" disabled>Escolha a conta…</option>
-        {accounts.map((a) => <option key={a.igUserId} value={a.igUserId}>@{a.username ?? a.igUserId} · {a.pageName}</option>)}
-      </select>
-      <button disabled={pending} className="ct-btn ct-btn-dark">Ligar</button>
+    <div className="flex flex-col gap-2">
+      <div className="flex flex-wrap items-center gap-2">
+        {accounts.length > 0 ? (
+          <form action={run} className="flex flex-wrap items-center gap-2">
+            <select name="igUserId" className="ct-input max-w-xs" required defaultValue="">
+              <option value="" disabled>Escolha a conta…</option>
+              {accounts.map((a) => <option key={a.igUserId} value={a.igUserId}>@{a.username ?? a.igUserId} · {a.pageName}</option>)}
+            </select>
+            <button disabled={pending} className="ct-btn ct-btn-dark">Ligar</button>
+          </form>
+        ) : <p className="text-sm text-[var(--muted)]">O token da Meta não enxerga nenhuma conta profissional do Instagram.</p>}
+        <form action={runRefresh}><button disabled={refreshing} className="ct-btn">{refreshing ? "Buscando…" : "Atualizar lista"}</button></form>
+      </div>
       <Msg state={state} pending={pending} />
-    </form>
+      <Msg state={rState} pending={refreshing} />
+      <p className="text-[12.5px] text-[var(--muted)]">Não está na lista? No Business Manager da DoctorBrand, em Usuários do sistema, atribua a página e o Instagram do cliente ao usuário do sistema. Depois clique em Atualizar lista.</p>
+    </div>
   );
 }
 
