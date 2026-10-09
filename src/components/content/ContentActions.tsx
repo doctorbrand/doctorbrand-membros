@@ -143,3 +143,19 @@ export function DriveRefresh({ action, source, status }: { action: ActFd; source
     </details>
   );
 }
+
+/** Pilar do post: escolher já salva. */
+export function PillarSelect({ action, value, options }: { action: ActFd; value?: string; options: string[] }) {
+  const [state, run, pending] = useActionState(action, null);
+  const opts = value && !options.includes(value) ? [...options, value] : options;
+  return (
+    <form action={run} className="ct-pillar-edit">
+      <span className="label">Pilar</span>
+      <select name="pillar" defaultValue={value ?? ""} className="ct-input" disabled={pending} onChange={(e) => e.currentTarget.form?.requestSubmit()} aria-label="Pilar do post">
+        <option value="">Sem pilar</option>
+        {opts.map((o) => <option key={o} value={o}>{o}</option>)}
+      </select>
+      <Msg state={state} pending={pending} />
+    </form>
+  );
+}

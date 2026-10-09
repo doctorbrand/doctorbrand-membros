@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ActionForm } from "@/components/ActionForm";
-import { ActionButton, ConnectInstagram, DeleteIconButton, DriveRefresh, ScheduleForm } from "@/components/content/ContentActions";
+import { ActionButton, ConnectInstagram, DeleteIconButton, DriveRefresh, PillarSelect, ScheduleForm } from "@/components/content/ContentActions";
 import { CoverPicker } from "@/components/content/CoverPicker";
 import { PostEditor } from "@/components/content/PostEditor";
 import { VideoPlayer } from "@/components/content/VideoPlayer";
@@ -23,7 +23,7 @@ import { igAccounts, igProfile, igRecentMedia, type IgAccount } from "@/lib/inst
 import { publishProblem } from "@/lib/publish";
 import { addDays, todayISO } from "@/lib/periods";
 import { localDir } from "@/lib/store";
-import { approveAllAction, approveAndNextAction, changeAndNextAction, connectInstagramAction, refreshIgAccountsAction, disconnectInstagramAction, deletePostAction, importDriveAction, importDriveBatchAction, refreshDriveAction, importListAction, importPostsAction, reorderFeedAction, setDateAction, publishNowAction, retryPublishAction, savePlanAction, savePostAction, scheduleAction, setCoverAction, setStatusAction, unscheduleAction } from "./actions";
+import { approveAllAction, approveAndNextAction, changeAndNextAction, connectInstagramAction, refreshIgAccountsAction, disconnectInstagramAction, deletePostAction, importDriveAction, importDriveBatchAction, refreshDriveAction, importListAction, importPostsAction, reorderFeedAction, setDateAction, setPillarAction, publishNowAction, retryPublishAction, savePlanAction, savePostAction, scheduleAction, setCoverAction, setStatusAction, unscheduleAction } from "./actions";
 
 export const dynamic = "force-dynamic";
 
@@ -41,7 +41,7 @@ function fmtCount(n?: number) {
   return n >= 10000 ? `${(n / 1000).toFixed(n >= 100000 ? 0 : 1).replace(".", ",")} mil` : n.toLocaleString("pt-BR");
 }
 
-export default async function ConteudoPage({ params, searchParams }: { params: Promise<{ slug: string }>; searchParams: Promise<{ post?: string; novo?: string; editar?: string; visao?: string; feito?: string }> }) {
+export default async function ConteudoPage({ params, searchParams }: { params: Promise<{ slug: string }>; searchParams: Promise<{ post?: string; novo?: string; editar?: string; visao?: string; feito?: string; pilares?: string }> }) {
   const { slug } = await params;
   const session = await requireAuth(slug);
   const sp = await searchParams;
@@ -75,6 +75,10 @@ export default async function ConteudoPage({ params, searchParams }: { params: P
   /** Link para um post, mantendo a visão do cliente e rolando até o detalhe. */
   const postHref = (id: string) => `${base}?${asClient ? "visao=cliente&" : ""}post=${id}#post`;
   const firstWaiting = order.find((p) => p.status === "aguardando");
+  /** Pilares no grid (equipe): cada post mostra o seu pilar e a legenda compara com o plano. */
+  const showPillars = admin && sp.pilares === "1";
+  const pillarColor = pillarColors(plan);
+  const pillarsHref = `${base}?${showPillars ? "" : "pilares=1&"}${selected ? `post=${selected.id}` : ""}`;
   const inReview = planned.filter((p) => p.status !== "rascunho").length;
   const firstName = session.role === "cliente" ? session.name.split(" ")[0] : c.name.split(" ")[0];
 
@@ -143,7 +147,7 @@ export default async function ConteudoPage({ params, searchParams }: { params: P
 
       <div className="ct-layout">
         {/* Celular */}
-        <FeedFrame legend={<Legend admin={admin} />}>
+        <FeedFrame legend={<Legend admin={admin} pillars={admin ? { on: showPillars, href: pillarsHref, rows: pillarRows(planned, plan, pillarColor) } : undefined} />}>
           <div className="ct-screen">
             <div className="ct-ig-top"><span>{handle}</span><MenuIcon /></div>
             <div className="ct-ig-head">
@@ -156,7 +160,7 @@ export default async function ConteudoPage({ params, searchParams }: { params: P
             </div>
             <div className="ct-bio"><b>{profile?.name ?? c.name}</b>{profile?.biography ?? c.specialty}</div>
             <FeedGrid
-              key={grid.map((p) => `${p.id}${p.date}${p.time}`).join("|")}
+              key={`${showPillars ? "p:" : ""}${grid.map((p) => `${p.id}${p.date}${p.time}${showPillars ? p.pillar ?? "" : ""}`).join("|")}`}
               reorder={admin ? reorderFeedAction.bind(null, slug) : undefined}
               items={grid.map((p) => {
                 const t = thumbOf(p);
@@ -168,6 +172,7 @@ export default async function ConteudoPage({ params, searchParams }: { params: P
                     <span className="ct-num">{num.get(p.id)}</span>
                     {p.type === "carrossel" ? CAROUSEL : p.type === "reels" ? REEL : null}
                     <StatusDot status={p.status} />
+                    {showPillars && <span className="ct-pilar" style={{ background: pillarColor(p.pillar) }}>{p.pillar ?? "Sem pilar"}</span>}
                   </>,
                 };
               })}
@@ -212,7 +217,7 @@ export default async function ConteudoPage({ params, searchParams }: { params: P
                     <span className="n">{String(num.get(p.id)).padStart(2, "0")}</span>
                     {t ? <MediaImg src={mediaUrl(t, 160)} loading="lazy" small className="w-12 h-[60px] rounded-lg" /> : <span className="ct-pessoal is-small w-12 h-[60px] rounded-lg">Pessoal</span>}
                     <span className="min-w-0">
-                      <span className="label block">{TYPE_LABEL[p.type]} · {dayLabel(p.date, p.time)}</span>
+                      <span className="label block">{TYPE_LABEL[p.type]} · {dayLabel(p.date, p.time)}{showPillars && <> · <span style={{ color: pillarColor(p.pillar) }}>{p.pillar ?? "Sem pilar"}</span></>}</span>
                       <span className="block font-medium truncate">{p.title}</span>
                     </span>
                     <span className={`pill ${STATUS_PILL[p.status]} ct-row-status`}>{STATUS_LABEL[p.status]}</span>
@@ -269,6 +274,8 @@ function PostDetail({ post: p, n, total, slug, admin, base, client, plan, local,
           <div className="mt-2"><ScheduleForm key={`${p.id}${p.date}${p.time}`} action={setDateAction.bind(null, slug, p.id)} date={p.date} time={p.time} label="Salvar data" /></div>
         </details>
       )}
+
+      {admin && <PillarSelect key={`${p.id}${p.pillar ?? ""}`} action={setPillarAction.bind(null, slug, p.id)} value={p.pillar} options={plan.pillars.map((x) => x.name)} />}
 
       {p.status === "alteracao" && lastChange?.note && (
         <div className="rounded-xl border border-[#f2c6c2] bg-[#fbeae9] p-3 text-sm">
@@ -402,7 +409,31 @@ function StatusDot({ status }: { status: Post["status"] }) {
   return <span className={`ct-dot s-${status}`} aria-hidden>{icon}</span>;
 }
 
-function Legend({ admin }: { admin: boolean }) {
+const PILLAR_COLORS = ["#0a84ff", "#30a46c", "#bf5af2", "#ff9f0a", "#ff453a", "#5ac8fa", "#a2845e"];
+function pillarColors(plan: FeedPlan) {
+  const idx = new Map(plan.pillars.map((p, i) => [p.name, i]));
+  return (name?: string) => (name && idx.has(name) ? PILLAR_COLORS[idx.get(name)! % PILLAR_COLORS.length] : "#8e8e93");
+}
+interface PillarRow { name: string; color: string; n: number; pct: number; target?: number }
+function pillarRows(planned: Post[], plan: FeedPlan, color: (n?: string) => string): PillarRow[] {
+  const total = planned.length || 1;
+  const count = (name?: string) => planned.filter((p) => (name ? p.pillar === name : !p.pillar || !plan.pillars.some((x) => x.name === p.pillar))).length;
+  const rows: PillarRow[] = plan.pillars.map((x) => ({ name: x.name, color: color(x.name), n: count(x.name), pct: Math.round((count(x.name) / total) * 100), target: x.target }));
+  const none = count(undefined);
+  return none ? [...rows, { name: "Sem pilar", color: color(undefined), n: none, pct: Math.round((none / total) * 100) }] : rows;
+}
+
+function Legend({ admin, pillars }: { admin: boolean; pillars?: { on: boolean; href: string; rows: PillarRow[] } }) {
+  if (pillars?.on) {
+    return (
+      <div className="ct-legend ct-legend-pilares">
+        {pillars.rows.map((r) => (
+          <span key={r.name}><span className="ct-swatch" style={{ background: r.color }} /> {r.name} <b>{r.n}</b>{r.target !== undefined && <span className="text-white/50">{r.pct}% · meta {r.target}%</span>}</span>
+        ))}
+        <Link href={pillars.href} scroll={false} className="ct-legend-link basis-full">Voltar para status</Link>
+      </div>
+    );
+  }
   return (
     <div className="ct-legend">
       <span><span className="ct-dot ct-dot-inline s-aguardando" /> Para aprovar</span>
@@ -411,6 +442,7 @@ function Legend({ admin }: { admin: boolean }) {
       <span><span className="ct-dot ct-dot-inline s-alteracao"><PencilIcon size={9} /></span> Em ajuste</span>
       {admin && <span><span className="ct-dot ct-dot-inline s-rascunho" /> Rascunho</span>}
       <span className="basis-full justify-center text-white/50">Apagados: já publicados</span>
+      {pillars && <Link href={pillars.href} scroll={false} className="ct-legend-link basis-full">Ver pilares no grid</Link>}
     </div>
   );
 }

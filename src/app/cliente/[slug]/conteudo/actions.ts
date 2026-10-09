@@ -6,7 +6,7 @@ import { sendAlert } from "@/lib/alerts";
 import { requireAdmin, requireAuth, type Session , PREVIEW_BLOCK } from "@/lib/auth";
 import { publicBase } from "@/lib/signed";
 import { comentarAlteracao, tarefaAlteracao } from "@/lib/alteracoesClickup";
-import { getPosts, mediaBelongsTo, ondeLabel, plannedAt, savePlan, savePosts, updatePost, type FeedPlan, type HistoryEntry, type Media, type Post, type PostStatus, type PostType } from "@/lib/content";
+import { getPlan, getPosts, mediaBelongsTo, ondeLabel, plannedAt, savePlan, savePosts, updatePost, type FeedPlan, type HistoryEntry, type Media, type Post, type PostStatus, type PostType } from "@/lib/content";
 import { driveFileInfo, driveFolderFiles, driveText, FOLDER, parseDriveLinks, toMedia, type DriveFile } from "@/lib/drive";
 import { IG_ACCOUNTS_TAG, igAccounts } from "@/lib/instagram";
 import { getClient, updateClient } from "@/lib/clients";
@@ -552,6 +552,21 @@ export async function importListAction(slug: string, text: string, opts: { start
 // ─── Data e hora, e reorganizar o grid ─────────────
 
 const dm = (date: string, time: string) => `${date.split("-").reverse().slice(0, 2).join("/")} às ${time}`;
+
+/** Equipe troca o pilar editorial de um post, direto do detalhe. Vazio tira o pilar. */
+export async function setPillarAction(slug: string, id: string, _prev: ActionResult | null, fd: FormData): Promise<ActionResult> {
+  const s = await requireAdmin();
+  const pillar = str(fd, "pillar");
+  const plan = await getPlan(slug);
+  if (pillar && !plan.pillars.some((x) => x.name === pillar)) return { ok: false, message: "Pilar fora do plano deste cliente." };
+  const p = await updatePost(slug, id, (p) => (p.pillar ?? "") === pillar ? p : {
+    ...p, ...(pillar ? { pillar } : { pillar: undefined }), updatedAt: new Date().toISOString(),
+    history: [...p.history, entry(s, "editado", pillar ? `Pilar: ${pillar}` : "Pilar removido")],
+  });
+  if (!p) return { ok: false, message: "Post não encontrado." };
+  revalidatePath(path(slug));
+  return { ok: true, message: pillar ? `Pilar: ${pillar}.` : "Sem pilar." };
+}
 
 /** Equipe muda data e hora de um post que ainda não foi publicado. Agendado continua agendado (no novo horário). */
 export async function setDateAction(slug: string, id: string, _prev: ActionResult | null, fd: FormData): Promise<ActionResult> {
