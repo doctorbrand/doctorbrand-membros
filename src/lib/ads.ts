@@ -25,7 +25,7 @@ export interface AdsData {
 export type AdsResult = { ok: true; data: AdsData } | { ok: false; reason: "off" | "sem-conta" | "erro"; message: string };
 
 /** Clientes que têm conta de anúncios no painel (os demais não mostram a aba). */
-export const ADS_CLIENTS = new Set(["vivian-ferrari", "viegas", "carlos-picasso", "flavio-pinheiro", "eric-reis", "erica-barros", "danilo-tacinari", "jose-mauro"]);
+export const ADS_CLIENTS = new Set(["vivian-ferrari", "viegas", "carlos-picasso", "flavio-pinheiro", "eric-reis", "erica-barros", "danilo-tacinari", "jose-mauro", "cecilia-favre"]);
 
 export function adsConfigured(): boolean {
   return !!process.env.MEMBROS_API_KEY;
