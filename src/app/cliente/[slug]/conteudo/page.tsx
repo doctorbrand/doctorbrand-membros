@@ -236,7 +236,8 @@ export default async function ConteudoPage({ params, searchParams }: { params: P
         </div>
       </div>
 
-      {planned.filter((p) => p.status !== "rascunho").length >= 6 ? (
+      {/* A pontuação é ferramenta da equipe: o cliente nunca vê nota, dicas nem alertas do planejamento. */}
+      {admin && planned.filter((p) => p.status !== "rascunho").length >= 6 ? (
         <div className="mt-6"><ScoreCard score={score} plan={plan} admin={admin} slug={slug} /></div>
       ) : admin ? (
         <p className="text-sm text-[var(--muted)] mt-6">A pontuação do planejamento aparece quando houver pelo menos 6 posts planejados (hoje: {planned.filter((p) => p.status !== "rascunho").length}).</p>
