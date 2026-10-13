@@ -413,7 +413,15 @@ export async function savePlanAction(slug: string, _prev: ActionResult | null, f
 
 // ─── Importar pacote (.zip) ────────────────────────────────────────────
 
-export interface ImportItem { title: string; caption: string; media: Media[]; cover?: Media; agenda?: string; source?: string }
+export interface ImportItem { title: string; caption: string; media: Media[]; cover?: Media; agenda?: string; source?: string; pilar?: string }
+
+const semAcento = (t: string) => t.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+/** pilar.txt: o nome do pilar como está nas metas do cliente (sem diferenciar acento e maiúscula; o começo do nome basta). */
+function pilarDoArquivo(texto: string | undefined, pillars: { name: string }[]): string | undefined {
+  const t = semAcento(String(texto ?? "").split(/\r?\n/)[0] ?? "");
+  if (!t) return undefined;
+  return (pillars.find((p) => semAcento(p.name) === t) ?? pillars.find((p) => semAcento(p.name).startsWith(t) || t.startsWith(semAcento(p.name))))?.name;
+}
 
 function addDaysISO(date: string, days: number): string {
   const d = new Date(`${date}T12:00:00Z`);
@@ -431,7 +439,9 @@ export async function importPostsAction(slug: string, items: ImportItem[], opts:
   const times = (opts.times ?? []).filter((t) => /^\d{2}:\d{2}$/.test(t));
   const now = new Date().toISOString();
   const created: Post[] = [];
+  const plan = await getPlan(slug);
   for (const [i, it] of items.entries()) {
+    const pillar = pilarDoArquivo(it.pilar, plan.pillars);
     const media = parseMedia(JSON.stringify(it.media ?? []), slug);
     const cover = it.cover ? parseMedia(JSON.stringify([it.cover]), slug)[0] : undefined;
     if (!media.length) return { ok: false, message: `“${it.title}”: sem mídia.` };
@@ -443,6 +453,7 @@ export async function importPostsAction(slug: string, items: ImportItem[], opts:
       id: crypto.randomUUID(), type, title: String(it.title || `Post ${i + 1}`).slice(0, 120), caption, media,
       cover: type === "reels" ? cover : undefined,
       ...(it.source ? { source: String(it.source).slice(0, 2000) } : {}),
+      ...(pillar ? { pillar } : {}),
       ...(() => {
         const auto = { date: addDaysISO(opts.start, i * every), time: times.length ? times[i % times.length] : "12:00" };
         const fixed = it.agenda ? parseAgenda(String(it.agenda), Number(opts.start.slice(0, 4))) : {};
@@ -491,10 +502,11 @@ export async function importDriveBatchAction(slug: string, link: string, opts: {
       const list: DriveFile[] = await driveFolderFiles(sub.id);
       const txt = list.find((x) => /^legenda.*\.txt$|^caption.*\.txt$/i.test(x.name));
       const ag = list.find((x) => /^agenda.*\.txt$/i.test(x.name));
+      const pl = list.find((x) => /^pilar.*\.txt$/i.test(x.name));
       const capa = list.find((x) => /^capa\b/i.test(x.name) && x.mime.startsWith("image/"));
-      const media = list.filter((x) => x !== txt && x !== ag && x !== capa).map(toMedia).filter((m): m is Media => !!m);
-      const [caption, agenda] = await Promise.all([txt ? driveText(txt.id).catch(() => "") : "", ag ? driveText(ag.id).catch(() => "") : ""]);
-      return { title: titleFromFolder(sub.name), caption, media, cover: capa ? toMedia(capa) ?? undefined : undefined, agenda: agenda || undefined, source: `https://drive.google.com/drive/folders/${sub.id}` };
+      const media = list.filter((x) => x !== txt && x !== ag && x !== pl && x !== capa).map(toMedia).filter((m): m is Media => !!m);
+      const [caption, agenda, pilar] = await Promise.all([txt ? driveText(txt.id).catch(() => "") : "", ag ? driveText(ag.id).catch(() => "") : "", pl ? driveText(pl.id).catch(() => "") : ""]);
+      return { title: titleFromFolder(sub.name), caption, media, cover: capa ? toMedia(capa) ?? undefined : undefined, agenda: agenda || undefined, pilar: pilar || undefined, source: `https://drive.google.com/drive/folders/${sub.id}` };
     }));
     const empty = read.find((r) => !r.media.length);
     if (empty) return { ok: false, message: `“${empty.title}”: sem imagem ou vídeo (ou os arquivos não estão compartilhados).` };

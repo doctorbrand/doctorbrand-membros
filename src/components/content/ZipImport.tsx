@@ -9,7 +9,7 @@ import { uploadMedia } from "./upload";
 
 type ImportAction = (items: ImportItem[], opts: { start: string; everyDays: number; times: string[]; send: boolean }) => Promise<ActionResult>;
 
-interface Folder { key: string; order: number; title: string; files: { name: string; entry: JSZip.JSZipObject }[]; caption: string; agenda?: string; cover?: JSZip.JSZipObject }
+interface Folder { key: string; order: number; title: string; files: { name: string; entry: JSZip.JSZipObject }[]; caption: string; agenda?: string; pilar?: string; cover?: JSZip.JSZipObject }
 
 const IMG = /\.(jpe?g|png)$/i;
 const VID = /\.mp4$/i;
@@ -66,6 +66,7 @@ export function ZipImport({ slug, action, local, defaultStart, everyDays }: { sl
         const f = map.get(key)!;
         if (/legenda.*\.txt$|caption.*\.txt$/i.test(name)) f.caption = (await e.async("string")).replace(/\r\n?/g, "\n").trim();
         else if (/^agenda.*\.txt$/i.test(name)) f.agenda = (await e.async("string")).trim();
+        else if (/^pilar.*\.txt$/i.test(name)) f.pilar = (await e.async("string")).trim();
         else if (/^capa\b/i.test(name) && IMG.test(name)) f.cover = e;
         else if (IMG.test(name) || VID.test(name)) f.files.push({ name, entry: e });
       }
@@ -104,7 +105,7 @@ export function ZipImport({ slug, action, local, defaultStart, everyDays }: { sl
           const path = await uploadMedia(`${base}/capa.jpg`, await toJpeg(await f.cover.async("blob"), f.cover.name), local);
           cover = { path, kind: "image", name: "capa.jpg", mime: "image/jpeg" };
         }
-        items.push({ title: f.title, caption: f.caption, media, cover, agenda: f.agenda });
+        items.push({ title: f.title, caption: f.caption, media, cover, agenda: f.agenda, pilar: f.pilar });
       }
       setBusy("Criando os posts…");
       const r = await action(items, { start, everyDays: gap, times: times.split(/[,\s]+/).filter((t) => /^\d{2}:\d{2}$/.test(t)), send });
