@@ -1,5 +1,5 @@
 import { readDoc, writeDoc } from "./store";
-import type { BrandKit } from "./brand";
+import { MAX_TEMPLATES, type BrandKit, type CarouselTemplate } from "./brand";
 
 /** Leitura e gravação do kit de marca (só no servidor). */
 
@@ -26,7 +26,7 @@ const docPath = (slug: string) => `marca/${slug}`;
 
 export async function getBrand(slug: string): Promise<BrandKit> {
   const saved = await readDoc<BrandKit | null>(docPath(slug), null);
-  if (saved) return { ...EMPTY, ...saved, logos: saved.logos ?? {}, colors: saved.colors ?? [], fonts: saved.fonts ?? {} };
+  if (saved) return { ...EMPTY, ...saved, logos: saved.logos ?? {}, colors: saved.colors ?? [], fonts: saved.fonts ?? {}, templates: saved.templates ?? [] };
   return { ...EMPTY, ...(SEED[slug] ?? {}) };
 }
 
@@ -35,4 +35,10 @@ export async function saveBrand(slug: string, patch: Partial<BrandKit>, by: stri
   const next: BrandKit = { ...cur, ...patch, updatedAt: new Date().toISOString(), updatedBy: by };
   await writeDoc(docPath(slug), next);
   return next;
+}
+
+/** Grava os modelos de carrossel do cliente (no máximo MAX_TEMPLATES), junto do kit. */
+export async function saveTemplates(slug: string, templates: CarouselTemplate[], by: string): Promise<BrandKit> {
+  if (templates.length > MAX_TEMPLATES) throw new Error(`No máximo ${MAX_TEMPLATES} modelos por cliente.`);
+  return saveBrand(slug, { templates }, by);
 }

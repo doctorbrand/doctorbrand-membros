@@ -3,17 +3,20 @@ import { notFound } from "next/navigation";
 import { ActionForm } from "@/components/ActionForm";
 import { BrandColorsAndPreview } from "@/components/brand/BrandEditor";
 import { BrandFileUpload } from "@/components/brand/BrandFileUpload";
+import { SlidePreview, type PreviewAssets } from "@/components/brand/SlidePreview";
+import { TemplateEditor } from "@/components/brand/TemplateEditor";
+import { ActionButton } from "@/components/content/ContentActions";
 import { ArrowUpRightIcon, CheckIcon, FolderIcon } from "@/components/Icons";
 import { Shell } from "@/components/Shell";
 import { requireAdmin } from "@/lib/auth";
 import { getBrand } from "@/lib/brandStore";
-import { brandChecklist, colorFor, googleFontCss, LOGO_SLOTS, type BrandFont, type BrandKit } from "@/lib/brand";
+import { blankTemplate, brandChecklist, colorFor, googleFontCss, LOGO_SLOTS, MAX_TEMPLATES, SLIDE_KINDS, type BrandFont, type BrandKit } from "@/lib/brand";
 import { getClient } from "@/lib/clients";
 import { getPlan, getPosts, monthlyByType } from "@/lib/content";
 import { DRIVE_WEB, mediaUrl } from "@/lib/content-media";
 import { driveFolderFiles, parseDriveLinks } from "@/lib/drive";
 import { localDir } from "@/lib/store";
-import { clearBrandFileAction, saveBrandAction, setBrandFileAction } from "./actions";
+import { clearBrandFileAction, createBaseTemplatesAction, deleteTemplateAction, saveBrandAction, saveTemplateAction, setBrandFileAction } from "./actions";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 30;
@@ -68,8 +71,17 @@ async function DrivePhotos({ link }: { link: string }) {
   );
 }
 
-export default async function MarcaPage({ params }: { params: Promise<{ slug: string }> }) {
+/** Primeira foto da pasta do Drive do kit (só para a prévia da caixa de imagem). */
+async function samplePhoto(link?: string): Promise<string | undefined> {
+  const id = link ? parseDriveLinks(link).folders[0] : undefined;
+  if (!id) return undefined;
+  const f = (await driveFolderFiles(id).catch(() => [])).find((x) => x.mime.startsWith("image/"));
+  return f ? mediaUrl({ driveId: f.id, kind: "image" }, 720) : undefined;
+}
+
+export default async function MarcaPage({ params, searchParams }: { params: Promise<{ slug: string }>; searchParams: Promise<{ modelo?: string }> }) {
   const { slug } = await params;
+  const sp = await searchParams;
   const session = await requireAdmin();
   const c = await getClient(slug);
   if (!c) notFound();
@@ -83,6 +95,14 @@ export default async function MarcaPage({ params }: { params: Promise<{ slug: st
   const darkBg = isDark(colorFor(k, "fundo"));
   const previewLogo = (darkBg ? k.logos.escuro : k.logos.claro) ?? k.logos.principal;
   const save = setBrandFileAction;
+  const templates = k.templates ?? [];
+  const logoUrls: PreviewAssets["logos"] = { principal: k.logos.principal && fileUrl(k.logos.principal.path), claro: k.logos.claro && fileUrl(k.logos.claro.path), escuro: k.logos.escuro && fileUrl(k.logos.escuro.path) };
+  const photo = await samplePhoto(k.driveFolder);
+  const assets: PreviewAssets = { logos: logoUrls, photo, fileUrl };
+  const editing = templates.find((t) => t.id === sp.modelo);
+  const creating = sp.modelo === "novo" && templates.length < MAX_TEMPLATES;
+  const base = `/cliente/${slug}/marca`;
+  const colorsReady = (["fundo", "texto", "destaque"] as const).every((r) => !!colorFor(k, r));
 
   return (
     <Shell active="marca" session={session} clientSlug={slug}>
@@ -185,25 +205,51 @@ export default async function MarcaPage({ params }: { params: Promise<{ slug: st
           <textarea name="rules" rows={6} defaultValue={k.rules ?? ""} placeholder={"Logo só no último slide.\nNunca foto de paciente.\nMáximo de 25 palavras por slide."} className="ct-input" />
         </section>
 
-        <section className="card p-5 flex flex-col gap-3">
-          <div>
-            <h2 className="font-semibold">Modelos de carrossel</h2>
-            <p className="text-sm text-[var(--muted)]">Até 3 por cliente, cada um com capa, slide de texto, slide com imagem e slide final. O cadastro dos modelos (vindos do Canva ou montados com as cores acima) entra na próxima etapa.</p>
-          </div>
-          <p className="text-sm">Meta do plano: <b>{meta} {meta === 1 ? "carrossel" : "carrosséis"} por mês</b> ({plan.postsPerWeek} posts por semana, {plan.mix.carrossel}% carrossel). Neste mês: {feitos} no planejamento. <Link href={`/cliente/${slug}/conteudo`} className="underline">Ajustar metas</Link></p>
-          <div className="grid sm:grid-cols-3 gap-3">
-            {[1, 2, 3].map((n) => (
-              <div key={n} className="h-32 rounded-xl border border-dashed border-[var(--line)] p-4 text-sm text-[var(--muted)] grid place-items-center">Modelo {n}</div>
-            ))}
-          </div>
-        </section>
-
         <div className="card flex flex-wrap items-center gap-3 sticky bottom-3 p-3 shadow-sm">
           <button className="ct-btn ct-btn-dark">Salvar kit</button>
           <span className="text-xs text-[var(--muted)]">Logos e arquivos de fonte salvam sozinhos ao enviar.</span>
           {k.updatedAt && <span className="text-xs text-[var(--muted)]">Última edição: {when(k.updatedAt)} por {k.updatedBy}</span>}
         </div>
       </ActionForm>
+
+      <section id="modelos" className="card p-5 mt-6 flex flex-col gap-4">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h2 className="font-semibold">Modelos de carrossel</h2>
+            <p className="text-sm text-[var(--muted)] max-w-2xl">Até {MAX_TEMPLATES} por cliente. Cada modelo tem capa, slide de texto, slide com imagem e slide final, com fundo (cor do kit ou imagem do Canva) e caixas de título, texto, imagem e logo.</p>
+          </div>
+          {templates.length < MAX_TEMPLATES && (
+            colorsReady
+              ? <ActionButton action={createBaseTemplatesAction.bind(null, slug)} label="Criar 3 modelos-base com as cores do kit" />
+              : <span className="text-xs text-[var(--muted)] max-w-[260px]">Salve as cores de fundo, texto e destaque para criar os modelos-base.</span>
+          )}
+        </div>
+        <p className="text-sm">Meta do plano: <b>{meta} {meta === 1 ? "carrossel" : "carrosséis"} por mês</b> ({plan.postsPerWeek} posts por semana, {plan.mix.carrossel}% carrossel). Neste mês: {feitos} no planejamento. <Link href={`/cliente/${slug}/conteudo`} className="underline">Ajustar metas</Link></p>
+        <div className="grid sm:grid-cols-3 gap-3">
+          {Array.from({ length: MAX_TEMPLATES }, (_, i) => templates[i]).map((t, i) => t ? (
+            <Link key={t.id} href={`${base}?modelo=${t.id}#modelos`} scroll={false} className={`tm-card ${editing?.id === t.id ? "is-on" : ""}`}>
+              <div className="tm-slides">
+                {SLIDE_KINDS.map((s) => <SlidePreview key={s.key} layout={t.slides[s.key]} k={k} assets={assets} className={s.key === "capa" ? "tm-main" : "tm-mini"} />)}
+              </div>
+              <div className="flex items-center justify-between gap-2">
+                <span className="font-medium truncate">{t.name}</span>
+                <span className="text-xs text-[var(--muted)] shrink-0">Editar</span>
+              </div>
+            </Link>
+          ) : (
+            <Link key={`vazio-${i}`} href={`${base}?modelo=novo#modelos`} scroll={false} className={`tm-empty ${creating && i === templates.length ? "is-on" : ""}`}>
+              <span className="text-2xl font-light leading-none">+</span>
+              <span>Novo modelo</span>
+            </Link>
+          ))}
+        </div>
+        {(editing || creating) && (
+          <TemplateEditor key={editing?.id ?? "novo"} slug={slug} kit={k} logos={logoUrls} photo={photo} local={local}
+            initial={editing ?? blankTemplate()} isNew={!editing}
+            save={saveTemplateAction.bind(null, slug)} remove={editing ? deleteTemplateAction.bind(null, slug, editing.id) : undefined}
+            backHref={`${base}#modelos`} />
+        )}
+      </section>
     </Shell>
   );
 }

@@ -2,8 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 import { requireAdmin } from "@/lib/auth";
-import { getBrand, saveBrand } from "@/lib/brandStore";
-import { COLOR_ROLES, LOGO_SLOTS, MAX_COLORS, normalizeHex, type BrandColor, type BrandFont, type ColorRole, type LogoKey } from "@/lib/brand";
+import { getBrand, saveBrand, saveTemplates } from "@/lib/brandStore";
+import { baseTemplates, cleanTemplate, colorFor, COLOR_ROLES, LOGO_SLOTS, MAX_COLORS, MAX_TEMPLATES, normalizeHex, type BrandColor, type BrandFont, type ColorRole, type LogoKey } from "@/lib/brand";
 import { getClient } from "@/lib/clients";
 import { parseDriveLinks } from "@/lib/drive";
 import type { ActionResult } from "@/lib/types";
@@ -82,4 +82,49 @@ export async function clearBrandFileAction(slug: string, slot: string): Promise<
   }
   revalidatePath(page(slug));
   return { ok: true, message: "Removido." };
+}
+
+// ─── Modelos de carrossel ────────────────────────────────────────────────
+
+/** Salva (cria ou atualiza) um modelo. O editor manda o modelo inteiro em JSON. */
+export async function saveTemplateAction(slug: string, json: string): Promise<ActionResult & { id?: string }> {
+  const s = await guard(slug);
+  let raw: unknown;
+  try { raw = JSON.parse(json); } catch { return { ok: false, message: "Modelo inválido." }; }
+  const t = cleanTemplate(raw, slug);
+  if (!t) return { ok: false, message: "Dê um nome ao modelo." };
+  const list = (await getBrand(slug)).templates ?? [];
+  const i = list.findIndex((x) => x.id === t.id);
+  if (i < 0 && list.length >= MAX_TEMPLATES) return { ok: false, message: `Já são ${MAX_TEMPLATES} modelos. Apague um para criar outro.` };
+  if (list.some((x) => x.id !== t.id && x.name.toLowerCase() === t.name.toLowerCase())) return { ok: false, message: "Já existe um modelo com esse nome." };
+  const next = { ...t, updatedAt: new Date().toISOString() };
+  await saveTemplates(slug, i < 0 ? [...list, next] : list.map((x) => (x.id === t.id ? next : x)), s.name);
+  revalidatePath(page(slug));
+  return { ok: true, message: "Modelo salvo.", id: t.id };
+}
+
+export async function deleteTemplateAction(slug: string, id: string): Promise<ActionResult> {
+  const s = await guard(slug);
+  const list = (await getBrand(slug)).templates ?? [];
+  if (!list.some((x) => x.id === id)) return { ok: false, message: "Modelo não encontrado." };
+  await saveTemplates(slug, list.filter((x) => x.id !== id), s.name);
+  revalidatePath(page(slug));
+  return { ok: true, message: "Modelo apagado." };
+}
+
+/** Cria os modelos-base (Editorial, Lista, Com foto) nos espaços livres, com as cores do kit. */
+export async function createBaseTemplatesAction(slug: string): Promise<ActionResult> {
+  const s = await guard(slug);
+  const k = await getBrand(slug);
+  const faltam = (["fundo", "texto", "destaque"] as ColorRole[]).filter((r) => !colorFor(k, r));
+  if (faltam.length) return { ok: false, message: `Cadastre e salve as cores de ${faltam.join(", ")} antes de criar os modelos.` };
+  const list = k.templates ?? [];
+  const livres = MAX_TEMPLATES - list.length;
+  if (livres <= 0) return { ok: false, message: `Já são ${MAX_TEMPLATES} modelos. Apague um para criar os modelos-base.` };
+  const nomes = new Set(list.map((t) => t.name.toLowerCase()));
+  const novos = baseTemplates().filter((t) => !nomes.has(t.name.toLowerCase())).slice(0, livres).map((t) => ({ ...t, updatedAt: new Date().toISOString() }));
+  if (!novos.length) return { ok: false, message: "Os modelos-base já existem." };
+  await saveTemplates(slug, [...list, ...novos], s.name);
+  revalidatePath(page(slug));
+  return { ok: true, message: `${novos.length} ${novos.length === 1 ? "modelo criado" : "modelos criados"}: ${novos.map((t) => t.name).join(", ")}.` };
 }
