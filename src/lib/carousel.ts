@@ -90,7 +90,7 @@ export const words = (s: string) => s.replace(/\*/g, "").split(/\s+/).filter(Boo
 /** Limite de palavras do título e do texto num tipo de slide do modelo (soma das caixas daquele tipo). */
 export function slideLimits(t: CarouselTemplate, kind: SlideKind): { titulo: number; texto: number; imagem: boolean } {
   const boxes = t.slides[kind]?.boxes ?? [];
-  const sum = (k: "titulo" | "texto") => boxes.filter((b) => b.kind === k && !b.auto && !b.fixed).reduce((n, b) => n + (b.maxWords ?? 0), 0);
+  const sum = (k: "titulo" | "texto") => boxes.filter((b) => b.kind === k && !b.auto && b.fixo === undefined).reduce((n, b) => n + (b.maxWords ?? 0), 0);
   return { titulo: sum("titulo"), texto: sum("texto"), imagem: boxes.some((b) => b.kind === "imagem") };
 }
 
@@ -133,7 +133,7 @@ const copyLayout = (l: SlideLayout): SlideLayout => JSON.parse(JSON.stringify(l)
 
 /** Caixas de texto que recebem o título e o texto de apoio do slide (a maior caixa de texto recebe o apoio). */
 function targets(l: SlideLayout) {
-  const free = (b: SlideLayout["boxes"][number]) => !b.auto && !b.fixed;
+  const free = (b: SlideLayout["boxes"][number]) => !b.auto && b.fixo === undefined;
   const tit = l.boxes.filter((b) => b.kind === "titulo" && free(b)).sort((a, b) => a.y - b.y);
   const tex = l.boxes.filter((b) => b.kind === "texto" && free(b)).sort((a, b) => (b.maxWords ?? 0) - (a.maxWords ?? 0) || b.h - a.h);
   return { title: tit[0], body: tex[0] };

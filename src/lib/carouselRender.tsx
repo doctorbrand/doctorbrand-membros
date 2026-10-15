@@ -130,7 +130,7 @@ function Box({ b, slide, i, total, kit, a, bgHex }: { b: TemplateBox; slide: Edi
     const src = isDark(bgHex) ? (a.logo.dark ?? a.logo.light) : (a.logo.light ?? a.logo.dark);
     return src ? <div style={{ ...pos, justifyContent: "center", alignItems: "center" }}><img alt="" src={src} style={{ maxWidth: pos.width, maxHeight: pos.height, objectFit: "contain" }} /></div> : null;
   }
-  const raw = b.fixed ? b.fixed.trim() : b.auto === "contador" ? `${i + 1}/${total}` : b.auto === "numero" ? String(i).padStart(2, "0") : (slide.text[b.id] ?? "").trim();
+  const raw = b.fixo !== undefined ? b.fixo.trim() : b.auto === "contador" ? `${i + 1}/${total}` : b.auto === "numero" ? String(i).padStart(2, "0") : (slide.text[b.id] ?? "").trim();
   if (!raw) return null;
   const title = (b.font ?? (b.kind === "titulo" ? "titulo" : "texto")) === "titulo";
   const size = fitSize(raw, b.size ?? 40, pos.width, pos.height, title);
@@ -140,7 +140,7 @@ function Box({ b, slide, i, total, kit, a, bgHex }: { b: TemplateBox; slide: Edi
   if (accent.toLowerCase() === color.toLowerCase()) accent = color;
   const center = b.align === "center";
   return (
-    <div style={{ ...pos, flexDirection: "column", alignItems: center ? "center" : b.align === "right" ? "flex-end" : "flex-start", color, fontFamily: title ? a.titleFont : a.textFont, fontWeight: title ? a.titleWeight : 400, fontSize: size, lineHeight: title ? 1.12 : 1.35, letterSpacing: title ? "-0.01em" : "0" }}>
+    <div style={{ ...pos, flexDirection: "column", alignItems: center ? "center" : b.align === "right" ? "flex-end" : "flex-start", color, fontFamily: title ? a.titleFont : a.textFont, fontWeight: title ? a.titleWeight : 400, fontSize: size, lineHeight: title ? 1.12 : 1.35, letterSpacing: b.caps ? "0.2em" : title ? "-0.01em" : "0", ...(b.opacity ? { opacity: b.opacity / 100 } : {}), ...(b.italic ? { fontStyle: "italic" as const } : {}), ...(b.caps ? { textTransform: "uppercase" as const } : {}) }}>
       <Rich text={raw} accent={accent} size={size} center={center} right={b.align === "right"} />
     </div>
   );

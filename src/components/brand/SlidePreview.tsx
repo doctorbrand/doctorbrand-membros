@@ -48,10 +48,13 @@ function BoxContent({ b, k, assets, bgHex, index }: { b: TemplateBox; k: BrandKi
   const color = roleColor(k, b.color ?? "texto").hex;
   // Rótulo cortado no limite de palavras da caixa, para a prévia não prometer espaço que o slide não tem.
   const words = SAMPLE[b.kind].split(" ");
-  const text = b.fixed ? b.fixed : b.auto === "contador" ? `${index}/7` : b.auto === "numero" ? String(index).padStart(2, "0") : words.slice(0, Math.max(1, b.maxWords ?? words.length)).join(" ").replace(/[,.]$/, "");
+  const text = b.auto === "numero" ? String(index).padStart(2, "0")
+    : b.auto === "contador" ? `${index}/7`
+    : b.fixo ? b.fixo
+    : words.slice(0, Math.max(1, b.maxWords ?? words.length)).join(" ").replace(/[,.]$/, "");
   const weight = k.fonts[which]?.weight ?? (which === "titulo" ? 600 : 400);
   return (
-    <span className="sp-text" style={{ color, fontFamily: fontStack(k, which), fontWeight: weight, fontSize: `${((b.size ?? 40) / SLIDE_W) * 100}cqw`, textAlign: b.align ?? "left", justifyContent: b.align === "center" ? "center" : b.align === "right" ? "flex-end" : "flex-start" }}>
+    <span className="sp-text" style={{ color, fontFamily: fontStack(k, which), opacity: b.opacity ? b.opacity / 100 : undefined, fontWeight: weight, fontStyle: b.italic ? "italic" : undefined, textTransform: b.caps ? "uppercase" : undefined, letterSpacing: b.caps ? "0.2em" : undefined, fontSize: `${((b.size ?? 40) / SLIDE_W) * 100}cqw`, textAlign: b.align ?? "left", justifyContent: b.align === "center" ? "center" : b.align === "right" ? "flex-end" : "flex-start" }}>
       {text}
     </span>
   );

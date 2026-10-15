@@ -9,7 +9,7 @@ import { ActionButton } from "@/components/content/ContentActions";
 import { ArrowUpRightIcon, CheckIcon, FolderIcon } from "@/components/Icons";
 import { Shell } from "@/components/Shell";
 import { requireAdmin } from "@/lib/auth";
-import { getBrand } from "@/lib/brandStore";
+import { getBrand, runBrandUpgrades } from "@/lib/brandStore";
 import { blankTemplate, brandChecklist, colorFor, googleFontCss, LOGO_SLOTS, MAX_TEMPLATES, SLIDE_KINDS, type BrandFont, type BrandKit } from "@/lib/brand";
 import { getClient } from "@/lib/clients";
 import { BRAND_PRESETS } from "@/lib/brandPresets";
@@ -86,6 +86,7 @@ export default async function MarcaPage({ params, searchParams }: { params: Prom
   const session = await requireAdmin();
   const c = await getClient(slug);
   if (!c) notFound();
+  await runBrandUpgrades(slug).catch(() => undefined);
   const [k, plan, posts] = await Promise.all([getBrand(slug), getPlan(slug), getPosts(slug)]);
   const meta = monthlyByType(plan).carrossel;
   const mes = new Date().toLocaleString("sv-SE", { timeZone: "America/Sao_Paulo" }).slice(0, 7);

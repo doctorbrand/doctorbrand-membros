@@ -55,7 +55,7 @@ function SlideView({ s, i, total, kit, logos }: { s: EditSlide; i: number; total
             </div>
           );
         }
-        const raw = b.fixed ? b.fixed.trim() : b.auto === "contador" ? `${i + 1}/${total}` : b.auto === "numero" ? String(i).padStart(2, "0") : (s.text[b.id] ?? "");
+        const raw = b.fixo !== undefined ? b.fixo.trim() : b.auto === "contador" ? `${i + 1}/${total}` : b.auto === "numero" ? String(i).padStart(2, "0") : (s.text[b.id] ?? "");
         const title = (b.font ?? (b.kind === "titulo" ? "titulo" : "texto")) === "titulo";
         const size = fitSize(raw || " ", b.size ?? 40, (b.w / 100) * SLIDE_W, (b.h / 100) * SLIDE_H, title);
         const color = roleColor(kit, b.color ?? "texto").hex;
@@ -63,7 +63,7 @@ function SlideView({ s, i, total, kit, logos }: { s: EditSlide; i: number; total
         if (accent.toLowerCase() === bgHex.toLowerCase() || accent.toLowerCase() === color.toLowerCase()) accent = isDarkHex(bgHex) ? "#ffffff" : "#111111";
         return (
           <div key={b.id} className={`sp-box sp-${b.kind}`} style={pos}>
-            <span className="sp-text" style={{ display: "block", color, fontFamily: fontStack(kit, title ? "titulo" : "texto"), fontWeight: title ? (kit.fonts.titulo?.weight ?? 700) : 400, fontSize: `${(size / SLIDE_W) * 100}cqw`, lineHeight: title ? 1.12 : 1.35, textAlign: b.align ?? "left", whiteSpace: "pre-line" }}>
+            <span className="sp-text" style={{ display: "block", color, fontFamily: fontStack(kit, title ? "titulo" : "texto"), fontWeight: title ? (kit.fonts.titulo?.weight ?? 700) : 400, fontSize: `${(size / SLIDE_W) * 100}cqw`, lineHeight: title ? 1.12 : 1.35, textAlign: b.align ?? "left", whiteSpace: "pre-line", opacity: b.opacity ? b.opacity / 100 : undefined, fontStyle: b.italic ? "italic" : undefined, textTransform: b.caps ? "uppercase" : undefined, letterSpacing: b.caps ? "0.2em" : undefined }}>
               {raw ? highlightParts(raw).map((p, k) => <span key={k} style={p.accent ? { color: accent } : undefined}>{p.text}</span>) : <span style={{ opacity: 0.35 }}>{KIND_LABEL[b.kind]}</span>}
             </span>
           </div>
@@ -275,7 +275,7 @@ export function CarouselStudio(props: {
 
   // ─── passo 2: editor ─────────────────────────────
   const s = slide!;
-  const textBox = box && (box.kind === "titulo" || box.kind === "texto") && !box.auto && !box.fixed;
+  const textBox = box && (box.kind === "titulo" || box.kind === "texto") && !box.auto && box.fixo === undefined;
 
   return (
     <div className="te" onKeyDown={onKey} style={{ borderTop: 0, paddingTop: 0 }}>
@@ -305,7 +305,7 @@ export function CarouselStudio(props: {
               {s.layout.boxes.map((b) => (
                 <div key={b.id} className={`te-handle ${sel === b.id ? "is-sel" : ""}`} style={{ left: `${b.x}%`, top: `${b.y}%`, width: `${b.w}%`, height: `${b.h}%` }}
                   onPointerDown={(e) => onPointerDown(e, b, "move")} title={`${KIND_LABEL[b.kind]}: clique para editar, arraste para mover`}>
-                  <span className="te-tag">{b.fixed ? b.fixed.trim() : b.auto === "contador" ? "Contador" : b.auto === "numero" ? "Número" : KIND_LABEL[b.kind]}</span>
+                  <span className="te-tag">{b.fixo !== undefined ? b.fixo.trim() : b.auto === "contador" ? "Contador" : b.auto === "numero" ? "Número" : KIND_LABEL[b.kind]}</span>
                   <span className="te-resize" onPointerDown={(e) => onPointerDown(e, b, "resize")} title="Arraste para redimensionar" />
                 </div>
               ))}
@@ -329,7 +329,7 @@ export function CarouselStudio(props: {
               <p className="label mb-1">Slide {cur + 1} · {SLIDE_LABEL[s.kind]}</p>
               <p className="text-sm text-[var(--muted)]">Clique num título, texto ou foto no slide para editar.</p>
               <div className="flex flex-wrap gap-1.5 mt-1">
-                {s.layout.boxes.map((b) => <button key={b.id} type="button" className="te-chip" onClick={() => setSel(b.id)}>{b.fixed ? b.fixed.trim() : b.auto === "contador" ? "Contador" : b.auto === "numero" ? "Número" : KIND_LABEL[b.kind]}{b.kind !== "imagem" && b.kind !== "logo" && s.text[b.id] ? `: ${s.text[b.id].replace(/\*/g, "").slice(0, 18)}…` : ""}</button>)}
+                {s.layout.boxes.map((b) => <button key={b.id} type="button" className="te-chip" onClick={() => setSel(b.id)}>{b.fixo !== undefined ? b.fixo.trim() : b.auto === "contador" ? "Contador" : b.auto === "numero" ? "Número" : KIND_LABEL[b.kind]}{b.kind !== "imagem" && b.kind !== "logo" && s.text[b.id] ? `: ${s.text[b.id].replace(/\*/g, "").slice(0, 18)}…` : ""}</button>)}
               </div>
             </section>
           )}
@@ -337,7 +337,7 @@ export function CarouselStudio(props: {
           {box && (
             <section className="te-props">
               <div className="flex items-center justify-between">
-                <p className="label">{box.fixed ? "Texto fixo do modelo" : box.auto === "contador" ? "Contador" : box.auto === "numero" ? "Número do passo" : KIND_LABEL[box.kind]}</p>
+                <p className="label">{box.fixo !== undefined ? "Texto fixo do modelo" : box.auto === "contador" ? "Contador" : box.auto === "numero" ? "Número do passo" : KIND_LABEL[box.kind]}</p>
                 <div className="flex gap-1">
                   <button type="button" className="ct-btn ct-btn-ghost" onClick={() => setSel(null)}>Pronto</button>
                   <button type="button" className="ct-icon-btn" onClick={() => removeBox(box.id)} title="Tirar do slide" aria-label="Tirar do slide"><TrashIcon /></button>

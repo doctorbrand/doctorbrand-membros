@@ -16,8 +16,8 @@ export interface BrandPreset {
 
 /** Assinatura e rodapé que se repetem nos carrosséis do Fernando. */
 const assinatura = () => [
-  b("texto", 40.5, 4.5, 19, 2.6, { fixed: "DOCTORBRAND", size: 18, align: "center", color: "texto", font: "texto", maxWords: 1 }),
-  b("texto", 38, 87.6, 24, 2.8, { fixed: "@fernandofontees", size: 22, align: "center", color: "texto", font: "texto", maxWords: 1 }),
+  b("texto", 40.5, 4.5, 19, 2.6, { fixo: "DOCTORBRAND", size: 18, align: "center", color: "texto", font: "texto", maxWords: 1 }),
+  b("texto", 38, 87.6, 24, 2.8, { fixo: "@fernandofontees", size: 22, align: "center", color: "texto", font: "texto", maxWords: 1 }),
 ];
 const contador = () => b("texto", 84, 92.8, 11, 2.8, { auto: "contador", size: 24, align: "right", color: "texto", font: "texto", maxWords: 1 });
 
@@ -56,7 +56,7 @@ function manifesto(): CarouselTemplate {
       capa: { bg: { type: "cor", role: "apoio" }, boxes: [b("imagem", 0, 0, 100, 100), frase(76)] },
       texto: { bg: { type: "cor", role: "apoio" }, boxes: [frase()] },
       imagem: { bg: { type: "cor", role: "apoio" }, boxes: [b("imagem", 0, 0, 100, 100), frase(76)] },
-      final: { bg: { type: "cor", role: "apoio" }, boxes: [frase(60), b("texto", 14, 74, 64, 8, { size: 32, color: "destaque", font: "texto", maxWords: 16 }), b("texto", 38, 90, 24, 2.8, { fixed: "@fernandofontees", size: 22, align: "center", color: "texto", font: "texto", maxWords: 1 })] },
+      final: { bg: { type: "cor", role: "apoio" }, boxes: [frase(60), b("texto", 14, 74, 64, 8, { size: 32, color: "destaque", font: "texto", maxWords: 16 }), b("texto", 38, 90, 24, 2.8, { fixo: "@fernandofontees", size: 22, align: "center", color: "texto", font: "texto", maxWords: 1 })] },
     },
   };
 }
