@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { requireAdmin } from "@/lib/auth";
 import { getBrand, saveBrand, saveTemplates } from "@/lib/brandStore";
 import { baseTemplates, cleanTemplate, colorFor, COLOR_ROLES, fontFamilyFromFile, fontFiles, fontFileStyle, LOGO_SLOTS, MAX_COLORS, MAX_TEMPLATES, normalizeHex, type BrandColor, type BrandFont, type ColorRole, type FontSlot, type LogoKey } from "@/lib/brand";
+import { cleanAjustes, isModeloId } from "@/lib/carrossel/doctorbrand";
 import { getClient } from "@/lib/clients";
 import { parseDriveLinks } from "@/lib/drive";
 import type { ActionResult } from "@/lib/types";
@@ -138,4 +139,22 @@ export async function createBaseTemplatesAction(slug: string): Promise<ActionRes
   await saveTemplates(slug, [...list, ...novos], s.name);
   revalidatePath(page(slug));
   return { ok: true, message: `${novos.length} ${novos.length === 1 ? "modelo criado" : "modelos criados"}: ${novos.map((t) => t.name).join(", ")}.` };
+}
+
+// ─── Ajustes dos modelos fixos ───────────────────────────────────────────
+
+/** Salva os ajustes de um dos modelos fixos (vazio = volta ao desenho original). */
+export async function saveAjustesAction(slug: string, modelo: string, json: string): Promise<ActionResult> {
+  const s = await guard(slug);
+  if (!isModeloId(modelo)) return { ok: false, message: "Modelo desconhecido." };
+  const k = await getBrand(slug);
+  if (!k.modelosFixos) return { ok: false, message: "Este kit não usa os modelos fixos." };
+  let raw: unknown;
+  try { raw = JSON.parse(json); } catch { return { ok: false, message: "Ajustes inválidos." }; }
+  const a = cleanAjustes(raw);
+  const all = { ...(k.ajustesModelos ?? {}) };
+  if (Object.keys(a).length) all[modelo] = a; else delete all[modelo];
+  await saveBrand(slug, { ajustesModelos: all }, s.name);
+  revalidatePath(page(slug));
+  return { ok: true, message: Object.keys(a).length ? "Ajustes salvos." : "Modelo de volta ao desenho original." };
 }

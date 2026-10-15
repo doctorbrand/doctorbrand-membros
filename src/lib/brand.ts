@@ -86,6 +86,8 @@ export interface BrandKit {
    * skill carrossel-fernandofontees (lib/carrossel/doctorbrand.ts). Hoje só o kit do Fernando usa.
    */
   modelosFixos?: "doctorbrand";
+  /** Ajustes salvos em cada modelo fixo (tamanho de títulos e texto, posição, véu e cor da foto). */
+  ajustesModelos?: Partial<Record<string, import("./carrossel/doctorbrand").AjustesModelo>>;
   /** @ do Instagram, para a moldura dos modelos (ex.: @fernandofontees). */
   handle?: string;
   updatedAt?: string;

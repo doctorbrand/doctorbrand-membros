@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { ActionForm } from "@/components/ActionForm";
 import { BrandColorsAndPreview } from "@/components/brand/BrandEditor";
 import { BrandFileUpload } from "@/components/brand/BrandFileUpload";
+import { ModeloAjustes } from "@/components/brand/ModeloAjustes";
 import { SlideFrame } from "@/components/brand/SlideFrame";
 import { SlidePreview, type PreviewAssets } from "@/components/brand/SlidePreview";
 import { TemplateEditor } from "@/components/brand/TemplateEditor";
@@ -19,7 +20,7 @@ import { DRIVE_WEB, mediaUrl } from "@/lib/content-media";
 import { driveFolderFiles, parseDriveLinks } from "@/lib/drive";
 import { SIMBOLO } from "@/lib/seeds/doctorbrandLogos";
 import { localDir } from "@/lib/store";
-import { clearBrandFileAction, createBaseTemplatesAction, deleteTemplateAction, saveBrandAction, saveTemplateAction, setBrandFileAction } from "./actions";
+import { clearBrandFileAction, createBaseTemplatesAction, deleteTemplateAction, saveAjustesAction, saveBrandAction, saveTemplateAction, setBrandFileAction } from "./actions";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 30;
@@ -289,14 +290,15 @@ function ModelosFixos({ k, slug, photos, aberto, faltando, meta }: {
   const base = `/cliente/${slug}/marca`;
   const handle = k.handle || "@fernandofontees";
   const deck = (id: (typeof MODELOS)[number]["id"]) => comFotos({ ...EXEMPLOS[id], handle }, photos);
-  const doc = (id: (typeof MODELOS)[number]["id"], i: number) => carrosselDoc(deck(id), { fontes, simbolo: SIMBOLO, only: i });
+  const ajustes = (id: string) => k.ajustesModelos?.[id] ?? {};
+  const doc = (id: (typeof MODELOS)[number]["id"], i: number) => carrosselDoc(deck(id), { fontes, simbolo: SIMBOLO, only: i, ajustes: ajustes(id) });
   const m = MODELOS.find((x) => x.id === aberto);
   const semFonte = FONTES_MODELOS.filter((f) => faltando[f.slot].length > 0);
   return (
     <section id="modelos" className="card p-5 mt-6 flex flex-col gap-4">
       <div>
         <h2 className="font-semibold">Modelos de carrossel</h2>
-        <p className="text-sm text-[var(--muted)] max-w-3xl">Os 5 modelos do design system DoctorBrand, iguais aos da skill de carrossel do Fernando. O desenho é fixo; o texto aqui é o exemplo de cada modelo. Um carrossel usa um modelo só, do início ao fim. Sem foto, Autoridade.</p>
+        <p className="text-sm text-[var(--muted)] max-w-3xl">Os 5 modelos do design system DoctorBrand, iguais aos da skill de carrossel do Fernando. O texto aqui é o exemplo de cada modelo. Abra um modelo para ajustar o tamanho de títulos e texto, a posição do texto e a foto. Um carrossel usa um modelo só, do início ao fim. Sem foto, Autoridade.</p>
       </div>
       {meta}
       {semFonte.length > 0 && (
@@ -312,7 +314,7 @@ function ModelosFixos({ k, slug, photos, aberto, faltando, meta }: {
             <div className="flex flex-col gap-0.5 min-w-0">
               <div className="flex items-center justify-between gap-2">
                 <span className="font-medium truncate">{x.nome}</span>
-                <span className="text-xs text-[var(--muted)] shrink-0">{x.foto ? "Com foto" : "Só texto"}</span>
+                <span className="text-xs text-[var(--muted)] shrink-0">{Object.keys(ajustes(x.id)).length ? "Ajustado" : x.foto ? "Com foto" : "Só texto"}</span>
               </div>
               <span className="text-xs text-[var(--muted)] line-clamp-2">{x.quando}</span>
             </div>
@@ -328,14 +330,8 @@ function ModelosFixos({ k, slug, photos, aberto, faltando, meta }: {
             </div>
             <Link href={`${base}#modelos`} scroll={false} className="ct-btn">Fechar</Link>
           </div>
-          <div className="mf-strip">
-            {deck(m.id).slides.map((s, i) => (
-              <div key={i} className="flex flex-col gap-1.5">
-                <SlideFrame html={doc(m.id, i)} title={`${m.nome}: lâmina ${i + 1}`} />
-                <span className="text-xs text-[var(--muted)]">{i + 1}. {m.tipos.find((t) => t.tipo === s.tipo)?.nome ?? s.tipo}</span>
-              </div>
-            ))}
-          </div>
+          <ModeloAjustes key={m.id} deck={deck(m.id)} nomes={deck(m.id).slides.map((s) => m.tipos.find((t) => t.tipo === s.tipo)?.nome ?? s.tipo)}
+            fontes={fontes} simbolo={SIMBOLO} inicial={ajustes(m.id)} temFoto={m.foto} save={saveAjustesAction.bind(null, slug, m.id)} />
           <div>
             <span className="label">Tipos de lâmina</span>
             <div className="mf-tipos mt-2">

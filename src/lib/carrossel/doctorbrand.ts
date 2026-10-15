@@ -206,6 +206,64 @@ export function fontesCss(k: BrandKit, fileUrl: (path: string) => string): { css
   return { css: faces.join("\n") + (vars.length ? `\n:root{${vars.join(";")}}` : ""), links };
 }
 
+// ─── Ajustes salvos por modelo ───────────────────────────────────────────
+// O desenho continua o da skill; os ajustes só escalam títulos e texto, sobem ou descem o bloco de texto
+// e mexem no véu, no brilho e na cor da foto. Ficam no kit (BrandKit.ajustesModelos) e valem para a
+// miniatura e para as lâminas geradas.
+
+export interface AjustesModelo {
+  /** Tamanho dos títulos, em % do desenho original (80 a 130). */
+  titulo?: number;
+  /** Tamanho do texto de apoio, em % (80 a 130). */
+  texto?: number;
+  /** Bloco de texto mais alto (negativo) ou mais baixo, em px da lâmina de 1350 (-150 a 150). */
+  deslocamento?: number;
+  /** Força do véu escuro sobre a foto, em % (50 a 100). */
+  veu?: number;
+  /** Brilho da foto, em % (70 a 130). */
+  brilho?: number;
+  /** Cor da foto: como o modelo pede, sempre colorida ou sempre em preto e branco. */
+  foto?: "padrao" | "cor" | "pb";
+}
+
+export const AJUSTES_PADRAO: Required<AjustesModelo> = { titulo: 100, texto: 100, deslocamento: 0, veu: 100, brilho: 100, foto: "padrao" };
+export const AJUSTES_LIMITES = { titulo: [80, 130], texto: [80, 130], deslocamento: [-150, 150], veu: [50, 100], brilho: [70, 130] } as const;
+
+/** Limpa os ajustes vindos do navegador: só números nos limites, sem guardar o que está no padrão. */
+export function cleanAjustes(raw: unknown): AjustesModelo {
+  const r = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
+  const out: AjustesModelo = {};
+  for (const key of Object.keys(AJUSTES_LIMITES) as (keyof typeof AJUSTES_LIMITES)[]) {
+    const n = Math.round(Number(r[key]));
+    if (!Number.isFinite(n)) continue;
+    const [min, max] = AJUSTES_LIMITES[key];
+    const v = Math.min(max, Math.max(min, n));
+    if (v !== AJUSTES_PADRAO[key]) out[key] = v;
+  }
+  if (r.foto === "cor" || r.foto === "pb") out.foto = r.foto;
+  return out;
+}
+
+/** O que é título e o que é texto em cada modelo (seletores do CSS da skill). */
+const PARTES: Record<ModeloId, { titulo: string; texto: string }> = {
+  autoridade: { titulo: "h1, h2, .num, .num-legenda, blockquote", texto: "p.t, ol li" },
+  editorial: { titulo: ".caps, .script, .serif-it, .gnum", texto: ".sub, .bloco, .claro p, .lbl" },
+  manchete: { titulo: ".h-sans, .h-serif, .h2-sans, .h2-serif:not(.h2-sans .h2-serif)", texto: ".sub, .card .cv, .card .cd" },
+  consultoria: { titulo: ".tc, .etapas .et", texto: ".grande, .etapas .ed" },
+  bastidor: { titulo: ".big, .mid", texto: ".peq, .tela" },
+};
+
+function ajustesCss(m: ModeloId, a: AjustesModelo): string {
+  const r: string[] = [], M = `.m-${m}`;
+  const scope = (sel: string) => sel.split(",").map((x) => `${M} ${x.trim()}`).join(",");
+  if (a.titulo && a.titulo !== 100) r.push(`${scope(PARTES[m].titulo)}{zoom:${a.titulo / 100}}`);
+  if (a.texto && a.texto !== 100) r.push(`${scope(PARTES[m].texto)}{zoom:${a.texto / 100}}`);
+  if (a.deslocamento) r.push(`${M} .abs,${M} .body{translate:0 ${a.deslocamento}px}`);
+  if (a.veu && a.veu !== 100) r.push(`${M} .veu{opacity:${a.veu / 100}}`);
+  if (a.brilho && a.brilho !== 100) r.push(`${M} .ph{filter:brightness(${a.brilho / 100})}${M} .ph.pb{filter:grayscale(1) contrast(1.06) brightness(${a.brilho / 100})}`);
+  return r.join("\n");
+}
+
 // ─── Desenho (port do assets/template.html) ──────────────────────────────
 
 const esc = (s: unknown) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
@@ -313,7 +371,9 @@ const R: Record<ModeloId, (s: S, i: number, c: Ctx) => Out> = {
  * Documento HTML completo do carrossel (ou de uma lâmina só, com `only`), pronto para um iframe de
  * 1080 × 1350 ou para virar PNG. O contador sempre conta o carrossel inteiro.
  */
-export function carrosselDoc(data: Carrossel, opts: { fontes: { css: string; links: string[] }; simbolo: string; only?: number; title?: string }): string {
+export function carrosselDoc(data: Carrossel, opts: { fontes: { css: string; links: string[] }; simbolo: string; only?: number; title?: string; ajustes?: AjustesModelo }): string {
+  const aj = opts.ajustes ?? {};
+  if (aj.foto === "cor" || aj.foto === "pb") data = { ...data, slides: data.slides.map((s) => (s.foto ? { ...s, pb: aj.foto === "pb" } : s)) };
   const total = data.slides.length;
   const ctx: Ctx = { handle: data.handle, total };
   const render = R[data.modelo] ?? R.autoridade;
@@ -324,7 +384,7 @@ export function carrosselDoc(data: Carrossel, opts: { fontes: { css: string; lin
   }).join("");
   const sym = `<svg width="0" height="0" style="position:absolute"><defs><g id="simbolo" fill="#e6e1d5">${opts.simbolo}</g></defs></svg>`;
   const single = opts.only !== undefined ? "body{background:transparent;overflow:hidden}.slide{margin:0}" : "";
-  return `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>${esc(opts.title ?? "Carrossel DoctorBrand")}</title>${opts.fontes.links.map((l) => `<link rel="stylesheet" href="${esc(l)}">`).join("")}<style>${opts.fontes.css}\n${DOCTORBRAND_CSS}\n${single}</style></head><body><div id="root">${sym}<div class="m-${data.modelo}">${sections}</div></div></body></html>`;
+  return `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>${esc(opts.title ?? "Carrossel DoctorBrand")}</title>${opts.fontes.links.map((l) => `<link rel="stylesheet" href="${esc(l)}">`).join("")}<style>${opts.fontes.css}\n${DOCTORBRAND_CSS}\n${single}\n${ajustesCss(data.modelo, aj)}</style></head><body><div id="root">${sym}<div class="m-${data.modelo}">${sections}</div></div></body></html>`;
 }
 
 /** Troca as fotos do exemplo pelas da pasta do Drive (uma por lâmina, em rodízio). Sem foto, a lâmina sai sem. */
