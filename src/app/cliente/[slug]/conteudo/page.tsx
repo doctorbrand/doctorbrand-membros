@@ -17,7 +17,7 @@ import { DecisionBar, FeedFrame } from "@/components/content/ClientView";
 import { requireAuth } from "@/lib/auth";
 import { getClient, type Client } from "@/lib/clients";
 import { alteracaoKey, getAlteracaoTasks } from "@/lib/alteracoesClickup";
-import { canScheduleAt, dayLabel, feedOrder, getPlan, getPosts, MAX_ATTEMPTS, mediaKey, mediaUrl, sameOriginVideo, scheduleOrder, STATUS_LABEL, STATUS_PILL, thumbOf, TYPE_LABEL, videoSource, visibleTo, type FeedPlan, type Post, ondeLabel } from "@/lib/content";
+import { monthlyByType, canScheduleAt, dayLabel, feedOrder, getPlan, getPosts, MAX_ATTEMPTS, mediaKey, mediaUrl, sameOriginVideo, scheduleOrder, STATUS_LABEL, STATUS_PILL, thumbOf, TYPE_LABEL, videoSource, visibleTo, type FeedPlan, type Post, ondeLabel } from "@/lib/content";
 import { postChecks, scoreFeed, type FeedScore } from "@/lib/feedScore";
 import { igAccounts, igProfile, igRecentMedia, type IgAccount } from "@/lib/instagram";
 import { publishProblem } from "@/lib/publish";
@@ -569,7 +569,7 @@ function ScoreCard({ score, plan, admin, slug }: { score: FeedScore; plan: FeedP
             </div>
           ))}
         </div>
-        <p className="text-xs text-[var(--muted)] mt-3">Metas: {plan.postsPerWeek} posts/semana · Reels {plan.mix.reels}% · Carrossel {plan.mix.carrossel}% · Foto {plan.mix.imagem}%{plan.pillars.length ? ` · ${plan.pillars.map((p) => `${p.name} ${p.target}%`).join(" · ")}` : ""}.</p>
+        <p className="text-xs text-[var(--muted)] mt-3">Metas: {plan.postsPerWeek} posts/semana (por mês: {monthlyByType(plan).reels} Reels, {monthlyByType(plan).carrossel} carrosséis, {monthlyByType(plan).imagem} fotos) · Reels {plan.mix.reels}% · Carrossel {plan.mix.carrossel}% · Foto {plan.mix.imagem}%{plan.pillars.length ? ` · ${plan.pillars.map((p) => `${p.name} ${p.target}%`).join(" · ")}` : ""}.</p>
         {admin && (
           <div className="mt-3 border-t border-[var(--line)] pt-3">
             <p className="label mb-2">Metas do feed (equipe)</p>

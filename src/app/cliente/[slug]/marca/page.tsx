@@ -9,6 +9,7 @@ import { requireAdmin } from "@/lib/auth";
 import { getBrand } from "@/lib/brandStore";
 import { brandChecklist, colorFor, googleFontCss, LOGO_SLOTS, type BrandFont, type BrandKit } from "@/lib/brand";
 import { getClient } from "@/lib/clients";
+import { getPlan, getPosts, monthlyByType } from "@/lib/content";
 import { DRIVE_WEB, mediaUrl } from "@/lib/content-media";
 import { driveFolderFiles, parseDriveLinks } from "@/lib/drive";
 import { localDir } from "@/lib/store";
@@ -72,7 +73,10 @@ export default async function MarcaPage({ params }: { params: Promise<{ slug: st
   const session = await requireAdmin();
   const c = await getClient(slug);
   if (!c) notFound();
-  const k = await getBrand(slug);
+  const [k, plan, posts] = await Promise.all([getBrand(slug), getPlan(slug), getPosts(slug)]);
+  const meta = monthlyByType(plan).carrossel;
+  const mes = new Date().toLocaleString("sv-SE", { timeZone: "America/Sao_Paulo" }).slice(0, 7);
+  const feitos = posts.filter((p) => p.type === "carrossel" && p.date?.startsWith(mes)).length;
   const local = !!localDir();
   const checks = brandChecklist(k);
   const done = checks.filter((x) => x.done).length;
@@ -186,6 +190,7 @@ export default async function MarcaPage({ params }: { params: Promise<{ slug: st
             <h2 className="font-semibold">Modelos de carrossel</h2>
             <p className="text-sm text-[var(--muted)]">Até 3 por cliente, cada um com capa, slide de texto, slide com imagem e slide final. O cadastro dos modelos (vindos do Canva ou montados com as cores acima) entra na próxima etapa.</p>
           </div>
+          <p className="text-sm">Meta do plano: <b>{meta} {meta === 1 ? "carrossel" : "carrosséis"} por mês</b> ({plan.postsPerWeek} posts por semana, {plan.mix.carrossel}% carrossel). Neste mês: {feitos} no planejamento. <Link href={`/cliente/${slug}/conteudo`} className="underline">Ajustar metas</Link></p>
           <div className="grid sm:grid-cols-3 gap-3">
             {[1, 2, 3].map((n) => (
               <div key={n} className="h-32 rounded-xl border border-dashed border-[var(--line)] p-4 text-sm text-[var(--muted)] grid place-items-center">Modelo {n}</div>

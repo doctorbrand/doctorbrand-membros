@@ -110,6 +110,14 @@ export const DEFAULT_PLAN: FeedPlan = {
   hashtagsMax: 5,
 };
 
+/** Quantos posts de cada formato o plano pede por mês (4,33 semanas). */
+export function monthlyByType(plan: FeedPlan): Record<PostType, number> {
+  const total = plan.postsPerWeek * (52 / 12);
+  const out = {} as Record<PostType, number>;
+  for (const t of Object.keys(plan.mix) as PostType[]) out[t] = Math.round((total * (plan.mix[t] ?? 0)) / 100);
+  return out;
+}
+
 export const STATUS_LABEL: Record<PostStatus, string> = {
   rascunho: "Rascunho",
   aguardando: "Aguardando aprovação",
