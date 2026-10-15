@@ -46,11 +46,38 @@ export async function driveFileInfo(id: string): Promise<DriveFile> {
     const j = (await r.json().catch(() => ({}))) as { name?: string; mimeType?: string; error?: { message?: string } };
     if (r.ok && j.mimeType) return { id, name: j.name ?? id, mime: j.mimeType };
   }
-  const r = await fetch(downloadUrl(id), { headers: { range: "bytes=0-0" }, cache: "no-store" });
-  const mime = (r.headers.get("content-type") ?? "").split(";")[0].trim();
-  void r.body?.cancel().catch(() => undefined); // não esperar: no Next o cancel pode travar
-  if (!r.ok || !mime || mime === "text/html") throw new Error("Arquivo do Drive sem acesso. Compartilhe como “qualquer pessoa com o link”.");
-  return { id, name: nameFromDisposition(r.headers.get("content-disposition")) ?? id, mime };
+  const r = await fetch(downloadUrl(id), { headers: { range: "bytes=0-31" }, cache: "no-store" });
+  let mime = (r.headers.get("content-type") ?? "").split(";")[0].trim().toLowerCase();
+  const name = nameFromDisposition(r.headers.get("content-disposition")) ?? id;
+  if (!r.ok || !mime || mime === "text/html") {
+    void r.body?.cancel().catch(() => undefined); // não esperar: no Next o cancel pode travar
+    throw new Error("Arquivo do Drive sem acesso. Compartilhe como “qualquer pessoa com o link”.");
+  }
+  // .MOV do iPhone (e arquivos sem extensão no nome) às vezes vêm como "application/octet-stream":
+  // descobre o tipo pela extensão ou pelos primeiros bytes do arquivo.
+  if (!mime.startsWith("video/") && !mime.startsWith("image/") && mime !== "text/plain") {
+    const head = new Uint8Array(await r.arrayBuffer().catch(() => new ArrayBuffer(0))).slice(0, 32);
+    mime = mimeFromName(name) ?? mimeFromBytes(head) ?? mime;
+  } else {
+    void r.body?.cancel().catch(() => undefined);
+  }
+  return { id, name, mime };
+}
+
+const EXT: Record<string, string> = { mp4: "video/mp4", m4v: "video/mp4", mov: "video/quicktime", jpg: "image/jpeg", jpeg: "image/jpeg", png: "image/png", webp: "image/webp", heic: "image/heic" };
+export function mimeFromName(name: string): string | undefined {
+  const ext = name.toLowerCase().match(/\.([a-z0-9]{2,4})$/)?.[1];
+  return ext ? EXT[ext] : undefined;
+}
+/** Assinatura do arquivo: MP4/MOV ("ftyp" no byte 4; "qt" = QuickTime), JPEG, PNG e WEBP. */
+export function mimeFromBytes(b: Uint8Array): string | undefined {
+  const txt = (from: number, to: number) => String.fromCharCode(...b.slice(from, to));
+  if (b.length >= 12 && txt(4, 8) === "ftyp") return txt(8, 10) === "qt" ? "video/quicktime" : "video/mp4";
+  if (b.length >= 8 && ["moov", "mdat", "wide", "free"].includes(txt(4, 8))) return "video/quicktime";
+  if (b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff) return "image/jpeg";
+  if (b[0] === 0x89 && txt(1, 4) === "PNG") return "image/png";
+  if (txt(0, 4) === "RIFF" && txt(8, 12) === "WEBP") return "image/webp";
+  return undefined;
 }
 
 /** Arquivos de uma pasta pública, em ordem de nome. */
