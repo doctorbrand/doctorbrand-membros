@@ -1,6 +1,7 @@
 import { get } from "@vercel/blob";
 import { getSession } from "@/lib/auth";
 import { localDir } from "@/lib/store";
+import { brandMime } from "@/lib/brand";
 
 /**
  * Serve mídias privadas do planejamento de conteúdo.
@@ -21,8 +22,8 @@ export async function GET(req: Request) {
     const buf = await fs.readFile(`${dir}/${p}`).catch(() => null);
     if (!buf) return new Response("Não encontrado", { status: 404 });
     const ext = p.split(".").pop()?.toLowerCase();
-    const type = ext === "mp4" ? "video/mp4" : ext === "png" ? "image/png" : ext === "webp" ? "image/webp" : "image/jpeg";
-    return new Response(new Uint8Array(buf), { headers: { "Content-Type": type } });
+    const type = ext === "mp4" ? "video/mp4" : brandMime(p) ?? "image/jpeg";
+    return new Response(new Uint8Array(buf), { headers: { "Content-Type": type, ...svgGuard(p) } });
   }
 
   const range = req.headers.get("range");
@@ -34,7 +35,15 @@ export async function GET(req: Request) {
     const v = res.headers.get(k);
     if (v) headers.set(k, v);
   }
+  // Logos e fontes do kit às vezes sobem sem tipo (ex.: .otf): o nome do arquivo decide.
+  if (p.includes("/brand/") && brandMime(p)) headers.set("content-type", brandMime(p)!);
+  for (const [k, v] of Object.entries(svgGuard(p))) headers.set(k, v);
   headers.set("Accept-Ranges", "bytes");
   headers.set("Cache-Control", "private, max-age=3600");
   return new Response(res.stream, { status: res.headers.get("content-range") ? 206 : 200, headers });
+}
+
+/** SVG enviado no kit de marca: aberto direto no navegador, não pode rodar script no nosso domínio. */
+function svgGuard(p: string): Record<string, string> {
+  return /\.svg$/i.test(p) ? { "Content-Security-Policy": "sandbox; default-src 'none'; style-src 'unsafe-inline'; img-src data:" } : {};
 }
