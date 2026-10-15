@@ -12,11 +12,12 @@ import { requireAdmin } from "@/lib/auth";
 import { getBrand, runBrandUpgrades } from "@/lib/brandStore";
 import { blankTemplate, brandChecklist, colorFor, googleFontCss, LOGO_SLOTS, MAX_TEMPLATES, SLIDE_KINDS, type BrandFont, type BrandKit } from "@/lib/brand";
 import { getClient } from "@/lib/clients";
+import { BRAND_PRESETS } from "@/lib/brandPresets";
 import { getPlan, getPosts, monthlyByType } from "@/lib/content";
 import { DRIVE_WEB, mediaUrl } from "@/lib/content-media";
 import { driveFolderFiles, parseDriveLinks } from "@/lib/drive";
 import { localDir } from "@/lib/store";
-import { clearBrandFileAction, createBaseTemplatesAction, deleteTemplateAction, saveBrandAction, saveTemplateAction, setBrandFileAction } from "./actions";
+import { applyPresetAction, clearBrandFileAction, createBaseTemplatesAction, deleteTemplateAction, saveBrandAction, saveTemplateAction, setBrandFileAction } from "./actions";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 30;
@@ -219,6 +220,8 @@ export default async function MarcaPage({ params, searchParams }: { params: Prom
             <h2 className="font-semibold">Modelos de carrossel</h2>
             <p className="text-sm text-[var(--muted)] max-w-2xl">Até {MAX_TEMPLATES} por cliente. Cada modelo tem capa, slide de texto, slide com imagem e slide final, com fundo (cor do kit ou imagem do Canva) e caixas de título, texto, imagem e logo.</p>
           </div>
+          {BRAND_PRESETS[slug] && <ActionButton action={applyPresetAction.bind(null, slug)} label="Carregar modelos do Canva" confirm={`Substituir os modelos atuais pelos modelos levantados do Canva e usar a paleta deles (${BRAND_PRESETS[slug].colors.map((c) => c.hex).join(", ")})?`} />}
+          {templates.length > 0 && <Link href={`/cliente/${slug}/carrossel`} className="ct-btn ct-btn-dark">Montar carrossel</Link>}
           {templates.length < MAX_TEMPLATES && (
             colorsReady
               ? <ActionButton action={createBaseTemplatesAction.bind(null, slug)} label="Criar 3 modelos-base com as cores do kit" />
