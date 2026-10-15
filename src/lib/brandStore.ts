@@ -1,7 +1,7 @@
 import { put } from "@vercel/blob";
 import { localDir, readDoc, writeDoc } from "./store";
 import { ASSINATURA_CREME, ASSINATURA_ESCURA } from "./seeds/doctorbrandLogos";
-import { baseTemplates, doctorbrandTemplates, MAX_TEMPLATES, templateShape, type BrandColor, type BrandKit, type CarouselTemplate } from "./brand";
+import { MAX_TEMPLATES, type BrandColor, type BrandKit, type CarouselTemplate } from "./brand";
 
 /** Leitura e gravação do kit de marca (só no servidor). */
 
@@ -46,11 +46,12 @@ export async function saveTemplates(slug: string, templates: CarouselTemplate[],
 }
 
 // ─── Design system DoctorBrand no kit do Fernando ─────────────────────────
-// Como pede o guia "Kit de marca na área de membros" do design system DoctorBrand: logos, cores com papel,
-// fontes, regras e modelos-base no padrão da skill carrossel-fernandofontees. Aplica uma vez, sem passar
-// por cima do que a equipe já mudou à mão.
+// Como pede o guia "Kit de marca na área de membros" do design system DoctorBrand e a skill
+// carrossel-fernandofontees: logos, cores com papel, regras e os 5 modelos fixos. Aplica uma vez cada
+// passo, sem passar por cima do que a equipe já mudou à mão.
 
 const DS_KEY = "fernando-fontes:design-system-doctorbrand";
+const FIXOS_KEY = "fernando-fontes:carrossel-5-modelos";
 const DS_COLORS: BrandColor[] = [
   { name: "Brown deep", hex: "#0c0a08", role: "fundo" },
   { name: "Cream", hex: "#d8d3c7", role: "texto" },
@@ -61,7 +62,22 @@ const DS_COLORS: BrandColor[] = [
 ];
 /** Cores que podem ser trocadas: as do piloto antes do design system. */
 const OLD_SEEDS = [["#1a1a1a", "#ffffff", "#d4875e"]];
+/** Regras da skill carrossel-fernandofontees (versão dos 5 modelos). */
 const DS_RULES = [
+  "Fundo sempre brown-deep #0c0a08, nunca cinza neutro nem preto puro.",
+  "Fontes: Denton (serifa), Aktiv Grotesk (grotesca) e Sloop (script, só onde o modelo pede). Nunca fonte do sistema.",
+  "Um modelo por carrossel, do início ao fim: Autoridade, Editorial, Manchete, Consultoria ou Bastidor. Sem foto, Autoridade.",
+  "Um destaque dourado por lâmina, no máximo.",
+  "Texto de apoio nunca abaixo de 60% de opacidade.",
+  "Lâmina clara: fundo cream-light #e6e1d5, texto brown-deep e brown-medium.",
+  "Uma ideia por lâmina. Se precisar de \"e também\", são duas.",
+  "CTA com keyword para comentar (no Consultoria pode levar ao diagnóstico). Nunca \"me segue\".",
+  "Fotos autorais: rosto na metade de cima, texto na de baixo. Sem foto de banco.",
+  "Sem emoji, sem ícone decorativo, sem sombra. O único degradê é o véu escuro sobre a foto.",
+  "Nada de número inventado: dado só com fonte confirmada.",
+];
+/** Regras da primeira versão do design system (3 modelos de caixa), trocadas pelas de cima. */
+const OLD_DS_RULES = [
   "Fundo sempre brown-deep #0c0a08, nunca cinza neutro nem preto puro.",
   "Títulos em Denton 400; texto em Inter. Nunca fonte do sistema.",
   "Uma palavra em dourado por carrossel, quase sempre na capa.",
@@ -87,40 +103,45 @@ async function saveSvg(path: string, svg: string) {
   }
 }
 
-/** Aplica o design system DoctorBrand no kit do Fernando (uma vez). Devolve o que mudou. */
+const lines = (r?: string) => (r ?? "").split("\n").map((x) => x.trim()).filter(Boolean);
+
+/** Aplica o design system DoctorBrand no kit do Fernando (cada passo uma vez). Devolve o que mudou. */
 export async function runBrandUpgrades(slug: string): Promise<string[]> {
   if (slug !== "fernando-fontes") return [];
   const done = await readDoc<Record<string, string>>("marca-upgrades", {});
-  if (done[DS_KEY]) return [];
+  if (done[DS_KEY] && done[FIXOS_KEY]) return [];
   const k = await getBrand(slug);
-  const handle = k.handle || "@fernandofontees";
-  const patch: Partial<BrandKit> = { modelosBase: "doctorbrand", handle };
+  const patch: Partial<BrandKit> = {};
   const feito: string[] = [];
+  const now = new Date().toISOString();
 
-  const hexes = [...k.colors.map((c) => c.hex)].sort().join();
-  if (!k.colors.length || OLD_SEEDS.some((o) => [...o].sort().join() === hexes)) { patch.colors = DS_COLORS; feito.push("cores"); }
-  if (!k.fonts.texto?.family) { patch.fonts = { ...k.fonts, texto: { family: "Inter", source: "google", weight: 400 } }; feito.push("fonte de texto (Inter)"); }
-  const rules = (k.rules ?? "").split("\n").map((r) => r.trim()).filter(Boolean);
-  const isOldSeed = rules.length > 0 && rules.every((r) => r === "Nunca usar emoji." || KEEP_RULES.includes(r));
-  const next = isOldSeed || !rules.length ? [...DS_RULES, ...KEEP_RULES] : [...rules, ...DS_RULES.filter((r) => !rules.includes(r))];
-  if (next.join("\n") !== rules.join("\n")) { patch.rules = next.join("\n"); feito.push("regras"); }
-  if (!k.logos.principal && !k.logos.claro && !k.logos.escuro) {
-    const base = `content-media/${slug}/brand`;
-    const escura = `${base}/claro-assinatura-doctorbrand.svg`, creme = `${base}/escuro-assinatura-doctorbrand-creme.svg`;
-    await saveSvg(escura, ASSINATURA_ESCURA);
-    await saveSvg(creme, ASSINATURA_CREME);
-    patch.logos = { principal: { path: creme, name: "assinatura-creme.svg" }, claro: { path: escura, name: "assinatura.svg" }, escuro: { path: creme, name: "assinatura-creme.svg" } };
-    feito.push("logos");
-  }
-  // Modelos: troca só os modelos-base genéricos que ninguém editou; os editados ficam.
-  const list = k.templates ?? [];
-  const generic = new Set(baseTemplates().map(templateShape));
-  if (list.length === 0 || list.every((t) => t.base && generic.has(templateShape(t)))) {
-    patch.templates = doctorbrandTemplates(handle).slice(0, MAX_TEMPLATES).map((t) => ({ ...t, updatedAt: new Date().toISOString() }));
-    feito.push("modelos-base");
+  if (!done[DS_KEY]) {
+    const hexes = [...k.colors.map((c) => c.hex)].sort().join();
+    if (!k.colors.length || OLD_SEEDS.some((o) => [...o].sort().join() === hexes)) { patch.colors = DS_COLORS; feito.push("cores"); }
+    if (!k.logos.principal && !k.logos.claro && !k.logos.escuro) {
+      const base = `content-media/${slug}/brand`;
+      const escura = `${base}/claro-assinatura-doctorbrand.svg`, creme = `${base}/escuro-assinatura-doctorbrand-creme.svg`;
+      await saveSvg(escura, ASSINATURA_ESCURA);
+      await saveSvg(creme, ASSINATURA_CREME);
+      patch.logos = { principal: { path: creme, name: "assinatura-creme.svg" }, claro: { path: escura, name: "assinatura.svg" }, escuro: { path: creme, name: "assinatura-creme.svg" } };
+      feito.push("logos");
+    }
   }
 
-  await saveBrand(slug, patch, "DoctorBrand");
-  await writeDoc("marca-upgrades", { ...done, [DS_KEY]: new Date().toISOString() });
+  if (!done[FIXOS_KEY]) {
+    patch.modelosFixos = "doctorbrand";
+    patch.handle = k.handle || "@fernandofontees";
+    feito.push("5 modelos fixos");
+    // Regras: as do piloto (ou as da primeira versão do design system) viram as da skill; as escritas à mão ficam.
+    const rules = lines(k.rules);
+    const auto = new Set(["Nunca usar emoji.", ...KEEP_RULES, ...OLD_DS_RULES]);
+    const next = rules.every((r) => auto.has(r))
+      ? [...DS_RULES, ...KEEP_RULES]
+      : [...rules.filter((r) => !OLD_DS_RULES.includes(r)), ...DS_RULES.filter((r) => !rules.includes(r))];
+    if (next.join("\n") !== rules.join("\n")) { patch.rules = next.join("\n"); feito.push("regras"); }
+  }
+
+  if (Object.keys(patch).length) await saveBrand(slug, patch, "DoctorBrand");
+  await writeDoc("marca-upgrades", { ...done, [DS_KEY]: done[DS_KEY] ?? now, [FIXOS_KEY]: now });
   return feito;
 }

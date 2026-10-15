@@ -27,25 +27,66 @@ export interface BrandFont {
   family: string;
   /** google: carrega do Google Fonts pelo nome. arquivo: fonte enviada (TTF, OTF ou WOFF2). */
   source: "google" | "arquivo";
-  /** Caminho do arquivo no Blob, quando source = arquivo. */
+  /** Caminho do arquivo no Blob, quando source = arquivo (o regular, ou o primeiro enviado). */
   path?: string;
   /** Peso usado nos slides (400, 500, 600, 700…). */
   weight?: number;
+  /** Todos os arquivos enviados da família (light, regular, itálico, bold…), cada um com peso e estilo. */
+  files?: FontFile[];
+}
+
+export interface FontFile { path: string; weight: number; italic?: boolean }
+
+export type FontSlot = "titulo" | "texto" | "script";
+
+const WEIGHT_WORDS: [RegExp, number][] = [
+  [/hairline|thin/i, 100], [/extra-?light|ultra-?light/i, 200], [/light/i, 300], [/semi-?bold|demi-?bold/i, 600],
+  [/extra-?bold|ultra-?bold|heavy/i, 800], [/black/i, 900], [/bold/i, 700], [/medium/i, 500],
+];
+
+/** Peso e estilo pelo nome do arquivo: "Denton-LightItalic.otf" = 300 itálico; sem palavra de peso = 400. */
+export function fontFileStyle(name: string): { weight: number; italic: boolean } {
+  const base = name.replace(/\.[^.]+$/, "");
+  const style = base.split(/[-_ ]/).slice(1).join("-") || "";
+  const weight = WEIGHT_WORDS.find(([re]) => re.test(style))?.[1] ?? 400;
+  return { weight, italic: /italic|oblique/i.test(style) };
+}
+
+/** Nome da família pelo arquivo: "AktivGrotesk-Light.ttf" vira "Aktiv Grotesk". */
+export function fontFamilyFromFile(name: string): string {
+  return name.replace(/\.[^.]+$/, "").split(/[-_]/)[0].replace(/([a-z])([A-Z])/g, "$1 $2").trim() || name;
+}
+
+/** Nome legível de uma variante: "Light itálico", "Regular". */
+export function fontVariantLabel(weight: number, italic?: boolean): string {
+  const n = ({ 100: "Thin", 200: "ExtraLight", 300: "Light", 400: "Regular", 500: "Medium", 600: "SemiBold", 700: "Bold", 800: "ExtraBold", 900: "Black" } as Record<number, string>)[weight] ?? String(weight);
+  return italic ? `${n} itálico` : n;
+}
+
+/** Arquivos de uma família (inclui o `path` antigo, de antes de aceitar vários arquivos). */
+export function fontFiles(f?: BrandFont): FontFile[] {
+  if (!f || f.source !== "arquivo") return [];
+  if (f.files?.length) return f.files;
+  return f.path ? [{ path: f.path, weight: f.weight ?? 400 }] : [];
 }
 
 export interface BrandKit {
   logos: Partial<Record<LogoKey, { path: string; name?: string }>>;
   colors: BrandColor[];
-  fonts: { titulo?: BrandFont; texto?: BrandFont };
+  /** titulo e texto valem para todos os modelos; script só para os modelos fixos que pedem (ex.: Sloop no Editorial). */
+  fonts: { titulo?: BrandFont; texto?: BrandFont; script?: BrandFont };
   /** Link da pasta de fotos no Google Drive (compartilhada por link). */
   driveFolder?: string;
   /** Regras visuais e de conteúdo, uma por linha. O Claude respeita na hora de gerar. */
   rules?: string;
   /** Modelos de carrossel (até MAX_TEMPLATES). */
   templates?: CarouselTemplate[];
-  /** Estilo dos modelos-base criados pelo botão. "doctorbrand": regras do design system DoctorBrand. */
-  modelosBase?: "doctorbrand";
-  /** @ do Instagram, para o rodapé fixo dos modelos (ex.: @fernandofontees). */
+  /**
+   * Modelos fixos, desenhados em código, no lugar dos modelos de caixas. "doctorbrand": os 5 modelos da
+   * skill carrossel-fernandofontees (lib/carrossel/doctorbrand.ts). Hoje só o kit do Fernando usa.
+   */
+  modelosFixos?: "doctorbrand";
+  /** @ do Instagram, para a moldura dos modelos (ex.: @fernandofontees). */
   handle?: string;
   updatedAt?: string;
   updatedBy?: string;
@@ -68,7 +109,7 @@ export function brandChecklist(k: BrandKit): { label: string; done: boolean }[] 
   return [
     { label: "Logo", done: !!k.logos.principal },
     { label: "Cores de fundo, texto e destaque", done: (["fundo", "texto", "destaque"] as ColorRole[]).every((r) => !!colorFor(k, r)) },
-    { label: "Fontes", done: !!k.fonts.titulo?.family && !!k.fonts.texto?.family },
+    { label: "Fontes", done: !!k.fonts.titulo?.family && !!k.fonts.texto?.family && (!k.modelosFixos || !!k.fonts.script?.family) },
     { label: "Pasta de fotos", done: !!k.driveFolder },
     { label: "Regras", done: !!k.rules?.trim() },
   ];
@@ -225,8 +266,7 @@ const box = (kind: BoxKind, x: number, y: number, w: number, h: number, extra: P
  * Os 3 modelos-base, montados só com as cores e fontes do kit. São ponto de partida: a equipe ajusta no editor.
  * Editorial: só texto. Lista: passos numerados. Com foto: foto da pasta do Drive + texto.
  */
-export function baseTemplates(estilo?: BrandKit["modelosBase"], handle?: string): CarouselTemplate[] {
-  if (estilo === "doctorbrand") return doctorbrandTemplates(handle);
+export function baseTemplates(): CarouselTemplate[] {
   const logo = (y = 90) => box("logo", 40, y, 20, 5);
   const editorial: CarouselTemplate = {
     id: newId(), name: "Editorial", base: "editorial",
@@ -320,58 +360,4 @@ export function blankTemplate(): CarouselTemplate {
       final: { bg: { type: "cor", role: "destaque" }, boxes: [b("titulo", 8, 34, 84, 20, { size: 80, color: "fundo", align: "center" }), b("logo", 40, 86, 20, 5)] },
     },
   };
-}
-
-
-/**
- * Modelos-base no estilo do design system DoctorBrand, iguais à skill carrossel-fernandofontees:
- * 1080 × 1350, margem lateral de 96 px, moldura fixa (DOCTORBRAND no topo, @ e contador embaixo),
- * títulos em Denton 400, texto em Inter com creme a 80%, dourado só no sobretítulo e no número.
- * Ênfase em itálico e a palavra dourada entram no próprio texto, na geração (etapa 3).
- */
-export function doctorbrandTemplates(handle = ""): CarouselTemplate[] {
-  const M = 8.9, W = 100 - 2 * M; // 96 px de margem
-  const moldura = (): TemplateBox[] => [
-    box("texto", M, 5.3, W, 2.6, { size: 20, color: "texto", opacity: 60, caps: true, align: "center", fixo: "DoctorBrand" }),
-    ...(handle ? [box("texto", M, 92.6, W / 2, 2.6, { size: 22, color: "texto", opacity: 60, fixo: handle })] : []),
-    box("texto", 50, 92.6, W / 2, 2.6, { size: 22, color: "texto", opacity: 60, align: "right", auto: "contador" }),
-  ];
-  const eyebrow = (y: number) => box("texto", M, y, W, 3, { size: 22, color: "destaque", caps: true, maxWords: 3 });
-  const fundo = { type: "cor" as const, role: "fundo" as const };
-  const capa = (): SlideLayout => ({ bg: fundo, boxes: [...moldura(), eyebrow(28), box("titulo", M, 32, W, 32, { size: 112, color: "texto", maxWords: 10 }), box("texto", M, 66, W, 9, { size: 38, color: "texto", maxWords: 14 })] });
-  const argumento = (): SlideLayout => ({ bg: fundo, boxes: [...moldura(), eyebrow(28), box("titulo", M, 32, W, 22, { size: 80, color: "texto", maxWords: 8 }), box("texto", M, 57, W * 0.92, 24, { size: 36, color: "texto", opacity: 80, maxWords: 40 })] });
-  const cta = (): SlideLayout => ({ bg: fundo, boxes: [...moldura(), box("titulo", M, 30, W, 22, { size: 80, color: "texto", maxWords: 8 }), box("texto", M, 54, W * 0.92, 12, { size: 36, color: "texto", opacity: 80, maxWords: 20 }), box("texto", M, 70, W * 0.6, 3.5, { size: 30, color: "destaque", caps: true, maxWords: 3 })] });
-  const editorial: CarouselTemplate = {
-    id: newId(), name: "Editorial", base: "editorial",
-    slides: {
-      capa: capa(),
-      texto: argumento(),
-      imagem: { bg: fundo, boxes: [...moldura(), box("imagem", M, 15, W, 42), box("titulo", M, 60, W, 11, { size: 64, color: "texto", maxWords: 8 }), box("texto", M, 72, W, 13, { size: 32, color: "texto", opacity: 80, maxWords: 25 })] },
-      final: cta(),
-    },
-  };
-  const lista: CarouselTemplate = {
-    id: newId(), name: "Lista", base: "lista",
-    slides: {
-      capa: capa(),
-      texto: { bg: fundo, boxes: [...moldura(), box("titulo", M, 20, W / 2, 19, { size: 280, color: "destaque", maxWords: 1, auto: "numero" }), box("titulo", M, 42, W, 12, { size: 56, color: "texto", maxWords: 8 }), box("texto", M, 56, W * 0.92, 24, { size: 36, color: "texto", opacity: 80, maxWords: 40 })] },
-      imagem: { bg: fundo, boxes: [...moldura(), box("titulo", M, 14, W / 3, 11, { size: 160, color: "destaque", maxWords: 1, auto: "numero" }), box("imagem", M, 27, W, 36), box("titulo", M, 66, W, 9, { size: 52, color: "texto", maxWords: 8 }), box("texto", M, 76, W, 11, { size: 32, color: "texto", opacity: 80, maxWords: 25 })] },
-      final: cta(),
-    },
-  };
-  const foto: CarouselTemplate = {
-    id: newId(), name: "Com foto", base: "foto",
-    slides: {
-      capa: { bg: fundo, boxes: [box("imagem", 0, 0, 100, 56), ...moldura().slice(1), eyebrow(60), box("titulo", M, 64, W, 18, { size: 88, color: "texto", maxWords: 10 })] },
-      texto: argumento(),
-      imagem: { bg: fundo, boxes: [...moldura(), box("imagem", M, 12, W, 56), box("texto", M, 71, W, 14, { size: 34, color: "texto", opacity: 80, maxWords: 25 })] },
-      final: cta(),
-    },
-  };
-  return [editorial, lista, foto];
-}
-
-/** Modelo sem ids nem datas, para saber se um modelo-base ainda está como foi criado. */
-export function templateShape(t: CarouselTemplate): string {
-  return JSON.stringify({ name: t.name, slides: Object.fromEntries(SLIDE_KINDS.map(({ key }) => [key, { bg: t.slides[key].bg, boxes: t.slides[key].boxes.map((b) => ({ ...b, id: "" })) }])) });
 }

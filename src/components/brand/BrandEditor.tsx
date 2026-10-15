@@ -35,11 +35,11 @@ export function BrandColorsAndPreview({ initial, titleFont, textFont, titleWeigh
         {rows.map((r, i) => {
           const ok = !r.hex || !!normalizeHex(r.hex);
           return (
-            <div key={i} className="grid grid-cols-[44px_1fr_110px_130px_auto] gap-2 items-center">
+            <div key={i} className="flex flex-wrap gap-2 items-center sm:grid sm:grid-cols-[44px_1fr_110px_130px_auto]">
               <input type="color" aria-label={`Cor ${i + 1}`} value={normalizeHex(r.hex) ?? "#ffffff"} onChange={(e) => set(i, { hex: e.target.value })} className="h-10 w-11 rounded-lg border border-[var(--line)] bg-white p-1 cursor-pointer" />
-              <input name={`color_name_${i}`} value={r.name} onChange={(e) => set(i, { name: e.target.value })} placeholder="Nome (ex.: Grafite)" className="ct-input" />
-              <input name={`color_hex_${i}`} value={r.hex} onChange={(e) => set(i, { hex: e.target.value })} placeholder="#1a1a1a" className={`ct-input mono ${ok ? "" : "border-[var(--bad)]"}`} />
-              <select name={`color_role_${i}`} value={r.role} onChange={(e) => set(i, { role: e.target.value as ColorRole })} className="ct-input">
+              <input name={`color_name_${i}`} value={r.name} onChange={(e) => set(i, { name: e.target.value })} placeholder="Nome (ex.: Grafite)" className="ct-input flex-1 min-w-[160px]" />
+              <input name={`color_hex_${i}`} value={r.hex} onChange={(e) => set(i, { hex: e.target.value })} placeholder="#1a1a1a" className={`ct-input mono w-[104px] sm:w-auto ${ok ? "" : "border-[var(--bad)]"}`} />
+              <select name={`color_role_${i}`} value={r.role} onChange={(e) => set(i, { role: e.target.value as ColorRole })} className="ct-input flex-1 min-w-[110px] sm:w-auto">
                 {COLOR_ROLES.map((x) => <option key={x.key} value={x.key}>{x.label}</option>)}
               </select>
               <button type="button" className="ct-btn ct-btn-ghost" aria-label="Tirar cor" onClick={() => setRows((rs) => rs.filter((_, j) => j !== i))}>Tirar</button>

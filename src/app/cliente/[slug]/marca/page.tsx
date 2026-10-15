@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { ActionForm } from "@/components/ActionForm";
 import { BrandColorsAndPreview } from "@/components/brand/BrandEditor";
 import { BrandFileUpload } from "@/components/brand/BrandFileUpload";
+import { SlideFrame } from "@/components/brand/SlideFrame";
 import { SlidePreview, type PreviewAssets } from "@/components/brand/SlidePreview";
 import { TemplateEditor } from "@/components/brand/TemplateEditor";
 import { ActionButton } from "@/components/content/ContentActions";
@@ -10,11 +11,13 @@ import { ArrowUpRightIcon, CheckIcon, FolderIcon } from "@/components/Icons";
 import { Shell } from "@/components/Shell";
 import { requireAdmin } from "@/lib/auth";
 import { getBrand, runBrandUpgrades } from "@/lib/brandStore";
-import { blankTemplate, brandChecklist, colorFor, googleFontCss, LOGO_SLOTS, MAX_TEMPLATES, SLIDE_KINDS, type BrandFont, type BrandKit } from "@/lib/brand";
+import { blankTemplate, brandChecklist, colorFor, fontFiles, fontVariantLabel, googleFontCss, LOGO_SLOTS, MAX_TEMPLATES, SLIDE_KINDS, type BrandKit, type FontSlot } from "@/lib/brand";
+import { carrosselDoc, comFotos, EXEMPLOS, FONTES_MODELOS, fontesCss, fontesFaltando, isModeloId, MODELOS } from "@/lib/carrossel/doctorbrand";
 import { getClient } from "@/lib/clients";
 import { getPlan, getPosts, monthlyByType } from "@/lib/content";
 import { DRIVE_WEB, mediaUrl } from "@/lib/content-media";
 import { driveFolderFiles, parseDriveLinks } from "@/lib/drive";
+import { SIMBOLO } from "@/lib/seeds/doctorbrandLogos";
 import { localDir } from "@/lib/store";
 import { clearBrandFileAction, createBaseTemplatesAction, deleteTemplateAction, saveBrandAction, saveTemplateAction, setBrandFileAction } from "./actions";
 
@@ -35,15 +38,15 @@ function isDark(hex?: string) {
   return 0.2126 * r + 0.7152 * g + 0.0722 * b < 140;
 }
 
-/** @font-face das fontes enviadas e <link> das do Google, para a prévia usar a fonte real. */
+/** @font-face das fontes enviadas (todas as variantes) e <link> das do Google, para a prévia usar a fonte real. */
 function FontLoaders({ k }: { k: BrandKit }) {
-  const fonts = [k.fonts.titulo, k.fonts.texto].filter((f): f is BrandFont => !!f?.family);
-  const files = fonts.filter((f) => f.source === "arquivo" && f.path);
-  const google = fonts.filter((f) => f.source === "google");
+  const fonts = [k.fonts.titulo, k.fonts.texto, k.fonts.script].filter((f) => !!f?.family);
+  const google = fonts.filter((f) => f!.source === "google");
+  const faces = fonts.flatMap((f) => fontFiles(f).map((x) => `@font-face{font-family:"${f!.family.replace(/"/g, "")}";src:url("${fileUrl(x.path)}");font-weight:${x.weight};font-style:${x.italic ? "italic" : "normal"};font-display:swap}`));
   return (
     <>
-      {google.map((f) => <link key={`${f.family}-${f.weight}`} rel="stylesheet" href={googleFontCss(f.family, f.weight)} precedence="default" />)}
-      {files.length > 0 && <style>{files.map((f) => `@font-face{font-family:"${f.family.replace(/"/g, "")}";src:url("${fileUrl(f.path!)}");font-weight:${f.weight ?? 400};font-display:swap}`).join("\n")}</style>}
+      {google.map((f) => <link key={`${f!.family}-${f!.weight}`} rel="stylesheet" href={googleFontCss(f!.family, f!.weight)} precedence="default" />)}
+      {faces.length > 0 && <style>{faces.join("\n")}</style>}
     </>
   );
 }
@@ -71,13 +74,19 @@ async function DrivePhotos({ link }: { link: string }) {
   );
 }
 
-/** Primeira foto da pasta do Drive do kit (só para a prévia da caixa de imagem). */
-async function samplePhoto(link?: string): Promise<string | undefined> {
+/** Fotos da pasta do Drive do kit (só para as prévias: caixa de imagem e lâminas com foto). */
+async function folderPhotos(link: string | undefined, width: number, max: number): Promise<string[]> {
   const id = link ? parseDriveLinks(link).folders[0] : undefined;
-  if (!id) return undefined;
-  const f = (await driveFolderFiles(id).catch(() => [])).find((x) => x.mime.startsWith("image/"));
-  return f ? mediaUrl({ driveId: f.id, kind: "image" }, 720) : undefined;
+  if (!id) return [];
+  const files = (await driveFolderFiles(id).catch(() => [])).filter((x) => x.mime.startsWith("image/")).slice(0, max);
+  return files.map((f) => mediaUrl({ driveId: f.id, kind: "image" }, width)!);
 }
+
+const FONT_LABEL: Record<FontSlot, { label: string; fixo: string; placeholder: string; amostra: string }> = {
+  titulo: { label: "Títulos", fixo: "Títulos · serifa", placeholder: "ex.: Playfair Display", amostra: "Técnica é obrigação. Autoridade é arquitetura." },
+  texto: { label: "Texto", fixo: "Texto · grotesca", placeholder: "ex.: Inter", amostra: "O paciente não decide por técnica. Decide por sinais que encontra antes de chegar na consulta." },
+  script: { label: "Script", fixo: "Script", placeholder: "ex.: Sloop", amostra: "Por que o WhatsApp" },
+};
 
 export default async function MarcaPage({ params, searchParams }: { params: Promise<{ slug: string }>; searchParams: Promise<{ modelo?: string }> }) {
   const { slug } = await params;
@@ -98,10 +107,14 @@ export default async function MarcaPage({ params, searchParams }: { params: Prom
   const save = setBrandFileAction;
   const templates = k.templates ?? [];
   const logoUrls: PreviewAssets["logos"] = { principal: k.logos.principal && fileUrl(k.logos.principal.path), claro: k.logos.claro && fileUrl(k.logos.claro.path), escuro: k.logos.escuro && fileUrl(k.logos.escuro.path) };
-  const photo = await samplePhoto(k.driveFolder);
+  const fixos = k.modelosFixos === "doctorbrand";
+  const photos = await folderPhotos(k.driveFolder, fixos ? 1080 : 720, fixos ? 6 : 1);
+  const photo = photos[0];
   const assets: PreviewAssets = { logos: logoUrls, photo, fileUrl };
-  const editing = templates.find((t) => t.id === sp.modelo);
-  const creating = sp.modelo === "novo" && templates.length < MAX_TEMPLATES;
+  const editing = fixos ? undefined : templates.find((t) => t.id === sp.modelo);
+  const creating = !fixos && sp.modelo === "novo" && templates.length < MAX_TEMPLATES;
+  const fontSlots: FontSlot[] = fixos ? ["titulo", "texto", "script"] : ["titulo", "texto"];
+  const faltando = fixos ? fontesFaltando(k) : undefined;
   const base = `/cliente/${slug}/marca`;
   const colorsReady = (["fundo", "texto", "destaque"] as const).every((r) => !!colorFor(k, r));
 
@@ -160,25 +173,29 @@ export default async function MarcaPage({ params, searchParams }: { params: Prom
         <section className="card p-5 flex flex-col gap-4">
           <div>
             <h2 className="font-semibold">Fontes</h2>
-            <p className="text-sm text-[var(--muted)]">Nome exato do Google Fonts (ex.: Inter, Playfair Display) ou envie o arquivo da fonte paga (TTF, OTF ou WOFF2). Fonte enviada tem prioridade.</p>
+            <p className="text-sm text-[var(--muted)]">Nome exato do Google Fonts (ex.: Inter, Playfair Display) ou envie os arquivos da fonte paga (TTF, OTF ou WOFF2). Pode mandar todos os arquivos da família de uma vez: o peso e o itálico saem do nome do arquivo (Light, Regular, Medium, Bold, Italic). Fonte enviada tem prioridade.</p>
           </div>
-          <div className="grid md:grid-cols-2 gap-6">
-            {(["titulo", "texto"] as const).map((key) => {
+          <div className={`grid gap-6 ${fixos ? "md:grid-cols-3" : "md:grid-cols-2"}`}>
+            {fontSlots.map((key) => {
               const f = k.fonts[key];
-              const label = key === "titulo" ? "Títulos" : "Texto";
+              const L = FONT_LABEL[key];
+              const fx = FONTES_MODELOS.find((x) => x.slot === key)!;
+              const files = fontFiles(f);
+              const falta = faltando?.[key] ?? [];
               return (
                 <div key={key} className="flex flex-col gap-3">
-                  <span className="label">{label}</span>
+                  <span className="label">{fixos ? `${L.fixo} (${fx.family})` : L.label}</span>
                   <div className="grid grid-cols-[1fr_96px] gap-2">
-                    <input name={`font_${key}_family`} defaultValue={f?.family ?? ""} placeholder={key === "titulo" ? "ex.: Playfair Display" : "ex.: Inter"} className="ct-input" />
+                    <input name={`font_${key}_family`} defaultValue={f?.family ?? ""} placeholder={fixos ? `ex.: ${fx.family}` : L.placeholder} className="ct-input" />
                     <input name={`font_${key}_weight`} defaultValue={f?.weight ?? ""} inputMode="numeric" placeholder="peso" className="ct-input" title="Peso: 400 regular, 600 semibold, 700 bold" />
                   </div>
-                  <p className="rounded-xl border border-[var(--line)] p-4 bg-[#fafaf8]" style={{ fontFamily: f?.family ? `"${f.family}", sans-serif` : undefined, fontWeight: f?.weight ?? (key === "titulo" ? 700 : 400), fontSize: key === "titulo" ? 26 : 15, lineHeight: 1.25 }}>
-                    {key === "titulo" ? "Técnica é obrigação. Autoridade é arquitetura." : "O paciente não decide por técnica. Decide por sinais que encontra antes de chegar na consulta."}
+                  <p className="rounded-xl border border-[var(--line)] p-4 bg-[#fafaf8]" style={{ fontFamily: f?.family ? `"${f.family}", sans-serif` : undefined, fontWeight: f?.weight ?? (key === "titulo" && !fixos ? 700 : 400), fontSize: key === "texto" ? 15 : 26, lineHeight: 1.25 }}>
+                    {L.amostra}
                   </p>
                   <div className="flex flex-col gap-1">
-                    <span className="text-xs text-[var(--muted)]">{f?.source === "arquivo" ? `Arquivo enviado: ${f.path?.split("/").pop()}` : f?.family ? "Carregada do Google Fonts." : "Sem fonte definida."}</span>
-                    <BrandFileUpload slug={slug} slot={`font_${key}`} accept=".ttf,.otf,.woff2,.woff,font/ttf,font/otf,font/woff2" label={f?.source === "arquivo" ? "Trocar arquivo" : "Enviar arquivo da fonte"} local={local} save={save} clear={f?.source === "arquivo" ? clearBrandFileAction.bind(null, slug, `font_${key}`) : undefined} clearLabel="Usar Google Fonts" />
+                    <span className="text-xs text-[var(--muted)]">{files.length ? `${files.length === 1 ? "Arquivo enviado" : `${files.length} arquivos enviados`}: ${files.map((x) => fontVariantLabel(x.weight, x.italic)).join(", ")}.` : f?.family ? "Carregada do Google Fonts." : "Sem fonte definida."}</span>
+                    {fixos && falta.length > 0 && <span className="text-xs g-bad">Os modelos usam também: {falta.join(", ")}.</span>}
+                    <BrandFileUpload slug={slug} slot={`font_${key}`} accept=".ttf,.otf,.woff2,.woff,font/ttf,font/otf,font/woff2" multiple label={files.length ? "Enviar mais arquivos" : "Enviar arquivos da fonte"} local={local} save={save} clear={files.length ? clearBrandFileAction.bind(null, slug, `font_${key}`) : undefined} clearLabel="Tirar os arquivos" />
                   </div>
                 </div>
               );
@@ -213,44 +230,123 @@ export default async function MarcaPage({ params, searchParams }: { params: Prom
         </div>
       </ActionForm>
 
-      <section id="modelos" className="card p-5 mt-6 flex flex-col gap-4">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <h2 className="font-semibold">Modelos de carrossel</h2>
-            <p className="text-sm text-[var(--muted)] max-w-2xl">Até {MAX_TEMPLATES} por cliente. Cada modelo tem capa, slide de texto, slide com imagem e slide final, com fundo (cor do kit ou imagem do Canva) e caixas de título, texto, imagem e logo.</p>
+      {fixos ? (
+        <ModelosFixos k={k} slug={slug} photos={photos} aberto={isModeloId(sp.modelo) ? sp.modelo : undefined} faltando={faltando!}
+          meta={<p className="text-sm">Meta do plano: <b>{meta} {meta === 1 ? "carrossel" : "carrosséis"} por mês</b> ({plan.postsPerWeek} posts por semana, {plan.mix.carrossel}% carrossel). Neste mês: {feitos} no planejamento. <Link href={`/cliente/${slug}/conteudo`} className="underline">Ajustar metas</Link></p>} />
+      ) : (
+        <section id="modelos" className="card p-5 mt-6 flex flex-col gap-4">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h2 className="font-semibold">Modelos de carrossel</h2>
+              <p className="text-sm text-[var(--muted)] max-w-2xl">Até {MAX_TEMPLATES} por cliente. Cada modelo tem capa, slide de texto, slide com imagem e slide final, com fundo (cor do kit ou imagem do Canva) e caixas de título, texto, imagem e logo.</p>
+            </div>
+            {templates.length < MAX_TEMPLATES && (
+              colorsReady
+                ? <ActionButton action={createBaseTemplatesAction.bind(null, slug)} label="Criar 3 modelos-base com as cores do kit" />
+                : <span className="text-xs text-[var(--muted)] max-w-[260px]">Salve as cores de fundo, texto e destaque para criar os modelos-base.</span>
+            )}
           </div>
-          {templates.length < MAX_TEMPLATES && (
-            colorsReady
-              ? <ActionButton action={createBaseTemplatesAction.bind(null, slug)} label="Criar 3 modelos-base com as cores do kit" />
-              : <span className="text-xs text-[var(--muted)] max-w-[260px]">Salve as cores de fundo, texto e destaque para criar os modelos-base.</span>
+          <p className="text-sm">Meta do plano: <b>{meta} {meta === 1 ? "carrossel" : "carrosséis"} por mês</b> ({plan.postsPerWeek} posts por semana, {plan.mix.carrossel}% carrossel). Neste mês: {feitos} no planejamento. <Link href={`/cliente/${slug}/conteudo`} className="underline">Ajustar metas</Link></p>
+          <div className="grid sm:grid-cols-3 gap-3">
+            {Array.from({ length: MAX_TEMPLATES }, (_, i) => templates[i]).map((t, i) => t ? (
+              <Link key={t.id} href={`${base}?modelo=${t.id}#modelos`} scroll={false} className={`tm-card ${editing?.id === t.id ? "is-on" : ""}`}>
+                <div className="tm-slides">
+                  {SLIDE_KINDS.map((s) => <SlidePreview key={s.key} layout={t.slides[s.key]} k={k} assets={assets} className={s.key === "capa" ? "tm-main" : "tm-mini"} />)}
+                </div>
+                <div className="flex items-center justify-between gap-2">
+                  <span className="font-medium truncate">{t.name}</span>
+                  <span className="text-xs text-[var(--muted)] shrink-0">Editar</span>
+                </div>
+              </Link>
+            ) : (
+              <Link key={`vazio-${i}`} href={`${base}?modelo=novo#modelos`} scroll={false} className={`tm-empty ${creating && i === templates.length ? "is-on" : ""}`}>
+                <span className="text-2xl font-light leading-none">+</span>
+                <span>Novo modelo</span>
+              </Link>
+            ))}
+          </div>
+          {(editing || creating) && (
+            <TemplateEditor key={editing?.id ?? "novo"} slug={slug} kit={k} logos={logoUrls} photo={photo} local={local}
+              initial={editing ?? blankTemplate()} isNew={!editing}
+              save={saveTemplateAction.bind(null, slug)} remove={editing ? deleteTemplateAction.bind(null, slug, editing.id) : undefined}
+              backHref={`${base}#modelos`} />
           )}
-        </div>
-        <p className="text-sm">Meta do plano: <b>{meta} {meta === 1 ? "carrossel" : "carrosséis"} por mês</b> ({plan.postsPerWeek} posts por semana, {plan.mix.carrossel}% carrossel). Neste mês: {feitos} no planejamento. <Link href={`/cliente/${slug}/conteudo`} className="underline">Ajustar metas</Link></p>
-        <div className="grid sm:grid-cols-3 gap-3">
-          {Array.from({ length: MAX_TEMPLATES }, (_, i) => templates[i]).map((t, i) => t ? (
-            <Link key={t.id} href={`${base}?modelo=${t.id}#modelos`} scroll={false} className={`tm-card ${editing?.id === t.id ? "is-on" : ""}`}>
-              <div className="tm-slides">
-                {SLIDE_KINDS.map((s) => <SlidePreview key={s.key} layout={t.slides[s.key]} k={k} assets={assets} className={s.key === "capa" ? "tm-main" : "tm-mini"} />)}
-              </div>
-              <div className="flex items-center justify-between gap-2">
-                <span className="font-medium truncate">{t.name}</span>
-                <span className="text-xs text-[var(--muted)] shrink-0">Editar</span>
-              </div>
-            </Link>
-          ) : (
-            <Link key={`vazio-${i}`} href={`${base}?modelo=novo#modelos`} scroll={false} className={`tm-empty ${creating && i === templates.length ? "is-on" : ""}`}>
-              <span className="text-2xl font-light leading-none">+</span>
-              <span>Novo modelo</span>
-            </Link>
-          ))}
-        </div>
-        {(editing || creating) && (
-          <TemplateEditor key={editing?.id ?? "novo"} slug={slug} kit={k} logos={logoUrls} photo={photo} local={local}
-            initial={editing ?? blankTemplate()} isNew={!editing}
-            save={saveTemplateAction.bind(null, slug)} remove={editing ? deleteTemplateAction.bind(null, slug, editing.id) : undefined}
-            backHref={`${base}#modelos`} />
-        )}
-      </section>
+        </section>
+      )}
     </Shell>
+  );
+}
+
+/**
+ * Os 5 modelos do design system DoctorBrand (skill carrossel-fernandofontees), desenhados em código.
+ * Cada cartão mostra a capa do exemplo da skill; aberto, mostra todas as lâminas e os tipos de lâmina.
+ */
+function ModelosFixos({ k, slug, photos, aberto, faltando, meta }: {
+  k: BrandKit; slug: string; photos: string[]; aberto?: (typeof MODELOS)[number]["id"];
+  faltando: ReturnType<typeof fontesFaltando>; meta: React.ReactNode;
+}) {
+  const fontes = fontesCss(k, fileUrl);
+  const base = `/cliente/${slug}/marca`;
+  const handle = k.handle || "@fernandofontees";
+  const deck = (id: (typeof MODELOS)[number]["id"]) => comFotos({ ...EXEMPLOS[id], handle }, photos);
+  const doc = (id: (typeof MODELOS)[number]["id"], i: number) => carrosselDoc(deck(id), { fontes, simbolo: SIMBOLO, only: i });
+  const m = MODELOS.find((x) => x.id === aberto);
+  const semFonte = FONTES_MODELOS.filter((f) => faltando[f.slot].length > 0);
+  return (
+    <section id="modelos" className="card p-5 mt-6 flex flex-col gap-4">
+      <div>
+        <h2 className="font-semibold">Modelos de carrossel</h2>
+        <p className="text-sm text-[var(--muted)] max-w-3xl">Os 5 modelos do design system DoctorBrand, iguais aos da skill de carrossel do Fernando. O desenho é fixo; o texto aqui é o exemplo de cada modelo. Um carrossel usa um modelo só, do início ao fim. Sem foto, Autoridade.</p>
+      </div>
+      {meta}
+      {semFonte.length > 0 && (
+        <p className="text-sm rounded-xl border border-[var(--line)] bg-[#fafaf8] px-4 py-3">
+          Faltam arquivos de fonte: {semFonte.map((f) => `${f.family} (${faltando[f.slot].join(", ")})`).join("; ")}. Enquanto isso, as miniaturas usam {semFonte.map((f) => f.fallback).join(", ")} no lugar. Envie em Fontes, acima.
+        </p>
+      )}
+      {photos.length === 0 && <p className="text-sm text-[var(--muted)]">Sem fotos na pasta do Drive do kit: as lâminas com foto aparecem só com o fundo.</p>}
+      <div className="mf-grid">
+        {MODELOS.map((x) => (
+          <Link key={x.id} href={`${base}?modelo=${x.id}#modelos`} scroll={false} className={`tm-card ${aberto === x.id ? "is-on" : ""}`}>
+            <SlideFrame html={doc(x.id, 0)} title={`${x.nome}: capa`} />
+            <div className="flex flex-col gap-0.5 min-w-0">
+              <div className="flex items-center justify-between gap-2">
+                <span className="font-medium truncate">{x.nome}</span>
+                <span className="text-xs text-[var(--muted)] shrink-0">{x.foto ? "Com foto" : "Só texto"}</span>
+              </div>
+              <span className="text-xs text-[var(--muted)] line-clamp-2">{x.quando}</span>
+            </div>
+          </Link>
+        ))}
+      </div>
+      {m && (
+        <div className="flex flex-col gap-4 border-t border-[var(--line)] pt-4">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="max-w-2xl">
+              <h3 className="font-semibold">{m.nome}</h3>
+              <p className="text-sm text-[var(--muted)]">{m.quando} Referência: {m.ref}.</p>
+            </div>
+            <Link href={`${base}#modelos`} scroll={false} className="ct-btn">Fechar</Link>
+          </div>
+          <div className="mf-strip">
+            {deck(m.id).slides.map((s, i) => (
+              <div key={i} className="flex flex-col gap-1.5">
+                <SlideFrame html={doc(m.id, i)} title={`${m.nome}: lâmina ${i + 1}`} />
+                <span className="text-xs text-[var(--muted)]">{i + 1}. {m.tipos.find((t) => t.tipo === s.tipo)?.nome ?? s.tipo}</span>
+              </div>
+            ))}
+          </div>
+          <div>
+            <span className="label">Tipos de lâmina</span>
+            <div className="mf-tipos mt-2">
+              {m.tipos.map((t) => (
+                <div key={t.tipo}><b className="font-medium">{t.nome}</b><span className="text-[var(--muted)]">{t.campos}</span></div>
+              ))}
+            </div>
+          </div>
+          <p className="text-xs text-[var(--muted)]">Marcação no texto: *palavra* em dourado, **trecho** com a ênfase do modelo, _trecho_ em itálico.</p>
+        </div>
+      )}
+    </section>
   );
 }
