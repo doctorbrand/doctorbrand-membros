@@ -1,3 +1,4 @@
+import type { CarouselDoc } from "./carousel";
 import { readDoc, writeDoc } from "./store";
 
 /**
@@ -73,6 +74,8 @@ export interface Post {
   pillar?: string;
   /** Link do Drive de onde vieram as mídias (pasta ou arquivo). "Atualizar do Drive" relê daqui. */
   source?: string;
+  /** Carrossel montado no Kit de marca: slides editáveis (layout, textos e fotos). Os JPGs ficam em `media`. */
+  carrossel?: CarouselDoc;
   /** Roteiro e direção para a equipe produzir (gerado no painel). Só a equipe vê. */
   roteiro?: string;
   /** Data e hora planejadas (America/Sao_Paulo). */

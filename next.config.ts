@@ -1,7 +1,8 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  // Fonte Inter usada na montagem dos slides de carrossel (lida do disco pelo servidor).
+  outputFileTracingIncludes: { "/**": ["./src/assets/fonts/**/*"] },
 };
 
 export default nextConfig;

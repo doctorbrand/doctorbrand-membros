@@ -218,6 +218,7 @@ export default async function MarcaPage({ params, searchParams }: { params: Prom
             <h2 className="font-semibold">Modelos de carrossel</h2>
             <p className="text-sm text-[var(--muted)] max-w-2xl">Até {MAX_TEMPLATES} por cliente. Cada modelo tem capa, slide de texto, slide com imagem e slide final, com fundo (cor do kit ou imagem do Canva) e caixas de título, texto, imagem e logo.</p>
           </div>
+          {templates.length > 0 && <Link href={`/cliente/${slug}/carrossel`} className="ct-btn ct-btn-dark">Montar carrossel</Link>}
           {templates.length < MAX_TEMPLATES && (
             colorsReady
               ? <ActionButton action={createBaseTemplatesAction.bind(null, slug)} label="Criar 3 modelos-base com as cores do kit" />

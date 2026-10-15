@@ -276,6 +276,10 @@ function PostDetail({ post: p, n, total, slug, admin, base, client, plan, local,
         </details>
       )}
 
+      {admin && p.carrossel && p.status !== "publicado" && !p.publish?.igMediaId && (
+        <Link href={`/cliente/${slug}/carrossel?post=${p.id}`} className="ct-btn self-start">Editar slides do carrossel</Link>
+      )}
+
       {admin && <PillarSelect key={`${p.id}${p.pillar ?? ""}`} action={setPillarAction.bind(null, slug, p.id)} value={p.pillar} options={plan.pillars.map((x) => x.name)} />}
 
       {p.status === "alteracao" && lastChange?.note && (
