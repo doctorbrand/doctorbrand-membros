@@ -10,7 +10,7 @@ import { getProject, onboardingAtivo } from "@/lib/project";
 import { igProfile } from "@/lib/instagram";
 
 export type ShellActive =
-  | "geral" | "projeto" | "evolucao" | "conteudo" | "anuncios" | "semana" | "ajuda" | "perfil" | "gerar"
+  | "geral" | "projeto" | "evolucao" | "conteudo" | "anuncios" | "semana" | "ajuda" | "perfil" | "marca" | "gerar"
   | "avisos" | "onboarding" | "indicacoes" | "circle" | "admin" | "config" | "acessos";
 
 export async function Shell({ children, active, session, clientSlug }: { children: React.ReactNode; active: ShellActive; session?: Session | null; clientSlug?: string }) {
@@ -47,7 +47,7 @@ export async function Shell({ children, active, session, clientSlug }: { childre
         it(`${b}/indicacoes`, "Indicações", "spark", "indicacoes"),
       ],
     });
-    if (admin) sections.push({ title: "Só a equipe", items: [it(`${b}/perfil`, "Perfil", "user", "perfil"), ...(!ativo ? [it(`${b}/onboarding`, "Acessos e briefing", "key", "onboarding")] : []), it(`${b}/gerar`, "Gerar", "wand", "gerar"), { href: `/api/preview?slug=${slug}`, label: "Ver como o cliente", icon: "eye", active: false }] });
+    if (admin) sections.push({ title: "Só a equipe", items: [it(`${b}/perfil`, "Perfil", "user", "perfil"), it(`${b}/marca`, "Kit de marca", "palette", "marca"), ...(!ativo ? [it(`${b}/onboarding`, "Acessos e briefing", "key", "onboarding")] : []), it(`${b}/gerar`, "Gerar", "wand", "gerar"), { href: `/api/preview?slug=${slug}`, label: "Ver como o cliente", icon: "eye", active: false }] });
   }
   if (admin) {
     sections.unshift({ title: "Equipe", items: [it("/conteudo", "Clientes", "users", "geral"), it("/admin/avisos", "Avisos", "bell", "avisos"), it("/admin/indicacoes", "Circle", "spark", "circle"), it("/admin/usuarios", "Acessos", "key", "acessos")] });
