@@ -127,8 +127,10 @@ export interface TemplateBox {
   align?: BoxAlign;
   color?: ColorRole;
   maxWords?: number;
-  /** Preenchido sozinho na geração: "numero" = número do passo (01, 02…), usado no modelo Lista. */
-  auto?: "numero";
+  /** Preenchido sozinho na geração: "numero" = número do passo (01, 02…), usado no modelo Lista; "contador" = posição no carrossel (2/7). */
+  auto?: "numero" | "contador";
+  /** Texto fixo, igual em todos os carrosséis (ex.: assinatura da marca, @perfil). */
+  fixed?: string;
 }
 
 export type SlideBg = { type: "cor"; role: ColorRole } | { type: "imagem"; path: string; name?: string };
@@ -166,7 +168,8 @@ export function cleanBox(raw: Partial<TemplateBox>): TemplateBox | null {
     box.align = raw.align === "center" || raw.align === "right" ? raw.align : "left";
     box.color = raw.color && ROLE_SET.has(raw.color) ? raw.color : kind === "titulo" ? "texto" : "texto";
     box.maxWords = Math.round(clamp(raw.maxWords, 1, 120, kind === "titulo" ? 12 : 40));
-    if (raw.auto === "numero") box.auto = "numero";
+    if (raw.auto === "numero" || raw.auto === "contador") box.auto = raw.auto;
+    if (typeof raw.fixed === "string" && raw.fixed.trim()) box.fixed = raw.fixed.slice(0, 80);
   }
   return box;
 }

@@ -184,7 +184,7 @@ export function TemplateEditor({ slug, kit, logos, photo, local, initial, isNew,
               {layout.boxes.map((b) => (
                 <div key={b.id} className={`te-handle ${sel === b.id ? "is-sel" : ""}`} style={{ left: `${b.x}%`, top: `${b.y}%`, width: `${b.w}%`, height: `${b.h}%` }}
                   onPointerDown={(e) => onPointerDown(e, b, "move")} title={`${KIND_LABEL[b.kind]}: arraste para mover`}>
-                  <span className="te-tag">{b.auto === "numero" ? "Número" : KIND_LABEL[b.kind]}</span>
+                  <span className="te-tag">{(b.fixed ? `Fixo: ${b.fixed}` : b.auto === "contador" ? "Contador" : b.auto === "numero" ? "Número" : KIND_LABEL[b.kind])}</span>
                   <span className="te-resize" onPointerDown={(e) => onPointerDown(e, b, "resize")} title="Arraste para redimensionar" />
                 </div>
               ))}
@@ -220,7 +220,7 @@ export function TemplateEditor({ slug, kit, logos, photo, local, initial, isNew,
             <p className="label mb-2">Caixas</p>
             <div className="flex flex-wrap gap-1.5 mb-2">
               {layout.boxes.map((b) => (
-                <button key={b.id} type="button" className={`te-chip ${sel === b.id ? "is-on" : ""}`} onClick={() => setSel(b.id)}>{b.auto === "numero" ? "Número" : KIND_LABEL[b.kind]}</button>
+                <button key={b.id} type="button" className={`te-chip ${sel === b.id ? "is-on" : ""}`} onClick={() => setSel(b.id)}>{(b.fixed ? `Fixo: ${b.fixed}` : b.auto === "contador" ? "Contador" : b.auto === "numero" ? "Número" : KIND_LABEL[b.kind])}</button>
               ))}
               {layout.boxes.length === 0 && <span className="text-xs text-[var(--muted)]">Nenhuma caixa neste slide.</span>}
             </div>
@@ -232,7 +232,7 @@ export function TemplateEditor({ slug, kit, logos, photo, local, initial, isNew,
           {box && (
             <section className="te-props">
               <div className="flex items-center justify-between">
-                <p className="label">{box.auto === "numero" ? "Número do passo" : KIND_LABEL[box.kind]}</p>
+                <p className="label">{box.fixed ? "Texto fixo" : box.auto === "contador" ? "Contador" : box.auto === "numero" ? "Número do passo" : KIND_LABEL[box.kind]}</p>
                 <button type="button" className="ct-icon-btn" onClick={() => removeBox(box.id)} title="Remover caixa" aria-label="Remover caixa"><TrashIcon /></button>
               </div>
               {textBox && (
@@ -267,6 +267,10 @@ export function TemplateEditor({ slug, kit, logos, photo, local, initial, isNew,
                   {box.kind === "titulo" && (
                     <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={box.auto === "numero"} onChange={(e) => patchBox(box.id, { auto: e.target.checked ? "numero" : undefined })} />Número do passo (01, 02…), preenchido sozinho</label>
                   )}
+                  <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={box.auto === "contador"} onChange={(e) => patchBox(box.id, { auto: e.target.checked ? "contador" : undefined, fixed: undefined })} />Contador do carrossel (2/7), preenchido sozinho</label>
+                  <label className="flex flex-col gap-1"><span className="te-l">Texto fixo (igual em todo carrossel, ex.: @perfil)</span>
+                    <input className="ct-input" value={box.fixed ?? ""} maxLength={80} onChange={(e) => patchBox(box.id, { fixed: e.target.value || undefined, auto: e.target.value ? undefined : box.auto })} placeholder="Vazio: o texto vem de cada carrossel" />
+                  </label>
                 </>
               )}
               <div className="grid grid-cols-4 gap-2">

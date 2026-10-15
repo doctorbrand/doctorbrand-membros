@@ -28,7 +28,7 @@ type Preview = (slug: string, json: string) => Promise<BuildResult>;
 type Save = (slug: string, json: string, opts: { postId?: string; caption: string; date: string; time: string }) => Promise<BuildResult>;
 
 /** Slide com o conteúdo de verdade, em HTML (mesma composição do JPG; o JPG final sai pelo botão Conferir). */
-function SlideView({ s, i, kit, logos }: { s: EditSlide; i: number; kit: BrandKit; logos: { principal?: string; claro?: string; escuro?: string } }) {
+function SlideView({ s, i, total, kit, logos }: { s: EditSlide; i: number; total: number; kit: BrandKit; logos: { principal?: string; claro?: string; escuro?: string } }) {
   const bg = s.layout.bg;
   const bgHex = bg.type === "cor" ? roleColor(kit, bg.role).hex : "#1a1a1a";
   return (
@@ -55,7 +55,7 @@ function SlideView({ s, i, kit, logos }: { s: EditSlide; i: number; kit: BrandKi
             </div>
           );
         }
-        const raw = b.auto === "numero" ? String(i).padStart(2, "0") : (s.text[b.id] ?? "");
+        const raw = b.fixed ? b.fixed.trim() : b.auto === "contador" ? `${i + 1}/${total}` : b.auto === "numero" ? String(i).padStart(2, "0") : (s.text[b.id] ?? "");
         const title = (b.font ?? (b.kind === "titulo" ? "titulo" : "texto")) === "titulo";
         const size = fitSize(raw || " ", b.size ?? 40, (b.w / 100) * SLIDE_W, (b.h / 100) * SLIDE_H, title);
         const color = roleColor(kit, b.color ?? "texto").hex;
@@ -275,7 +275,7 @@ export function CarouselStudio(props: {
 
   // ─── passo 2: editor ─────────────────────────────
   const s = slide!;
-  const textBox = box && (box.kind === "titulo" || box.kind === "texto") && box.auto !== "numero";
+  const textBox = box && (box.kind === "titulo" || box.kind === "texto") && !box.auto && !box.fixed;
 
   return (
     <div className="te" onKeyDown={onKey} style={{ borderTop: 0, paddingTop: 0 }}>
@@ -291,7 +291,7 @@ export function CarouselStudio(props: {
       <div className="flex gap-3 overflow-x-auto pb-2">
         {doc.slides.map((x, i) => (
           <button key={x.id} type="button" className={`te-thumb shrink-0 ${i === cur ? "is-on" : ""}`} style={{ width: 104 }} onClick={() => { setCur(i); setSel(null); }}>
-            <SlideView s={x} i={i} kit={kit} logos={logos} />
+            <SlideView s={x} i={i} total={doc.slides.length} kit={kit} logos={logos} />
             <span>{i + 1}. {SLIDE_LABEL[x.kind]}</span>
           </button>
         ))}
@@ -300,12 +300,12 @@ export function CarouselStudio(props: {
       <div className="te-body">
         <div className="te-stage">
           <div ref={canvas} className="te-canvas" onPointerMove={onPointerMove} onPointerUp={onPointerUp} onPointerCancel={onPointerUp} onPointerDown={() => setSel(null)} tabIndex={0} aria-label={`Slide ${cur + 1}`}>
-            <SlideView s={s} i={cur} kit={kit} logos={logos} />
+            <SlideView s={s} i={cur} total={doc.slides.length} kit={kit} logos={logos} />
             <div className="te-overlay">
               {s.layout.boxes.map((b) => (
                 <div key={b.id} className={`te-handle ${sel === b.id ? "is-sel" : ""}`} style={{ left: `${b.x}%`, top: `${b.y}%`, width: `${b.w}%`, height: `${b.h}%` }}
                   onPointerDown={(e) => onPointerDown(e, b, "move")} title={`${KIND_LABEL[b.kind]}: clique para editar, arraste para mover`}>
-                  <span className="te-tag">{b.auto === "numero" ? "Número" : KIND_LABEL[b.kind]}</span>
+                  <span className="te-tag">{b.fixed ? b.fixed.trim() : b.auto === "contador" ? "Contador" : b.auto === "numero" ? "Número" : KIND_LABEL[b.kind]}</span>
                   <span className="te-resize" onPointerDown={(e) => onPointerDown(e, b, "resize")} title="Arraste para redimensionar" />
                 </div>
               ))}
@@ -329,7 +329,7 @@ export function CarouselStudio(props: {
               <p className="label mb-1">Slide {cur + 1} · {SLIDE_LABEL[s.kind]}</p>
               <p className="text-sm text-[var(--muted)]">Clique num título, texto ou foto no slide para editar.</p>
               <div className="flex flex-wrap gap-1.5 mt-1">
-                {s.layout.boxes.map((b) => <button key={b.id} type="button" className="te-chip" onClick={() => setSel(b.id)}>{b.auto === "numero" ? "Número" : KIND_LABEL[b.kind]}{b.kind !== "imagem" && b.kind !== "logo" && s.text[b.id] ? `: ${s.text[b.id].replace(/\*/g, "").slice(0, 18)}…` : ""}</button>)}
+                {s.layout.boxes.map((b) => <button key={b.id} type="button" className="te-chip" onClick={() => setSel(b.id)}>{b.fixed ? b.fixed.trim() : b.auto === "contador" ? "Contador" : b.auto === "numero" ? "Número" : KIND_LABEL[b.kind]}{b.kind !== "imagem" && b.kind !== "logo" && s.text[b.id] ? `: ${s.text[b.id].replace(/\*/g, "").slice(0, 18)}…` : ""}</button>)}
               </div>
             </section>
           )}
@@ -337,7 +337,7 @@ export function CarouselStudio(props: {
           {box && (
             <section className="te-props">
               <div className="flex items-center justify-between">
-                <p className="label">{box.auto === "numero" ? "Número do passo" : KIND_LABEL[box.kind]}</p>
+                <p className="label">{box.fixed ? "Texto fixo do modelo" : box.auto === "contador" ? "Contador" : box.auto === "numero" ? "Número do passo" : KIND_LABEL[box.kind]}</p>
                 <div className="flex gap-1">
                   <button type="button" className="ct-btn ct-btn-ghost" onClick={() => setSel(null)}>Pronto</button>
                   <button type="button" className="ct-icon-btn" onClick={() => removeBox(box.id)} title="Tirar do slide" aria-label="Tirar do slide"><TrashIcon /></button>

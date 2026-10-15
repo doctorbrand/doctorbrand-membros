@@ -120,7 +120,7 @@ function isDark(hex: string) {
 
 interface Assets { titleFont: string; textFont: string; titleWeight: number; logo: { light?: string; dark?: string }; images: Map<string, string | null>; bg: Map<string, string | null> }
 
-function Box({ b, slide, i, kit, a, bgHex }: { b: TemplateBox; slide: EditSlide; i: number; kit: BrandKit; a: Assets; bgHex: string }) {
+function Box({ b, slide, i, total, kit, a, bgHex }: { b: TemplateBox; slide: EditSlide; i: number; total: number; kit: BrandKit; a: Assets; bgHex: string }) {
   const pos = { position: "absolute" as const, left: (b.x / 100) * SLIDE_W, top: (b.y / 100) * SLIDE_H, width: (b.w / 100) * SLIDE_W, height: (b.h / 100) * SLIDE_H, display: "flex" };
   if (b.kind === "imagem") {
     const src = slide.images[b.id] ? a.images.get(slide.images[b.id]) : null;
@@ -130,7 +130,7 @@ function Box({ b, slide, i, kit, a, bgHex }: { b: TemplateBox; slide: EditSlide;
     const src = isDark(bgHex) ? (a.logo.dark ?? a.logo.light) : (a.logo.light ?? a.logo.dark);
     return src ? <div style={{ ...pos, justifyContent: "center", alignItems: "center" }}><img alt="" src={src} style={{ maxWidth: pos.width, maxHeight: pos.height, objectFit: "contain" }} /></div> : null;
   }
-  const raw = b.auto === "numero" ? String(i).padStart(2, "0") : (slide.text[b.id] ?? "").trim();
+  const raw = b.fixed ? b.fixed.trim() : b.auto === "contador" ? `${i + 1}/${total}` : b.auto === "numero" ? String(i).padStart(2, "0") : (slide.text[b.id] ?? "").trim();
   if (!raw) return null;
   const title = (b.font ?? (b.kind === "titulo" ? "titulo" : "texto")) === "titulo";
   const size = fitSize(raw, b.size ?? 40, pos.width, pos.height, title);
@@ -146,14 +146,14 @@ function Box({ b, slide, i, kit, a, bgHex }: { b: TemplateBox; slide: EditSlide;
   );
 }
 
-function Slide({ slide, i, kit, a }: { slide: EditSlide; i: number; kit: BrandKit; a: Assets }): ReactNode {
+function Slide({ slide, i, total, kit, a }: { slide: EditSlide; i: number; total: number; kit: BrandKit; a: Assets }): ReactNode {
   const bg = slide.layout.bg;
   const bgHex = bg.type === "cor" ? roleColor(kit, bg.role).hex : "#1a1a1a";
   const bgImg = bg.type === "imagem" ? a.bg.get(bg.path) : null;
   return (
     <div style={{ width: SLIDE_W, height: SLIDE_H, display: "flex", position: "relative", background: bgHex }}>
       {bgImg && <img alt="" src={bgImg} width={SLIDE_W} height={SLIDE_H} style={{ position: "absolute", left: 0, top: 0, width: SLIDE_W, height: SLIDE_H, objectFit: "cover" }} />}
-      {slide.layout.boxes.map((b) => <Box key={b.id} b={b} slide={slide} i={i} kit={kit} a={a} bgHex={bgImg ? "#1a1a1a" : bgHex} />)}
+      {slide.layout.boxes.map((b) => <Box key={b.id} b={b} slide={slide} i={i} total={total} kit={kit} a={a} bgHex={bgImg ? "#1a1a1a" : bgHex} />)}
     </div>
   );
 }
@@ -193,7 +193,7 @@ export async function renderDoc(slug: string, kit: BrandKit, doc: CarouselDoc, o
 
   const jpgs: Buffer[] = [];
   for (const [i, s] of doc.slides.entries()) {
-    const svg = await satori(<Slide slide={s} i={i} kit={kit} a={a} />, { width: SLIDE_W, height: SLIDE_H, fonts: f.list });
+    const svg = await satori(<Slide slide={s} i={i} total={doc.slides.length} kit={kit} a={a} />, { width: SLIDE_W, height: SLIDE_H, fonts: f.list });
     let img = sharp(Buffer.from(svg));
     if (opts.width && opts.width < SLIDE_W) img = img.resize({ width: opts.width });
     jpgs.push(await img.flatten({ background: "#ffffff" }).jpeg({ quality: 92, mozjpeg: true }).toBuffer());

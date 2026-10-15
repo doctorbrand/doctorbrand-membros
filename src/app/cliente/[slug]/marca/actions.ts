@@ -5,6 +5,7 @@ import { requireAdmin } from "@/lib/auth";
 import { getBrand, saveBrand, saveTemplates } from "@/lib/brandStore";
 import { baseTemplates, cleanTemplate, colorFor, COLOR_ROLES, LOGO_SLOTS, MAX_COLORS, MAX_TEMPLATES, normalizeHex, type BrandColor, type BrandFont, type ColorRole, type LogoKey } from "@/lib/brand";
 import { getClient } from "@/lib/clients";
+import { BRAND_PRESETS } from "@/lib/brandPresets";
 import { parseDriveLinks } from "@/lib/drive";
 import type { ActionResult } from "@/lib/types";
 
@@ -127,4 +128,22 @@ export async function createBaseTemplatesAction(slug: string): Promise<ActionRes
   await saveTemplates(slug, [...list, ...novos], s.name);
   revalidatePath(page(slug));
   return { ok: true, message: `${novos.length} ${novos.length === 1 ? "modelo criado" : "modelos criados"}: ${novos.map((t) => t.name).join(", ")}.` };
+}
+
+/**
+ * Carrega os modelos levantados do Canva do cliente (lib/brandPresets.ts) e a paleta usada neles.
+ * Substitui os modelos atuais; as outras cores do kit (fora dos 4 papéis da paleta) ficam.
+ */
+export async function applyPresetAction(slug: string): Promise<ActionResult> {
+  const s = await guard(slug);
+  const preset = BRAND_PRESETS[slug];
+  if (!preset) return { ok: false, message: "Este cliente não tem modelos do Canva cadastrados." };
+  const k = await getBrand(slug);
+  const roles = new Set(preset.colors.map((c) => c.role));
+  const colors = [...preset.colors, ...k.colors.filter((c) => !roles.has(c.role))].slice(0, MAX_COLORS);
+  await saveBrand(slug, { colors }, s.name);
+  const now = new Date().toISOString();
+  await saveTemplates(slug, preset.templates().map((t) => ({ ...t, updatedAt: now })), s.name);
+  revalidatePath(page(slug));
+  return { ok: true, message: `Modelos do Canva carregados (${preset.templates().map((t) => t.name).join(", ")}) e cores atualizadas.` };
 }
