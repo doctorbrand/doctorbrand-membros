@@ -122,7 +122,7 @@ export async function createBaseTemplatesAction(slug: string): Promise<ActionRes
   const livres = MAX_TEMPLATES - list.length;
   if (livres <= 0) return { ok: false, message: `Já são ${MAX_TEMPLATES} modelos. Apague um para criar os modelos-base.` };
   const nomes = new Set(list.map((t) => t.name.toLowerCase()));
-  const novos = baseTemplates().filter((t) => !nomes.has(t.name.toLowerCase())).slice(0, livres).map((t) => ({ ...t, updatedAt: new Date().toISOString() }));
+  const novos = baseTemplates(k.modelosBase, k.handle).filter((t) => !nomes.has(t.name.toLowerCase())).slice(0, livres).map((t) => ({ ...t, updatedAt: new Date().toISOString() }));
   if (!novos.length) return { ok: false, message: "Os modelos-base já existem." };
   await saveTemplates(slug, [...list, ...novos], s.name);
   revalidatePath(page(slug));

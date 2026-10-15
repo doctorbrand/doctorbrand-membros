@@ -43,6 +43,10 @@ export interface BrandKit {
   rules?: string;
   /** Modelos de carrossel (até MAX_TEMPLATES). */
   templates?: CarouselTemplate[];
+  /** Estilo dos modelos-base criados pelo botão. "doctorbrand": regras do design system DoctorBrand. */
+  modelosBase?: "doctorbrand";
+  /** @ do Instagram, para o rodapé fixo dos modelos (ex.: @fernandofontees). */
+  handle?: string;
   updatedAt?: string;
   updatedBy?: string;
 }
@@ -127,8 +131,16 @@ export interface TemplateBox {
   align?: BoxAlign;
   color?: ColorRole;
   maxWords?: number;
-  /** Preenchido sozinho na geração: "numero" = número do passo (01, 02…), usado no modelo Lista. */
-  auto?: "numero";
+  /** Preenchido sozinho na geração: "numero" = número do passo (01, 02…); "contador" = posição no carrossel (3/7). */
+  auto?: "numero" | "contador";
+  /** Texto fixo, igual em todo carrossel (moldura: nome da marca, @ do perfil). O Claude não escreve nesta caixa. */
+  fixo?: string;
+  /** Opacidade do texto em % (100, 80 ou 60): texto de apoio no tom da marca. */
+  opacity?: number;
+  /** Texto em itálico (ênfase: a frase do título continua em itálico). */
+  italic?: boolean;
+  /** Caixa alta com espaçamento largo entre letras (sobretítulo, chamada curta). */
+  caps?: boolean;
 }
 
 export type SlideBg = { type: "cor"; role: ColorRole } | { type: "imagem"; path: string; name?: string };
@@ -166,7 +178,12 @@ export function cleanBox(raw: Partial<TemplateBox>): TemplateBox | null {
     box.align = raw.align === "center" || raw.align === "right" ? raw.align : "left";
     box.color = raw.color && ROLE_SET.has(raw.color) ? raw.color : kind === "titulo" ? "texto" : "texto";
     box.maxWords = Math.round(clamp(raw.maxWords, 1, 120, kind === "titulo" ? 12 : 40));
-    if (raw.auto === "numero") box.auto = "numero";
+    if (raw.auto === "numero" || raw.auto === "contador") box.auto = raw.auto;
+    else if (typeof raw.fixo === "string") box.fixo = raw.fixo.slice(0, 40);
+    const op = Math.round(Number(raw.opacity));
+    if ([60, 80].includes(op)) box.opacity = op;
+    if (raw.italic === true) box.italic = true;
+    if (raw.caps === true) box.caps = true;
   }
   return box;
 }
@@ -208,7 +225,8 @@ const box = (kind: BoxKind, x: number, y: number, w: number, h: number, extra: P
  * Os 3 modelos-base, montados só com as cores e fontes do kit. São ponto de partida: a equipe ajusta no editor.
  * Editorial: só texto. Lista: passos numerados. Com foto: foto da pasta do Drive + texto.
  */
-export function baseTemplates(): CarouselTemplate[] {
+export function baseTemplates(estilo?: BrandKit["modelosBase"], handle?: string): CarouselTemplate[] {
+  if (estilo === "doctorbrand") return doctorbrandTemplates(handle);
   const logo = (y = 90) => box("logo", 40, y, 20, 5);
   const editorial: CarouselTemplate = {
     id: newId(), name: "Editorial", base: "editorial",
@@ -304,3 +322,56 @@ export function blankTemplate(): CarouselTemplate {
   };
 }
 
+
+/**
+ * Modelos-base no estilo do design system DoctorBrand, iguais à skill carrossel-fernandofontees:
+ * 1080 × 1350, margem lateral de 96 px, moldura fixa (DOCTORBRAND no topo, @ e contador embaixo),
+ * títulos em Denton 400, texto em Inter com creme a 80%, dourado só no sobretítulo e no número.
+ * Ênfase em itálico e a palavra dourada entram no próprio texto, na geração (etapa 3).
+ */
+export function doctorbrandTemplates(handle = ""): CarouselTemplate[] {
+  const M = 8.9, W = 100 - 2 * M; // 96 px de margem
+  const moldura = (): TemplateBox[] => [
+    box("texto", M, 5.3, W, 2.6, { size: 20, color: "texto", opacity: 60, caps: true, align: "center", fixo: "DoctorBrand" }),
+    ...(handle ? [box("texto", M, 92.6, W / 2, 2.6, { size: 22, color: "texto", opacity: 60, fixo: handle })] : []),
+    box("texto", 50, 92.6, W / 2, 2.6, { size: 22, color: "texto", opacity: 60, align: "right", auto: "contador" }),
+  ];
+  const eyebrow = (y: number) => box("texto", M, y, W, 3, { size: 22, color: "destaque", caps: true, maxWords: 3 });
+  const fundo = { type: "cor" as const, role: "fundo" as const };
+  const capa = (): SlideLayout => ({ bg: fundo, boxes: [...moldura(), eyebrow(28), box("titulo", M, 32, W, 32, { size: 112, color: "texto", maxWords: 10 }), box("texto", M, 66, W, 9, { size: 38, color: "texto", maxWords: 14 })] });
+  const argumento = (): SlideLayout => ({ bg: fundo, boxes: [...moldura(), eyebrow(28), box("titulo", M, 32, W, 22, { size: 80, color: "texto", maxWords: 8 }), box("texto", M, 57, W * 0.92, 24, { size: 36, color: "texto", opacity: 80, maxWords: 40 })] });
+  const cta = (): SlideLayout => ({ bg: fundo, boxes: [...moldura(), box("titulo", M, 30, W, 22, { size: 80, color: "texto", maxWords: 8 }), box("texto", M, 54, W * 0.92, 12, { size: 36, color: "texto", opacity: 80, maxWords: 20 }), box("texto", M, 70, W * 0.6, 3.5, { size: 30, color: "destaque", caps: true, maxWords: 3 })] });
+  const editorial: CarouselTemplate = {
+    id: newId(), name: "Editorial", base: "editorial",
+    slides: {
+      capa: capa(),
+      texto: argumento(),
+      imagem: { bg: fundo, boxes: [...moldura(), box("imagem", M, 15, W, 42), box("titulo", M, 60, W, 11, { size: 64, color: "texto", maxWords: 8 }), box("texto", M, 72, W, 13, { size: 32, color: "texto", opacity: 80, maxWords: 25 })] },
+      final: cta(),
+    },
+  };
+  const lista: CarouselTemplate = {
+    id: newId(), name: "Lista", base: "lista",
+    slides: {
+      capa: capa(),
+      texto: { bg: fundo, boxes: [...moldura(), box("titulo", M, 20, W / 2, 19, { size: 280, color: "destaque", maxWords: 1, auto: "numero" }), box("titulo", M, 42, W, 12, { size: 56, color: "texto", maxWords: 8 }), box("texto", M, 56, W * 0.92, 24, { size: 36, color: "texto", opacity: 80, maxWords: 40 })] },
+      imagem: { bg: fundo, boxes: [...moldura(), box("titulo", M, 14, W / 3, 11, { size: 160, color: "destaque", maxWords: 1, auto: "numero" }), box("imagem", M, 27, W, 36), box("titulo", M, 66, W, 9, { size: 52, color: "texto", maxWords: 8 }), box("texto", M, 76, W, 11, { size: 32, color: "texto", opacity: 80, maxWords: 25 })] },
+      final: cta(),
+    },
+  };
+  const foto: CarouselTemplate = {
+    id: newId(), name: "Com foto", base: "foto",
+    slides: {
+      capa: { bg: fundo, boxes: [box("imagem", 0, 0, 100, 56), ...moldura().slice(1), eyebrow(60), box("titulo", M, 64, W, 18, { size: 88, color: "texto", maxWords: 10 })] },
+      texto: argumento(),
+      imagem: { bg: fundo, boxes: [...moldura(), box("imagem", M, 12, W, 56), box("texto", M, 71, W, 14, { size: 34, color: "texto", opacity: 80, maxWords: 25 })] },
+      final: cta(),
+    },
+  };
+  return [editorial, lista, foto];
+}
+
+/** Modelo sem ids nem datas, para saber se um modelo-base ainda está como foi criado. */
+export function templateShape(t: CarouselTemplate): string {
+  return JSON.stringify({ name: t.name, slides: Object.fromEntries(SLIDE_KINDS.map(({ key }) => [key, { bg: t.slides[key].bg, boxes: t.slides[key].boxes.map((b) => ({ ...b, id: "" })) }])) });
+}

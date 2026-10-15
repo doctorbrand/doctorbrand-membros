@@ -18,6 +18,8 @@ const r1 = (v: number) => Math.round(v * 2) / 2;
 const ROLE_LABEL = Object.fromEntries(COLOR_ROLES.map((r) => [r.key, r.label])) as Record<ColorRole, string>;
 const KIND_LABEL = Object.fromEntries(BOX_KINDS.map((b) => [b.key, b.label])) as Record<BoxKind, string>;
 
+const boxLabel = (b: TemplateBox) => b.auto === "numero" ? "Número" : b.auto === "contador" ? "Contador" : b.fixo ? `Fixo: ${b.fixo}` : KIND_LABEL[b.kind];
+
 const AlignIcon = ({ a }: { a: BoxAlign }) => (
   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" aria-hidden>
     {a === "left" && <path d="M4 6h16M4 10.5h10M4 15h16M4 19.5h10" />}
@@ -184,7 +186,7 @@ export function TemplateEditor({ slug, kit, logos, photo, local, initial, isNew,
               {layout.boxes.map((b) => (
                 <div key={b.id} className={`te-handle ${sel === b.id ? "is-sel" : ""}`} style={{ left: `${b.x}%`, top: `${b.y}%`, width: `${b.w}%`, height: `${b.h}%` }}
                   onPointerDown={(e) => onPointerDown(e, b, "move")} title={`${KIND_LABEL[b.kind]}: arraste para mover`}>
-                  <span className="te-tag">{b.auto === "numero" ? "Número" : KIND_LABEL[b.kind]}</span>
+                  <span className="te-tag">{boxLabel(b)}</span>
                   <span className="te-resize" onPointerDown={(e) => onPointerDown(e, b, "resize")} title="Arraste para redimensionar" />
                 </div>
               ))}
@@ -220,7 +222,7 @@ export function TemplateEditor({ slug, kit, logos, photo, local, initial, isNew,
             <p className="label mb-2">Caixas</p>
             <div className="flex flex-wrap gap-1.5 mb-2">
               {layout.boxes.map((b) => (
-                <button key={b.id} type="button" className={`te-chip ${sel === b.id ? "is-on" : ""}`} onClick={() => setSel(b.id)}>{b.auto === "numero" ? "Número" : KIND_LABEL[b.kind]}</button>
+                <button key={b.id} type="button" className={`te-chip ${sel === b.id ? "is-on" : ""}`} onClick={() => setSel(b.id)}>{boxLabel(b)}</button>
               ))}
               {layout.boxes.length === 0 && <span className="text-xs text-[var(--muted)]">Nenhuma caixa neste slide.</span>}
             </div>
@@ -232,7 +234,7 @@ export function TemplateEditor({ slug, kit, logos, photo, local, initial, isNew,
           {box && (
             <section className="te-props">
               <div className="flex items-center justify-between">
-                <p className="label">{box.auto === "numero" ? "Número do passo" : KIND_LABEL[box.kind]}</p>
+                <p className="label">{boxLabel(box)}</p>
                 <button type="button" className="ct-icon-btn" onClick={() => removeBox(box.id)} title="Remover caixa" aria-label="Remover caixa"><TrashIcon /></button>
               </div>
               {textBox && (
@@ -264,9 +266,33 @@ export function TemplateEditor({ slug, kit, logos, photo, local, initial, isNew,
                       })}
                     </div>
                   </div>
-                  {box.kind === "titulo" && (
-                    <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={box.auto === "numero"} onChange={(e) => patchBox(box.id, { auto: e.target.checked ? "numero" : undefined })} />Número do passo (01, 02…), preenchido sozinho</label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <label className="flex flex-col gap-1"><span className="te-l">Conteúdo</span>
+                      <select className="ct-input" value={box.auto ?? (box.fixo !== undefined ? "fixo" : "claude")} onChange={(e) => {
+                        const v = e.target.value;
+                        patchBox(box.id, v === "fixo" ? { auto: undefined, fixo: box.fixo || "DoctorBrand" } : v === "claude" ? { auto: undefined, fixo: undefined } : { auto: v as "numero" | "contador", fixo: undefined });
+                      }}>
+                        <option value="claude">Texto do post (o Claude escreve)</option>
+                        <option value="fixo">Texto fixo</option>
+                        {box.kind === "titulo" && <option value="numero">Número do passo (01, 02…)</option>}
+                        <option value="contador">Contador (3/7)</option>
+                      </select>
+                    </label>
+                    <label className="flex flex-col gap-1"><span className="te-l">Opacidade</span>
+                      <select className="ct-input" value={box.opacity ?? 100} onChange={(e) => patchBox(box.id, { opacity: Number(e.target.value) === 100 ? undefined : Number(e.target.value) })}>
+                        <option value={100}>100%</option><option value={80}>80% (apoio)</option><option value={60}>60% (moldura, ênfase)</option>
+                      </select>
+                    </label>
+                  </div>
+                  {box.fixo !== undefined && !box.auto && (
+                    <label className="flex flex-col gap-1"><span className="te-l">Texto fixo</span>
+                      <input className="ct-input" maxLength={40} value={box.fixo} onChange={(e) => patchBox(box.id, { fixo: e.target.value })} placeholder="ex.: @fernandofontees" />
+                    </label>
                   )}
+                  <div className="flex flex-wrap gap-x-5 gap-y-2">
+                    <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={!!box.italic} onChange={(e) => patchBox(box.id, { italic: e.target.checked || undefined })} />Itálico</label>
+                    <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={!!box.caps} onChange={(e) => patchBox(box.id, { caps: e.target.checked || undefined })} />Caixa alta espaçada</label>
+                  </div>
                 </>
               )}
               <div className="grid grid-cols-4 gap-2">
