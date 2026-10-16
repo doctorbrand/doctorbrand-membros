@@ -2,13 +2,16 @@
 
 import { revalidatePath } from "next/cache";
 import { requireAdmin } from "@/lib/auth";
-import { getBrand, saveBrand } from "@/lib/brandStore";
-import { COLOR_ROLES, LOGO_SLOTS, MAX_COLORS, normalizeHex, type BrandColor, type BrandFont, type ColorRole, type LogoKey } from "@/lib/brand";
+import { getBrand, saveBrand, saveTemplates } from "@/lib/brandStore";
+import { baseTemplates, cleanTemplate, colorFor, COLOR_ROLES, fontFamilyFromFile, fontFiles, fontFileStyle, LOGO_SLOTS, MAX_COLORS, MAX_TEMPLATES, normalizeHex, type BrandColor, type BrandFont, type ColorRole, type FontSlot, type LogoKey } from "@/lib/brand";
+import { cleanAjustes, isModeloId } from "@/lib/carrossel/doctorbrand";
 import { getClient } from "@/lib/clients";
 import { parseDriveLinks } from "@/lib/drive";
 import type { ActionResult } from "@/lib/types";
 
 const page = (slug: string) => `/cliente/${slug}/marca`;
+const FONT_SLOTS: Record<string, FontSlot> = { font_titulo: "titulo", font_texto: "texto", font_script: "script" };
+const fontSlot = (slot: string): FontSlot | undefined => (Object.hasOwn(FONT_SLOTS, slot) ? FONT_SLOTS[slot] : undefined);
 const ROLES = new Set(COLOR_ROLES.map((r) => r.key));
 
 async function guard(slug: string) {
@@ -33,18 +36,21 @@ export async function saveBrandAction(slug: string, _prev: ActionResult | null, 
   }
 
   const cur = await getBrand(slug);
-  const font = (k: "titulo" | "texto"): BrandFont | undefined => {
+  const font = (k: FontSlot): BrandFont | undefined => {
     const family = str(`font_${k}_family`);
     const prev = cur.fonts[k];
-    if (!family && !prev?.path) return undefined;
+    // Vaga que não está no formulário (script, quando o kit não usa modelos fixos): fica como está.
+    if (!fd.has(`font_${k}_family`)) return prev;
+    const arquivo = prev?.source === "arquivo" && !!prev.path;
+    if (!family && !arquivo) return undefined;
     const w = Number(str(`font_${k}_weight`));
-    return { family: family || prev?.family || "", source: prev?.path ? "arquivo" : "google", path: prev?.path, weight: Number.isFinite(w) && w >= 100 && w <= 900 ? Math.round(w / 100) * 100 : undefined };
+    return { ...(arquivo ? prev : {}), family: family || prev?.family || "", source: arquivo ? "arquivo" : "google", weight: Number.isFinite(w) && w >= 100 && w <= 900 ? Math.round(w / 100) * 100 : undefined };
   };
 
   const drive = str("driveFolder");
   if (drive && parseDriveLinks(drive).folders.length === 0) return { ok: false, message: "O link da pasta do Drive não parece ser de uma pasta (drive.google.com/drive/folders/...)." };
 
-  await saveBrand(slug, { colors, fonts: { titulo: font("titulo"), texto: font("texto") }, driveFolder: drive || undefined, rules: str("rules").replace(/\r\n?/g, "\n") }, s.name);
+  await saveBrand(slug, { colors, fonts: { titulo: font("titulo"), texto: font("texto"), script: font("script") }, driveFolder: drive || undefined, rules: str("rules").replace(/\r\n?/g, "\n") }, s.name);
   revalidatePath(page(slug));
   return { ok: true, message: "Kit de marca salvo." };
 }
@@ -56,10 +62,16 @@ export async function setBrandFileAction(slug: string, slot: string, path: strin
   const cur = await getBrand(slug);
   if (LOGO_SLOTS.some((l) => l.key === slot)) {
     await saveBrand(slug, { logos: { ...cur.logos, [slot as LogoKey]: { path, name } } }, s.name);
-  } else if (slot === "font_titulo" || slot === "font_texto") {
-    const k = slot === "font_titulo" ? "titulo" : "texto";
-    const family = cur.fonts[k]?.family || name.replace(/\.[^.]+$/, "").replace(/[-_]+/g, " ");
-    await saveBrand(slug, { fonts: { ...cur.fonts, [k]: { ...cur.fonts[k], family, source: "arquivo", path } } }, s.name);
+  } else if (fontSlot(slot)) {
+    // Cada arquivo é uma variante da família (Light, Regular, itálico…): soma às que já estão; mesmo peso e estilo, troca.
+    const k = fontSlot(slot)!;
+    const prev = cur.fonts[k];
+    const { weight, italic } = fontFileStyle(name);
+    const files = [...fontFiles(prev).filter((f) => !(f.weight === weight && !!f.italic === italic)), { path, weight, ...(italic ? { italic } : {}) }]
+      .sort((a, b) => a.weight - b.weight || Number(!!a.italic) - Number(!!b.italic));
+    const regular = files.find((f) => f.weight === (prev?.weight ?? 400) && !f.italic) ?? files.find((f) => !f.italic) ?? files[0];
+    const family = prev?.source === "arquivo" && prev.family ? prev.family : fontFamilyFromFile(name);
+    await saveBrand(slug, { fonts: { ...cur.fonts, [k]: { family, source: "arquivo", path: regular.path, weight: prev?.weight, files } } }, s.name);
   } else {
     return { ok: false, message: "Campo desconhecido." };
   }
@@ -75,11 +87,74 @@ export async function clearBrandFileAction(slug: string, slot: string): Promise<
     const logos = { ...cur.logos };
     delete logos[slot as LogoKey];
     await saveBrand(slug, { logos }, s.name);
-  } else if (slot === "font_titulo" || slot === "font_texto") {
-    const k = slot === "font_titulo" ? "titulo" : "texto";
+  } else if (fontSlot(slot)) {
+    const k = fontSlot(slot)!;
     const f = cur.fonts[k];
     await saveBrand(slug, { fonts: { ...cur.fonts, [k]: f ? { family: f.family, source: "google", weight: f.weight } : undefined } }, s.name);
   }
   revalidatePath(page(slug));
   return { ok: true, message: "Removido." };
+}
+
+// ─── Modelos de carrossel ────────────────────────────────────────────────
+
+/** Salva (cria ou atualiza) um modelo. O editor manda o modelo inteiro em JSON. */
+export async function saveTemplateAction(slug: string, json: string): Promise<ActionResult & { id?: string }> {
+  const s = await guard(slug);
+  let raw: unknown;
+  try { raw = JSON.parse(json); } catch { return { ok: false, message: "Modelo inválido." }; }
+  const t = cleanTemplate(raw, slug);
+  if (!t) return { ok: false, message: "Dê um nome ao modelo." };
+  const list = (await getBrand(slug)).templates ?? [];
+  const i = list.findIndex((x) => x.id === t.id);
+  if (i < 0 && list.length >= MAX_TEMPLATES) return { ok: false, message: `Já são ${MAX_TEMPLATES} modelos. Apague um para criar outro.` };
+  if (list.some((x) => x.id !== t.id && x.name.toLowerCase() === t.name.toLowerCase())) return { ok: false, message: "Já existe um modelo com esse nome." };
+  const next = { ...t, updatedAt: new Date().toISOString() };
+  await saveTemplates(slug, i < 0 ? [...list, next] : list.map((x) => (x.id === t.id ? next : x)), s.name);
+  revalidatePath(page(slug));
+  return { ok: true, message: "Modelo salvo.", id: t.id };
+}
+
+export async function deleteTemplateAction(slug: string, id: string): Promise<ActionResult> {
+  const s = await guard(slug);
+  const list = (await getBrand(slug)).templates ?? [];
+  if (!list.some((x) => x.id === id)) return { ok: false, message: "Modelo não encontrado." };
+  await saveTemplates(slug, list.filter((x) => x.id !== id), s.name);
+  revalidatePath(page(slug));
+  return { ok: true, message: "Modelo apagado." };
+}
+
+/** Cria os modelos-base (Editorial, Lista, Com foto) nos espaços livres, com as cores do kit. */
+export async function createBaseTemplatesAction(slug: string): Promise<ActionResult> {
+  const s = await guard(slug);
+  const k = await getBrand(slug);
+  const faltam = (["fundo", "texto", "destaque"] as ColorRole[]).filter((r) => !colorFor(k, r));
+  if (faltam.length) return { ok: false, message: `Cadastre e salve as cores de ${faltam.join(", ")} antes de criar os modelos.` };
+  const list = k.templates ?? [];
+  const livres = MAX_TEMPLATES - list.length;
+  if (livres <= 0) return { ok: false, message: `Já são ${MAX_TEMPLATES} modelos. Apague um para criar os modelos-base.` };
+  const nomes = new Set(list.map((t) => t.name.toLowerCase()));
+  const novos = baseTemplates().filter((t) => !nomes.has(t.name.toLowerCase())).slice(0, livres).map((t) => ({ ...t, updatedAt: new Date().toISOString() }));
+  if (!novos.length) return { ok: false, message: "Os modelos-base já existem." };
+  await saveTemplates(slug, [...list, ...novos], s.name);
+  revalidatePath(page(slug));
+  return { ok: true, message: `${novos.length} ${novos.length === 1 ? "modelo criado" : "modelos criados"}: ${novos.map((t) => t.name).join(", ")}.` };
+}
+
+// ─── Ajustes dos modelos fixos ───────────────────────────────────────────
+
+/** Salva os ajustes de um dos modelos fixos (vazio = volta ao desenho original). */
+export async function saveAjustesAction(slug: string, modelo: string, json: string): Promise<ActionResult> {
+  const s = await guard(slug);
+  if (!isModeloId(modelo)) return { ok: false, message: "Modelo desconhecido." };
+  const k = await getBrand(slug);
+  if (!k.modelosFixos) return { ok: false, message: "Este kit não usa os modelos fixos." };
+  let raw: unknown;
+  try { raw = JSON.parse(json); } catch { return { ok: false, message: "Ajustes inválidos." }; }
+  const a = cleanAjustes(raw);
+  const all = { ...(k.ajustesModelos ?? {}) };
+  if (Object.keys(a).length) all[modelo] = a; else delete all[modelo];
+  await saveBrand(slug, { ajustesModelos: all }, s.name);
+  revalidatePath(page(slug));
+  return { ok: true, message: Object.keys(a).length ? "Ajustes salvos." : "Modelo de volta ao desenho original." };
 }
