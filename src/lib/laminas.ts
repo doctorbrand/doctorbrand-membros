@@ -22,6 +22,8 @@ export interface Lamina {
   foto?: Media;
   modoFoto?: ModoFoto;
   posFoto?: PosFoto;
+  /** Indicação da foto que vai nesta lâmina (vinda do roteiro), enquanto a foto não é escolhida. */
+  notaFoto?: string;
 }
 
 export interface LaminasPost {
@@ -35,7 +37,7 @@ export const MIN_LAMINAS = 3;
 export const MAX_LAMINAS = 10;
 export const PADRAO_LAMINAS = 6;
 /** Palavras que cabem em cada campo sem quebrar o desenho. O Claude escreve dentro disso. */
-export const LIMITE = { titulo: 12, subtitulo: 18, descricao: 45 } as const;
+export const LIMITE = { titulo: 16, subtitulo: 18, descricao: 50 } as const;
 
 export const NOME_TIPO: Record<TipoLamina, string> = { capa: "Capa", slide: "Slide", final: "Tela final" };
 
@@ -142,6 +144,8 @@ export const H = 1350;
 export type Elemento =
   | { k: "rect"; x: number; y: number; w: number; h: number; cor: string; alfa?: number; borda?: string; raio?: number; elipse?: boolean }
   | { k: "foto"; x: number; y: number; w: number; h: number; foto: Media; pb?: boolean; raio?: number; fundo?: string }
+  /** Lugar reservado para a foto que ainda vai ser escolhida, com a indicação do roteiro. */
+  | { k: "vaga"; x: number; y: number; w: number; h: number; nota: string; cor: string; corTexto: string; fonte: string; raio?: number }
   | { k: "texto"; x: number; y: number; w: number; h: number; texto: string; trechos: Trecho[]; fonte: string; tam: number; cor: string; italico?: boolean; negrito?: boolean; alinhar: "left" | "center" | "right"; entrelinha: number; espaco?: number; serifa: boolean };
 
 /** Largura média de um caractere, em fração do tamanho da letra (estimativa para quebrar linhas). */
@@ -208,7 +212,12 @@ export function desenhar(itens: Lamina[], i: number, e: Estilo): Elemento[] {
   const c = e.cores;
   const revista = e.base === "revista";
   const out: Elemento[] = [{ k: "rect", x: 0, y: 0, w: W, h: H, cor: c.fundo }];
-  const foto = l.foto ? l.modoFoto ?? (l.tipo === "capa" ? "fundo" : "moldura") : undefined;
+  const temFoto = !!(l.foto || l.notaFoto);
+  const foto = temFoto ? l.modoFoto ?? (l.tipo === "capa" ? "fundo" : "moldura") : undefined;
+  // A foto escolhida ou, sem ela, a vaga com a indicação do roteiro.
+  const pf = (x: number, y: number, w: number, h: number, extra: { raio?: number; fundo?: string } = {}): Elemento => l.foto
+    ? { k: "foto", x, y, w, h, foto: l.foto, pb: e.fotoPB, ...extra }
+    : { k: "vaga", x, y, w, h, nota: l.notaFoto ?? "", cor: mistura(c.fundo, c.suave, 0.28), corTexto: mistura(c.fundo, c.suave, 0.85), fonte: e.fontes.texto, raio: extra.raio };
   const pos: PosFoto = l.posFoto ?? (e.base === "revista" ? "baixo" : "cima");
   const raio = e.raioFoto ?? (revista ? 22 : 0);
   const centro = e.base === "editorial" || (revista && l.tipo === "capa" && foto === "fundo");
@@ -234,47 +243,47 @@ export function desenhar(itens: Lamina[], i: number, e: Estilo): Elemento[] {
 
   let textos: Texto[] = [];
   const largura = W - 2 * M;
-  if (foto === "fundo" && l.foto) {
-    out.push({ k: "foto", x: 0, y: 0, w: W, h: H, foto: l.foto, pb: e.fotoPB });
+  if (foto === "fundo" && temFoto) {
+    out.push(pf(0, 0, W, H));
     out.push({ k: "rect", x: 0, y: 0, w: W, h: H, cor: escuro, alfa: l.tipo === "capa" ? 0.2 : 0.4 });
     // Escurece de baixo para cima em degraus (o .pptx não tem degradê que o Canva leia bem).
     for (const t of [0.4, 0.52, 0.64, 0.76]) out.push({ k: "rect", x: 0, y: Math.round(H * t), w: W, h: H - Math.round(H * t), cor: escuro, alfa: 0.16 });
     textos = empilhar(blocos, { x: M, y: Math.round(H * 0.42), w: largura, h: Math.round(H * 0.58) - (revista ? 120 : 150) }, "baixo", alinhar);
-  } else if (foto === "moldura" && l.foto && revista) {
+  } else if (foto === "moldura" && temFoto && revista) {
     // Revista: foto arredondada em cima, embaixo ou ao lado do texto.
     const y0 = 210;
     const base = H - 120;
     if (pos === "lado") {
       const xf = 600;
-      out.push({ k: "foto", x: xf, y: y0, w: W - xf, h: base - y0, foto: l.foto, pb: e.fotoPB, raio, fundo: c.fundo });
+      out.push(pf(xf, y0, W - xf, base - y0, { raio, fundo: c.fundo }));
       textos = empilhar(blocos, { x: M, y: y0, w: xf - M - 48, h: base - y0 }, "centro", "left");
     } else if (pos === "cima") {
       const fh = l.tipo === "capa" ? 600 : 500;
-      out.push({ k: "foto", x: M, y: y0, w: largura, h: fh, foto: l.foto, pb: e.fotoPB, raio, fundo: c.fundo });
+      out.push(pf(M, y0, largura, fh, { raio, fundo: c.fundo }));
       textos = empilhar(blocos, { x: M, y: y0 + fh + 64, w: largura, h: base - (y0 + fh + 64) }, "topo", "left");
     } else {
       // Texto no alto e a foto logo abaixo, ocupando o que sobra (no mínimo 380 px).
       textos = empilhar(blocos, { x: M, y: y0 + 40, w: largura, h: base - (y0 + 40) - 380 - 56 }, "topo", "left");
       const yf = Math.max(y0 + 40, fim(textos) + 56);
-      out.push({ k: "foto", x: M, y: yf, w: largura, h: Math.min(560, base - yf), foto: l.foto, pb: e.fotoPB, raio, fundo: c.fundo });
+      out.push(pf(M, yf, largura, Math.min(560, base - yf), { raio, fundo: c.fundo }));
     }
-  } else if (foto === "moldura" && l.foto) {
+  } else if (foto === "moldura" && temFoto) {
     if (e.base === "classico") {
       const fh = l.tipo === "capa" ? 640 : 520;
       const yf = pos === "baixo" ? H - 150 - fh : 150;
       out.push({ k: "rect", x: M + 16, y: yf + 16, w: largura, h: fh, cor: c.fundo, borda: c.destaque });
-      out.push({ k: "foto", x: M, y: yf, w: largura, h: fh, foto: l.foto, pb: e.fotoPB, raio, fundo: c.fundo });
+      out.push(pf(M, yf, largura, fh, { raio, fundo: c.fundo }));
       textos = pos === "baixo"
         ? empilhar(blocos, { x: M, y: topoTexto, w: largura, h: yf - 80 - topoTexto }, "baixo", alinhar)
         : empilhar(blocos, { x: M, y: yf + fh + 80, w: largura, h: H - (yf + fh + 80) - 150 }, "topo", alinhar);
     } else {
       const fh = e.base === "manchete" ? (l.tipo === "capa" ? 800 : 640) : l.tipo === "capa" ? 720 : 600;
       if (pos === "baixo") {
-        out.push({ k: "foto", x: 0, y: H - fh, w: W, h: fh, foto: l.foto, pb: e.fotoPB });
+        out.push(pf(0, H - fh, W, fh));
         out.push({ k: "rect", x: 0, y: H - fh, w: W, h: 120, cor: c.fundo, alfa: 0.35 });
         textos = empilhar(blocos, { x: M, y: topoTexto, w: largura, h: H - fh - 64 - topoTexto }, "baixo", alinhar);
       } else {
-        out.push({ k: "foto", x: 0, y: 0, w: W, h: fh, foto: l.foto, pb: e.fotoPB });
+        out.push(pf(0, 0, W, fh));
         out.push({ k: "rect", x: 0, y: fh - 140, w: W, h: 140, cor: c.fundo, alfa: 0.35 });
         textos = empilhar(blocos, { x: M, y: fh + 64, w: largura, h: H - (fh + 64) - 150 }, "topo", alinhar);
       }

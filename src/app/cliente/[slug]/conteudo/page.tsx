@@ -26,7 +26,7 @@ import { addDays, todayISO } from "@/lib/periods";
 import { localDir } from "@/lib/store";
 import { getBrand } from "@/lib/brandStore";
 import { getLotes } from "@/lib/canvaLotes";
-import { anexarLaminasAction, escreverLaminasAction, fotosDaPastaAction, loteAction, salvarLaminasAction } from "./canvaActions";
+import { anexarLaminasAction, escreverLaminasAction, fotosDaPastaAction, importarCarrosseisAction, loteAction, salvarLaminasAction } from "./canvaActions";
 import { approveAllAction, approveAndNextAction, changeAndNextAction, connectInstagramAction, refreshIgAccountsAction, disconnectInstagramAction, deletePostAction, importDriveAction, importDriveBatchAction, refreshDriveAction, importListAction, importPostsAction, reorderFeedAction, setDateAction, setPillarAction, publishNowAction, retryPublishAction, savePlanAction, savePostAction, scheduleAction, setCoverAction, setStatusAction, unscheduleAction } from "./actions";
 
 export const dynamic = "force-dynamic";
@@ -134,7 +134,7 @@ export default async function ConteudoPage({ params, searchParams }: { params: P
           <DriveImport action={importDriveBatchAction.bind(null, slug)} defaultStart={nextDay} everyDays={Math.max(1, Math.round(7 / plan.postsPerWeek))} />
           <ListImport action={importListAction.bind(null, slug)} defaultStart={nextDay} everyDays={Math.max(1, Math.round(7 / plan.postsPerWeek))} />
           <CanvaLote slug={slug} local={local} estilos={kit?.estilos ?? []} carrosseis={carrosseis} lotes={lotes} temPasta={!!kit?.driveFolder} kitHref={`/cliente/${slug}/marca#modelos`}
-            escrever={escreverLaminasAction.bind(null, slug)} salvar={salvarLaminasAction.bind(null, slug)} fotosDaPasta={fotosDaPastaAction.bind(null, slug)} criarLote={loteAction.bind(null, slug)} anexar={anexarLaminasAction.bind(null, slug)} />
+            escrever={escreverLaminasAction.bind(null, slug)} salvar={salvarLaminasAction.bind(null, slug)} fotosDaPasta={fotosDaPastaAction.bind(null, slug)} criarLote={loteAction.bind(null, slug)} anexar={anexarLaminasAction.bind(null, slug)} importar={importarCarrosseisAction.bind(null, slug)} />
         </div>
       )}
 
