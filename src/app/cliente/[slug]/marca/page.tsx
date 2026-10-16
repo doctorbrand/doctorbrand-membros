@@ -6,14 +6,15 @@ import { ArrowUpRightIcon, CheckIcon, FolderIcon } from "@/components/Icons";
 import { Shell } from "@/components/Shell";
 import { requireAdmin } from "@/lib/auth";
 import { getBrand } from "@/lib/brandStore";
-import { brandChecklist, MAX_MODELOS, type CanvaModelo } from "@/lib/brand";
-import { CamposEditor } from "@/components/brand/CamposEditor";
-import { usaModelosDoctorbrand } from "@/lib/canvaPresets";
+import { brandChecklist } from "@/lib/brand";
+import { EstiloCampos } from "@/components/brand/EstiloCampos";
+import { LaminaPreview } from "@/components/content/LaminaPreview";
+import { ESTILOS_DOCTORBRAND, MAX_ESTILOS, usaEstilosDoctorbrand, type Estilo, type Lamina } from "@/lib/laminas";
 import { getClient } from "@/lib/clients";
 import { getPlan, getPosts, monthlyByType } from "@/lib/content";
 import { DRIVE_WEB, mediaUrl } from "@/lib/content-media";
 import { driveFolderFiles, parseDriveLinks } from "@/lib/drive";
-import { addModelosDoctorbrandAction, removeModeloAction, saveBrandAction, saveModeloAction } from "./actions";
+import { addEstilosDoctorbrandAction, removeEstiloAction, saveBrandAction, saveEstiloAction } from "./actions";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 30;
@@ -45,18 +46,13 @@ async function DrivePhotos({ link }: { link: string }) {
   );
 }
 
-function ModeloForm({ slug, m }: { slug: string; m?: CanvaModelo }) {
+const CARTAO: Lamina[] = [{ tipo: "capa", titulo: "", subtitulo: "", descricao: "" }, { tipo: "slide", titulo: "", subtitulo: "", descricao: "" }, { tipo: "final", titulo: "", subtitulo: "", descricao: "" }];
+
+function EstiloForm({ slug, e }: { slug: string; e?: Estilo }) {
   return (
-    <ActionForm action={saveModeloAction.bind(null, slug, m?.id ?? null)} className="flex flex-col gap-3">
-      <div className="grid sm:grid-cols-[minmax(0,1fr)_minmax(0,2fr)] gap-3">
-        <label className="flex flex-col gap-1"><span className="label">Nome</span><input name="titulo" defaultValue={m?.titulo ?? ""} placeholder="ex.: Autoridade" className="ct-input" /></label>
-        <label className="flex flex-col gap-1"><span className="label">Link do modelo no Canva</span><input name="link" defaultValue={m?.link ?? ""} placeholder="https://www.canva.com/design/..." className="ct-input" /></label>
-      </div>
-      <div className="flex flex-col gap-1">
-        <span className="label">Textos e fotos do modelo</span>
-        <CamposEditor inicial={m?.campos ?? []} />
-      </div>
-      <div><button className="ct-btn ct-btn-dark">{m ? "Salvar modelo" : "Adicionar modelo"}</button></div>
+    <ActionForm action={saveEstiloAction.bind(null, slug, e?.id ?? null)} className="flex flex-col gap-4">
+      <EstiloCampos inicial={e} />
+      <div><button className="ct-btn ct-btn-dark">{e ? "Salvar modelo" : "Adicionar modelo"}</button></div>
     </ActionForm>
   );
 }
@@ -74,10 +70,10 @@ export default async function MarcaPage({ params, searchParams }: { params: Prom
   const checks = brandChecklist(k);
   const done = checks.filter((x) => x.done).length;
   const base = `/cliente/${slug}/marca`;
-  const modelos = k.canvaModelos ?? [];
+  const modelos = k.estilos ?? [];
   const aberto = modelos.find((m) => m.id === sp.modelo);
-  const novo = sp.modelo === "novo" && modelos.length < MAX_MODELOS;
-  const dbFaltando = usaModelosDoctorbrand(slug) && !["autoridade", "editorial", "manchete", "consultoria", "bastidor"].every((t) => modelos.some((m) => m.titulo.toLowerCase() === t));
+  const novo = sp.modelo === "novo" && modelos.length < MAX_ESTILOS;
+  const dbFaltando = usaEstilosDoctorbrand(slug) && !ESTILOS_DOCTORBRAND.every((d) => modelos.some((m) => m.id === d.id || m.titulo.toLowerCase() === d.titulo.toLowerCase()));
 
   return (
     <Shell active="marca" session={session} clientSlug={slug}>
@@ -85,7 +81,7 @@ export default async function MarcaPage({ params, searchParams }: { params: Prom
         <div>
           <p className="label">{c.name} · {c.specialty}</p>
           <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight mt-1">Kit de marca</h1>
-          <p className="text-sm text-[var(--muted)] mt-1 max-w-2xl">O visual do cliente (logos, cores, fontes e o desenho dos carrosséis) fica no Canva. Aqui ficam os modelos do Canva deste cliente, as regras de texto e a pasta de fotos. Só a equipe vê esta página.</p>
+          <p className="text-sm text-[var(--muted)] mt-1 max-w-2xl">Os modelos de carrossel deste cliente, as regras de texto e a pasta de fotos. As lâminas saem montadas daqui e abrem editáveis no Canva. Só a equipe vê esta página.</p>
         </div>
         <div className="flex items-center gap-2 text-sm">
           <span className={`pill ${done === checks.length ? "pill-green" : done >= 2 ? "pill-info" : "pill-yellow"}`}>{done} de {checks.length} prontos</span>
@@ -100,30 +96,25 @@ export default async function MarcaPage({ params, searchParams }: { params: Prom
       <section id="modelos" className="card p-5 mb-6 flex flex-col gap-4">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <h2 className="font-semibold">Modelos do Canva</h2>
-            <p className="text-sm text-[var(--muted)] max-w-2xl">Os modelos de carrossel que este cliente usa no Canva e quantas palavras cabem em cada caixa. O Claude escreve dentro desses limites. Para produzir, vá em Conteúdo e toque em Carrosséis no Canva.</p>
+            <h2 className="font-semibold">Modelos de carrossel</h2>
+            <p className="text-sm text-[var(--muted)] max-w-2xl">Cada modelo define o desenho, as cores e as fontes das lâminas (capa, slides e tela final). Para produzir, vá em Conteúdo e toque em Carrosséis no Canva.</p>
           </div>
           <div className="flex flex-wrap gap-2">
-            {dbFaltando && <ActionButton action={addModelosDoctorbrandAction.bind(null, slug)} label="Pôr os 5 modelos DoctorBrand" />}
-            {modelos.length < MAX_MODELOS && <Link href={`${base}?modelo=novo#modelos`} scroll={false} className="ct-btn">Novo modelo</Link>}
+            {dbFaltando && <ActionButton action={addEstilosDoctorbrandAction.bind(null, slug)} label="Pôr os 5 modelos DoctorBrand" />}
+            {modelos.length < MAX_ESTILOS && <Link href={`${base}?modelo=novo#modelos`} scroll={false} className="ct-btn">Novo modelo</Link>}
           </div>
         </div>
         <p className="text-sm">Meta do plano: <b>{meta} {meta === 1 ? "carrossel" : "carrosséis"} por mês</b>. Neste mês: {feitos} no planejamento. <Link href={`/cliente/${slug}/conteudo`} className="underline">Ir para o conteúdo</Link></p>
 
         {modelos.length === 0 && !novo && <p className="text-sm text-[var(--muted)]">Nenhum modelo ainda.</p>}
         {modelos.length > 0 && (
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-            {modelos.map((m) => {
-              const textos = m.campos.filter((x) => x.tipo === "text").length;
-              const fotos = m.campos.filter((x) => x.tipo === "image").length;
-              return (
-                <Link key={m.id} href={`${base}?modelo=${m.id}#modelos`} scroll={false} className={`tm-card ${aberto?.id === m.id ? "is-on" : ""}`}>
-                  <span className="font-medium truncate">{m.titulo}</span>
-                  <span className="text-xs text-[var(--muted)]">{textos} {textos === 1 ? "texto" : "textos"}{fotos ? ` · ${fotos} ${fotos === 1 ? "foto" : "fotos"}` : ""}</span>
-                  <span className={`text-xs ${m.link ? "text-[var(--muted)]" : "g-warn"}`}>{m.link ? "Link do Canva salvo" : "Falta o link do Canva"}</span>
-                </Link>
-              );
-            })}
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+            {modelos.map((m) => (
+              <Link key={m.id} href={`${base}?modelo=${m.id}#modelos`} scroll={false} className={`rounded-xl border p-2 flex flex-col gap-2 ${aberto?.id === m.id ? "border-[var(--ink)] ring-1 ring-[var(--ink)]" : "border-[var(--line)] hover:bg-[#fafaf8]"}`}>
+                <div className="flex gap-1 justify-center">{[0, 1].map((i) => <LaminaPreview key={i} itens={CARTAO.map((l, j) => (j === 0 ? { ...l, titulo: m.titulo } : j === 1 ? { ...l, titulo: "Slide", descricao: "Texto de apoio do slide." } : l))} i={i} estilo={m} largura={64} className="rounded-[4px]" />)}</div>
+                <span className="font-medium truncate text-sm text-center">{m.titulo}</span>
+              </Link>
+            ))}
           </div>
         )}
 
@@ -132,12 +123,11 @@ export default async function MarcaPage({ params, searchParams }: { params: Prom
             <div className="flex flex-wrap items-start justify-between gap-3">
               <h3 className="font-semibold">{aberto ? aberto.titulo : "Novo modelo"}</h3>
               <div className="flex flex-wrap gap-2">
-                {aberto?.link && <a href={aberto.link} target="_blank" rel="noreferrer" className="ct-btn">Abrir no Canva<ArrowUpRightIcon size={14} /></a>}
-                {aberto && <ActionButton action={removeModeloAction.bind(null, slug, aberto.id)} label="Tirar do cliente" variant="ghost" confirm={`Tirar "${aberto.titulo}" deste cliente? No Canva ele continua igual.`} />}
+                {aberto && <ActionButton action={removeEstiloAction.bind(null, slug, aberto.id)} label="Tirar do cliente" variant="ghost" confirm={`Tirar o modelo "${aberto.titulo}" deste cliente?`} />}
                 <Link href={`${base}#modelos`} scroll={false} className="ct-btn">Fechar</Link>
               </div>
             </div>
-            <ModeloForm key={aberto?.id ?? "novo"} slug={slug} m={aberto} />
+            <EstiloForm key={aberto?.id ?? "novo"} slug={slug} e={aberto} />
           </div>
         )}
       </section>
@@ -154,7 +144,7 @@ export default async function MarcaPage({ params, searchParams }: { params: Prom
         <section className="card p-5 flex flex-col gap-4">
           <div>
             <h2 className="font-semibold">Fotos</h2>
-            <p className="text-sm text-[var(--muted)]">Pasta do Google Drive com as fotos do cliente (dentro da pasta Clientes), compartilhada como “qualquer pessoa com o link”. É daqui que saem as fotos das colunas de foto no Canva.</p>
+            <p className="text-sm text-[var(--muted)]">Pasta do Google Drive com as fotos do cliente (dentro da pasta Clientes), compartilhada como “qualquer pessoa com o link”. É daqui que saem as fotos das lâminas.</p>
           </div>
           <div className="flex flex-wrap gap-2 items-center">
             <input name="driveFolder" defaultValue={k.driveFolder ?? ""} placeholder="https://drive.google.com/drive/folders/..." className="ct-input flex-1 min-w-[280px]" />

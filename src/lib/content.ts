@@ -1,3 +1,4 @@
+import type { LaminasPost } from "./laminas";
 import { readDoc, writeDoc } from "./store";
 
 /**
@@ -23,7 +24,6 @@ export interface Media {
   rev?: number;
 }
 
-/** Texto das lâminas escrito para um modelo do Canva (uma linha da planilha do Criar em massa). */
 export interface CanvaTexto {
   modeloId: string;
   modeloTitulo?: string;
@@ -84,8 +84,8 @@ export interface Post {
   source?: string;
   /** Roteiro e direção para a equipe produzir (gerado no painel). Só a equipe vê. */
   roteiro?: string;
-  /** Texto das lâminas para o modelo do Canva (vira uma linha da planilha). Só a equipe vê. */
-  canva?: CanvaTexto;
+  /** Lâminas do carrossel (capa, slides, tela final), montadas na área e levadas ao Canva. Só a equipe vê. */
+  laminas?: LaminasPost;
   /** Data e hora planejadas (America/Sao_Paulo). */
   date: string;         // YYYY-MM-DD
   time: string;         // HH:MM
