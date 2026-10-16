@@ -1,55 +1,25 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ActionForm } from "@/components/ActionForm";
-import { BrandColorsAndPreview } from "@/components/brand/BrandEditor";
-import { BrandFileUpload } from "@/components/brand/BrandFileUpload";
-import { ModeloAjustes } from "@/components/brand/ModeloAjustes";
-import { SlideFrame } from "@/components/brand/SlideFrame";
-import { SlidePreview, type PreviewAssets } from "@/components/brand/SlidePreview";
-import { TemplateEditor } from "@/components/brand/TemplateEditor";
 import { ActionButton } from "@/components/content/ContentActions";
 import { ArrowUpRightIcon, CheckIcon, FolderIcon } from "@/components/Icons";
 import { Shell } from "@/components/Shell";
 import { requireAdmin } from "@/lib/auth";
-import { getBrand, runBrandUpgrades } from "@/lib/brandStore";
-import { blankTemplate, brandChecklist, colorFor, fontFiles, fontVariantLabel, googleFontCss, LOGO_SLOTS, MAX_TEMPLATES, SLIDE_KINDS, type BrandKit, type FontSlot } from "@/lib/brand";
-import { carrosselDoc, comFotos, EXEMPLOS, FONTES_MODELOS, fontesCss, fontesFaltando, isModeloId, MODELOS } from "@/lib/carrossel/doctorbrand";
+import { getBrand } from "@/lib/brandStore";
+import { brandChecklist, MAX_MODELOS, type CanvaModelo } from "@/lib/brand";
+import { CamposEditor } from "@/components/brand/CamposEditor";
+import { usaModelosDoctorbrand } from "@/lib/canvaPresets";
 import { getClient } from "@/lib/clients";
 import { getPlan, getPosts, monthlyByType } from "@/lib/content";
 import { DRIVE_WEB, mediaUrl } from "@/lib/content-media";
 import { driveFolderFiles, parseDriveLinks } from "@/lib/drive";
-import { SIMBOLO } from "@/lib/seeds/doctorbrandLogos";
-import { localDir } from "@/lib/store";
-import { clearBrandFileAction, createBaseTemplatesAction, deleteTemplateAction, saveAjustesAction, saveBrandAction, saveTemplateAction, setBrandFileAction } from "./actions";
+import { addModelosDoctorbrandAction, removeModeloAction, saveBrandAction, saveModeloAction } from "./actions";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 30;
 
-const fileUrl = (path: string) => `/api/media?p=${encodeURIComponent(path)}`;
-
 function when(iso: string) {
   return new Date(iso).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo", day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
-}
-
-/** Fundo escuro? (para escolher a versão do logo na prévia) */
-function isDark(hex?: string) {
-  if (!hex) return true;
-  const n = parseInt(hex.slice(1), 16);
-  const [r, g, b] = [(n >> 16) & 255, (n >> 8) & 255, n & 255];
-  return 0.2126 * r + 0.7152 * g + 0.0722 * b < 140;
-}
-
-/** @font-face das fontes enviadas (todas as variantes) e <link> das do Google, para a prévia usar a fonte real. */
-function FontLoaders({ k }: { k: BrandKit }) {
-  const fonts = [k.fonts.titulo, k.fonts.texto, k.fonts.script].filter((f) => !!f?.family);
-  const google = fonts.filter((f) => f!.source === "google");
-  const faces = fonts.flatMap((f) => fontFiles(f).map((x) => `@font-face{font-family:"${f!.family.replace(/"/g, "")}";src:url("${fileUrl(x.path)}");font-weight:${x.weight};font-style:${x.italic ? "italic" : "normal"};font-display:swap}`));
-  return (
-    <>
-      {google.map((f) => <link key={`${f!.family}-${f!.weight}`} rel="stylesheet" href={googleFontCss(f!.family, f!.weight)} precedence="default" />)}
-      {faces.length > 0 && <style>{faces.join("\n")}</style>}
-    </>
-  );
 }
 
 async function DrivePhotos({ link }: { link: string }) {
@@ -75,19 +45,21 @@ async function DrivePhotos({ link }: { link: string }) {
   );
 }
 
-/** Fotos da pasta do Drive do kit (só para as prévias: caixa de imagem e lâminas com foto). */
-async function folderPhotos(link: string | undefined, width: number, max: number): Promise<string[]> {
-  const id = link ? parseDriveLinks(link).folders[0] : undefined;
-  if (!id) return [];
-  const files = (await driveFolderFiles(id).catch(() => [])).filter((x) => x.mime.startsWith("image/")).slice(0, max);
-  return files.map((f) => mediaUrl({ driveId: f.id, kind: "image" }, width)!);
+function ModeloForm({ slug, m }: { slug: string; m?: CanvaModelo }) {
+  return (
+    <ActionForm action={saveModeloAction.bind(null, slug, m?.id ?? null)} className="flex flex-col gap-3">
+      <div className="grid sm:grid-cols-[minmax(0,1fr)_minmax(0,2fr)] gap-3">
+        <label className="flex flex-col gap-1"><span className="label">Nome</span><input name="titulo" defaultValue={m?.titulo ?? ""} placeholder="ex.: Autoridade" className="ct-input" /></label>
+        <label className="flex flex-col gap-1"><span className="label">Link do modelo no Canva</span><input name="link" defaultValue={m?.link ?? ""} placeholder="https://www.canva.com/design/..." className="ct-input" /></label>
+      </div>
+      <div className="flex flex-col gap-1">
+        <span className="label">Textos e fotos do modelo</span>
+        <CamposEditor inicial={m?.campos ?? []} />
+      </div>
+      <div><button className="ct-btn ct-btn-dark">{m ? "Salvar modelo" : "Adicionar modelo"}</button></div>
+    </ActionForm>
+  );
 }
-
-const FONT_LABEL: Record<FontSlot, { label: string; fixo: string; placeholder: string; amostra: string }> = {
-  titulo: { label: "Títulos", fixo: "Títulos · serifa", placeholder: "ex.: Playfair Display", amostra: "Técnica é obrigação. Autoridade é arquitetura." },
-  texto: { label: "Texto", fixo: "Texto · grotesca", placeholder: "ex.: Inter", amostra: "O paciente não decide por técnica. Decide por sinais que encontra antes de chegar na consulta." },
-  script: { label: "Script", fixo: "Script", placeholder: "ex.: Sloop", amostra: "Por que o WhatsApp" },
-};
 
 export default async function MarcaPage({ params, searchParams }: { params: Promise<{ slug: string }>; searchParams: Promise<{ modelo?: string }> }) {
   const { slug } = await params;
@@ -95,41 +67,28 @@ export default async function MarcaPage({ params, searchParams }: { params: Prom
   const session = await requireAdmin();
   const c = await getClient(slug);
   if (!c) notFound();
-  await runBrandUpgrades(slug).catch(() => undefined);
   const [k, plan, posts] = await Promise.all([getBrand(slug), getPlan(slug), getPosts(slug)]);
   const meta = monthlyByType(plan).carrossel;
   const mes = new Date().toLocaleString("sv-SE", { timeZone: "America/Sao_Paulo" }).slice(0, 7);
   const feitos = posts.filter((p) => p.type === "carrossel" && p.date?.startsWith(mes)).length;
-  const local = !!localDir();
   const checks = brandChecklist(k);
   const done = checks.filter((x) => x.done).length;
-  const darkBg = isDark(colorFor(k, "fundo"));
-  const previewLogo = (darkBg ? k.logos.escuro : k.logos.claro) ?? k.logos.principal;
-  const save = setBrandFileAction;
-  const templates = k.templates ?? [];
-  const logoUrls: PreviewAssets["logos"] = { principal: k.logos.principal && fileUrl(k.logos.principal.path), claro: k.logos.claro && fileUrl(k.logos.claro.path), escuro: k.logos.escuro && fileUrl(k.logos.escuro.path) };
-  const fixos = k.modelosFixos === "doctorbrand";
-  const photos = await folderPhotos(k.driveFolder, fixos ? 1080 : 720, fixos ? 6 : 1);
-  const photo = photos[0];
-  const assets: PreviewAssets = { logos: logoUrls, photo, fileUrl };
-  const editing = fixos ? undefined : templates.find((t) => t.id === sp.modelo);
-  const creating = !fixos && sp.modelo === "novo" && templates.length < MAX_TEMPLATES;
-  const fontSlots: FontSlot[] = fixos ? ["titulo", "texto", "script"] : ["titulo", "texto"];
-  const faltando = fixos ? fontesFaltando(k) : undefined;
   const base = `/cliente/${slug}/marca`;
-  const colorsReady = (["fundo", "texto", "destaque"] as const).every((r) => !!colorFor(k, r));
+  const modelos = k.canvaModelos ?? [];
+  const aberto = modelos.find((m) => m.id === sp.modelo);
+  const novo = sp.modelo === "novo" && modelos.length < MAX_MODELOS;
+  const dbFaltando = usaModelosDoctorbrand(slug) && !["autoridade", "editorial", "manchete", "consultoria", "bastidor"].every((t) => modelos.some((m) => m.titulo.toLowerCase() === t));
 
   return (
     <Shell active="marca" session={session} clientSlug={slug}>
-      <FontLoaders k={k} />
       <div className="flex flex-wrap items-end justify-between gap-4 mb-5">
         <div>
           <p className="label">{c.name} · {c.specialty}</p>
           <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight mt-1">Kit de marca</h1>
-          <p className="text-sm text-[var(--muted)] mt-1 max-w-2xl">Logos, cores, fontes, fotos e regras do cliente. É a base dos modelos de carrossel e de tudo que a área gerar com a cara dele. Só a equipe vê esta página.</p>
+          <p className="text-sm text-[var(--muted)] mt-1 max-w-2xl">O visual do cliente (logos, cores, fontes e o desenho dos carrosséis) fica no Canva. Aqui ficam os modelos do Canva deste cliente, as regras de texto e a pasta de fotos. Só a equipe vê esta página.</p>
         </div>
         <div className="flex items-center gap-2 text-sm">
-          <span className={`pill ${done === checks.length ? "pill-green" : done >= 3 ? "pill-info" : "pill-yellow"}`}>{done} de {checks.length} prontos</span>
+          <span className={`pill ${done === checks.length ? "pill-green" : done >= 2 ? "pill-info" : "pill-yellow"}`}>{done} de {checks.length} prontos</span>
           <Link href={`/cliente/${slug}/perfil`} className="ct-btn">Perfil</Link>
         </div>
       </div>
@@ -138,76 +97,64 @@ export default async function MarcaPage({ params, searchParams }: { params: Prom
         {checks.map((x) => <span key={x.label} className={`pill ${x.done ? "pill-green" : ""}`}>{x.done && <CheckIcon size={12} />}{x.label}</span>)}
       </div>
 
-      <section className="card p-5 mb-6 flex flex-col gap-4">
-        <div>
-          <h2 className="font-semibold">Logos</h2>
-          <p className="text-sm text-[var(--muted)]">PNG com fundo transparente ou SVG. As versões para fundo claro e escuro evitam logo sumindo no slide.</p>
-        </div>
-        <div className="grid sm:grid-cols-3 gap-4">
-          {LOGO_SLOTS.map((l) => {
-            const f = k.logos[l.key];
-            const dark = l.key === "escuro";
-            return (
-              <div key={l.key} className="flex flex-col gap-2">
-                <span className="label">{l.label}</span>
-                <div className="h-28 rounded-xl border border-[var(--line)] grid place-items-center p-4" style={{ background: dark ? (colorFor(k, "fundo") && isDark(colorFor(k, "fundo")) ? colorFor(k, "fundo") : "#1a1a1a") : "#fafaf8" }}>
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  {f ? <img src={fileUrl(f.path)} alt={l.label} className="max-h-20 max-w-full object-contain" /> : <span className="text-xs" style={{ color: dark ? "#8e8e93" : "var(--muted)" }}>sem arquivo</span>}
-                </div>
-                <BrandFileUpload slug={slug} slot={l.key} accept="image/png,image/svg+xml,image/webp" label={f ? "Trocar" : "Enviar"} local={local} save={save} clear={f ? clearBrandFileAction.bind(null, slug, l.key) : undefined} />
-                <span className="text-xs text-[var(--muted)]">{l.hint}</span>
-              </div>
-            );
-          })}
-        </div>
-      </section>
-
-      <ActionForm action={saveBrandAction.bind(null, slug)} className="flex flex-col gap-6">
-        <section className="card p-5 flex flex-col gap-4">
+      <section id="modelos" className="card p-5 mb-6 flex flex-col gap-4">
+        <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <h2 className="font-semibold">Cores</h2>
-            <p className="text-sm text-[var(--muted)]">Fundo, texto e destaque são obrigatórias para gerar slides. Use o código exato do manual de marca.</p>
+            <h2 className="font-semibold">Modelos do Canva</h2>
+            <p className="text-sm text-[var(--muted)] max-w-2xl">Os modelos de carrossel que este cliente usa no Canva e quantas palavras cabem em cada caixa. O Claude escreve dentro desses limites. Para produzir, vá em Conteúdo e toque em Carrosséis no Canva.</p>
           </div>
-          <BrandColorsAndPreview initial={k.colors} titleFont={k.fonts.titulo?.family} textFont={k.fonts.texto?.family} titleWeight={k.fonts.titulo?.weight} logoUrl={previewLogo ? fileUrl(previewLogo.path) : undefined} />
-        </section>
+          <div className="flex flex-wrap gap-2">
+            {dbFaltando && <ActionButton action={addModelosDoctorbrandAction.bind(null, slug)} label="Pôr os 5 modelos DoctorBrand" />}
+            {modelos.length < MAX_MODELOS && <Link href={`${base}?modelo=novo#modelos`} scroll={false} className="ct-btn">Novo modelo</Link>}
+          </div>
+        </div>
+        <p className="text-sm">Meta do plano: <b>{meta} {meta === 1 ? "carrossel" : "carrosséis"} por mês</b>. Neste mês: {feitos} no planejamento. <Link href={`/cliente/${slug}/conteudo`} className="underline">Ir para o conteúdo</Link></p>
 
-        <section className="card p-5 flex flex-col gap-4">
-          <div>
-            <h2 className="font-semibold">Fontes</h2>
-            <p className="text-sm text-[var(--muted)]">Nome exato do Google Fonts (ex.: Inter, Playfair Display) ou envie os arquivos da fonte paga (TTF, OTF ou WOFF2). Pode mandar todos os arquivos da família de uma vez: o peso e o itálico saem do nome do arquivo (Light, Regular, Medium, Bold, Italic). Fonte enviada tem prioridade.</p>
-          </div>
-          <div className={`grid gap-6 ${fixos ? "md:grid-cols-3" : "md:grid-cols-2"}`}>
-            {fontSlots.map((key) => {
-              const f = k.fonts[key];
-              const L = FONT_LABEL[key];
-              const fx = FONTES_MODELOS.find((x) => x.slot === key)!;
-              const files = fontFiles(f);
-              const falta = faltando?.[key] ?? [];
+        {modelos.length === 0 && !novo && <p className="text-sm text-[var(--muted)]">Nenhum modelo ainda.</p>}
+        {modelos.length > 0 && (
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+            {modelos.map((m) => {
+              const textos = m.campos.filter((x) => x.tipo === "text").length;
+              const fotos = m.campos.filter((x) => x.tipo === "image").length;
               return (
-                <div key={key} className="flex flex-col gap-3">
-                  <span className="label">{fixos ? `${L.fixo} (${fx.family})` : L.label}</span>
-                  <div className="grid grid-cols-[1fr_96px] gap-2">
-                    <input name={`font_${key}_family`} defaultValue={f?.family ?? ""} placeholder={fixos ? `ex.: ${fx.family}` : L.placeholder} className="ct-input" />
-                    <input name={`font_${key}_weight`} defaultValue={f?.weight ?? ""} inputMode="numeric" placeholder="peso" className="ct-input" title="Peso: 400 regular, 600 semibold, 700 bold" />
-                  </div>
-                  <p className="rounded-xl border border-[var(--line)] p-4 bg-[#fafaf8]" style={{ fontFamily: f?.family ? `"${f.family}", sans-serif` : undefined, fontWeight: f?.weight ?? (key === "titulo" && !fixos ? 700 : 400), fontSize: key === "texto" ? 15 : 26, lineHeight: 1.25 }}>
-                    {L.amostra}
-                  </p>
-                  <div className="flex flex-col gap-1">
-                    <span className="text-xs text-[var(--muted)]">{files.length ? `${files.length === 1 ? "Arquivo enviado" : `${files.length} arquivos enviados`}: ${files.map((x) => fontVariantLabel(x.weight, x.italic)).join(", ")}.` : f?.family ? "Carregada do Google Fonts." : "Sem fonte definida."}</span>
-                    {fixos && falta.length > 0 && <span className="text-xs g-bad">Os modelos usam também: {falta.join(", ")}.</span>}
-                    <BrandFileUpload slug={slug} slot={`font_${key}`} accept=".ttf,.otf,.woff2,.woff,font/ttf,font/otf,font/woff2" multiple label={files.length ? "Enviar mais arquivos" : "Enviar arquivos da fonte"} local={local} save={save} clear={files.length ? clearBrandFileAction.bind(null, slug, `font_${key}`) : undefined} clearLabel="Tirar os arquivos" />
-                  </div>
-                </div>
+                <Link key={m.id} href={`${base}?modelo=${m.id}#modelos`} scroll={false} className={`tm-card ${aberto?.id === m.id ? "is-on" : ""}`}>
+                  <span className="font-medium truncate">{m.titulo}</span>
+                  <span className="text-xs text-[var(--muted)]">{textos} {textos === 1 ? "texto" : "textos"}{fotos ? ` · ${fotos} ${fotos === 1 ? "foto" : "fotos"}` : ""}</span>
+                  <span className={`text-xs ${m.link ? "text-[var(--muted)]" : "g-warn"}`}>{m.link ? "Link do Canva salvo" : "Falta o link do Canva"}</span>
+                </Link>
               );
             })}
           </div>
+        )}
+
+        {(aberto || novo) && (
+          <div className="flex flex-col gap-3 border-t border-[var(--line)] pt-4">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <h3 className="font-semibold">{aberto ? aberto.titulo : "Novo modelo"}</h3>
+              <div className="flex flex-wrap gap-2">
+                {aberto?.link && <a href={aberto.link} target="_blank" rel="noreferrer" className="ct-btn">Abrir no Canva<ArrowUpRightIcon size={14} /></a>}
+                {aberto && <ActionButton action={removeModeloAction.bind(null, slug, aberto.id)} label="Tirar do cliente" variant="ghost" confirm={`Tirar "${aberto.titulo}" deste cliente? No Canva ele continua igual.`} />}
+                <Link href={`${base}#modelos`} scroll={false} className="ct-btn">Fechar</Link>
+              </div>
+            </div>
+            <ModeloForm key={aberto?.id ?? "novo"} slug={slug} m={aberto} />
+          </div>
+        )}
+      </section>
+
+      <ActionForm action={saveBrandAction.bind(null, slug)} className="flex flex-col gap-6">
+        <section className="card p-5 flex flex-col gap-3">
+          <div>
+            <h2 className="font-semibold">Regras de texto</h2>
+            <p className="text-sm text-[var(--muted)]">Uma por linha. O Claude lê antes de escrever o texto das lâminas deste cliente.</p>
+          </div>
+          <textarea name="rules" rows={8} defaultValue={k.rules ?? ""} placeholder={"Nunca usar emoji.\nSem promessa de resultado.\nCTA com palavra para comentar."} className="ct-input" />
         </section>
 
         <section className="card p-5 flex flex-col gap-4">
           <div>
             <h2 className="font-semibold">Fotos</h2>
-            <p className="text-sm text-[var(--muted)]">Pasta do Google Drive com as fotos do cliente (consultório, retrato, bastidor), compartilhada como “qualquer pessoa com o link”. É daqui que os slides com imagem puxam as fotos.</p>
+            <p className="text-sm text-[var(--muted)]">Pasta do Google Drive com as fotos do cliente (dentro da pasta Clientes), compartilhada como “qualquer pessoa com o link”. É daqui que saem as fotos das colunas de foto no Canva.</p>
           </div>
           <div className="flex flex-wrap gap-2 items-center">
             <input name="driveFolder" defaultValue={k.driveFolder ?? ""} placeholder="https://drive.google.com/drive/folders/..." className="ct-input flex-1 min-w-[280px]" />
@@ -216,133 +163,11 @@ export default async function MarcaPage({ params, searchParams }: { params: Prom
           {k.driveFolder && <DrivePhotos link={k.driveFolder} />}
         </section>
 
-        <section className="card p-5 flex flex-col gap-3">
-          <div>
-            <h2 className="font-semibold">Regras da marca</h2>
-            <p className="text-sm text-[var(--muted)]">Uma por linha. Valem para tudo que a área gerar com a marca do cliente: o Claude lê antes de escrever e os modelos respeitam ao montar.</p>
-          </div>
-          <textarea name="rules" rows={6} defaultValue={k.rules ?? ""} placeholder={"Logo só no último slide.\nNunca foto de paciente.\nMáximo de 25 palavras por slide."} className="ct-input" />
-        </section>
-
         <div className="card flex flex-wrap items-center gap-3 sticky bottom-3 p-3 shadow-sm">
           <button className="ct-btn ct-btn-dark">Salvar kit</button>
-          <span className="text-xs text-[var(--muted)]">Logos e arquivos de fonte salvam sozinhos ao enviar.</span>
           {k.updatedAt && <span className="text-xs text-[var(--muted)]">Última edição: {when(k.updatedAt)} por {k.updatedBy}</span>}
         </div>
       </ActionForm>
-
-      {fixos ? (
-        <ModelosFixos k={k} slug={slug} photos={photos} aberto={isModeloId(sp.modelo) ? sp.modelo : undefined} faltando={faltando!}
-          meta={<p className="text-sm">Meta do plano: <b>{meta} {meta === 1 ? "carrossel" : "carrosséis"} por mês</b> ({plan.postsPerWeek} posts por semana, {plan.mix.carrossel}% carrossel). Neste mês: {feitos} no planejamento. <Link href={`/cliente/${slug}/conteudo`} className="underline">Ajustar metas</Link></p>} />
-      ) : (
-        <section id="modelos" className="card p-5 mt-6 flex flex-col gap-4">
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div>
-              <h2 className="font-semibold">Modelos de carrossel</h2>
-              <p className="text-sm text-[var(--muted)] max-w-2xl">Até {MAX_TEMPLATES} por cliente. Cada modelo tem capa, slide de texto, slide com imagem e slide final, com fundo (cor do kit ou imagem do Canva) e caixas de título, texto, imagem e logo.</p>
-            </div>
-            {templates.length < MAX_TEMPLATES && (
-              colorsReady
-                ? <ActionButton action={createBaseTemplatesAction.bind(null, slug)} label="Criar 3 modelos-base com as cores do kit" />
-                : <span className="text-xs text-[var(--muted)] max-w-[260px]">Salve as cores de fundo, texto e destaque para criar os modelos-base.</span>
-            )}
-          </div>
-          <p className="text-sm">Meta do plano: <b>{meta} {meta === 1 ? "carrossel" : "carrosséis"} por mês</b> ({plan.postsPerWeek} posts por semana, {plan.mix.carrossel}% carrossel). Neste mês: {feitos} no planejamento. <Link href={`/cliente/${slug}/conteudo`} className="underline">Ajustar metas</Link></p>
-          <div className="grid sm:grid-cols-3 gap-3">
-            {Array.from({ length: MAX_TEMPLATES }, (_, i) => templates[i]).map((t, i) => t ? (
-              <Link key={t.id} href={`${base}?modelo=${t.id}#modelos`} scroll={false} className={`tm-card ${editing?.id === t.id ? "is-on" : ""}`}>
-                <div className="tm-slides">
-                  {SLIDE_KINDS.map((s) => <SlidePreview key={s.key} layout={t.slides[s.key]} k={k} assets={assets} className={s.key === "capa" ? "tm-main" : "tm-mini"} />)}
-                </div>
-                <div className="flex items-center justify-between gap-2">
-                  <span className="font-medium truncate">{t.name}</span>
-                  <span className="text-xs text-[var(--muted)] shrink-0">Editar</span>
-                </div>
-              </Link>
-            ) : (
-              <Link key={`vazio-${i}`} href={`${base}?modelo=novo#modelos`} scroll={false} className={`tm-empty ${creating && i === templates.length ? "is-on" : ""}`}>
-                <span className="text-2xl font-light leading-none">+</span>
-                <span>Novo modelo</span>
-              </Link>
-            ))}
-          </div>
-          {(editing || creating) && (
-            <TemplateEditor key={editing?.id ?? "novo"} slug={slug} kit={k} logos={logoUrls} photo={photo} local={local}
-              initial={editing ?? blankTemplate()} isNew={!editing}
-              save={saveTemplateAction.bind(null, slug)} remove={editing ? deleteTemplateAction.bind(null, slug, editing.id) : undefined}
-              backHref={`${base}#modelos`} />
-          )}
-        </section>
-      )}
     </Shell>
-  );
-}
-
-/**
- * Os 5 modelos do design system DoctorBrand (skill carrossel-fernandofontees), desenhados em código.
- * Cada cartão mostra a capa do exemplo da skill; aberto, mostra todas as lâminas e os tipos de lâmina.
- */
-function ModelosFixos({ k, slug, photos, aberto, faltando, meta }: {
-  k: BrandKit; slug: string; photos: string[]; aberto?: (typeof MODELOS)[number]["id"];
-  faltando: ReturnType<typeof fontesFaltando>; meta: React.ReactNode;
-}) {
-  const fontes = fontesCss(k, fileUrl);
-  const base = `/cliente/${slug}/marca`;
-  const handle = k.handle || "@fernandofontees";
-  const deck = (id: (typeof MODELOS)[number]["id"]) => comFotos({ ...EXEMPLOS[id], handle }, photos);
-  const ajustes = (id: string) => k.ajustesModelos?.[id] ?? {};
-  const doc = (id: (typeof MODELOS)[number]["id"], i: number) => carrosselDoc(deck(id), { fontes, simbolo: SIMBOLO, only: i, ajustes: ajustes(id) });
-  const m = MODELOS.find((x) => x.id === aberto);
-  const semFonte = FONTES_MODELOS.filter((f) => faltando[f.slot].length > 0);
-  return (
-    <section id="modelos" className="card p-5 mt-6 flex flex-col gap-4">
-      <div>
-        <h2 className="font-semibold">Modelos de carrossel</h2>
-        <p className="text-sm text-[var(--muted)] max-w-3xl">Os 5 modelos do design system DoctorBrand, iguais aos da skill de carrossel do Fernando. O texto aqui é o exemplo de cada modelo. Abra um modelo para ajustar o tamanho de títulos e texto, a posição do texto e a foto. Um carrossel usa um modelo só, do início ao fim. Sem foto, Autoridade.</p>
-      </div>
-      {meta}
-      {semFonte.length > 0 && (
-        <p className="text-sm rounded-xl border border-[var(--line)] bg-[#fafaf8] px-4 py-3">
-          Faltam arquivos de fonte: {semFonte.map((f) => `${f.family} (${faltando[f.slot].join(", ")})`).join("; ")}. Enquanto isso, as miniaturas usam {semFonte.map((f) => f.fallback).join(", ")} no lugar. Envie em Fontes, acima.
-        </p>
-      )}
-      {photos.length === 0 && <p className="text-sm text-[var(--muted)]">Sem fotos na pasta do Drive do kit: as lâminas com foto aparecem só com o fundo.</p>}
-      <div className="mf-grid">
-        {MODELOS.map((x) => (
-          <Link key={x.id} href={`${base}?modelo=${x.id}#modelos`} scroll={false} className={`tm-card ${aberto === x.id ? "is-on" : ""}`}>
-            <SlideFrame html={doc(x.id, 0)} title={`${x.nome}: capa`} />
-            <div className="flex flex-col gap-0.5 min-w-0">
-              <div className="flex items-center justify-between gap-2">
-                <span className="font-medium truncate">{x.nome}</span>
-                <span className="text-xs text-[var(--muted)] shrink-0">{Object.keys(ajustes(x.id)).length ? "Ajustado" : x.foto ? "Com foto" : "Só texto"}</span>
-              </div>
-              <span className="text-xs text-[var(--muted)] line-clamp-2">{x.quando}</span>
-            </div>
-          </Link>
-        ))}
-      </div>
-      {m && (
-        <div className="flex flex-col gap-4 border-t border-[var(--line)] pt-4">
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div className="max-w-2xl">
-              <h3 className="font-semibold">{m.nome}</h3>
-              <p className="text-sm text-[var(--muted)]">{m.quando} Referência: {m.ref}.</p>
-            </div>
-            <Link href={`${base}#modelos`} scroll={false} className="ct-btn">Fechar</Link>
-          </div>
-          <ModeloAjustes key={m.id} deck={deck(m.id)} nomes={deck(m.id).slides.map((s) => m.tipos.find((t) => t.tipo === s.tipo)?.nome ?? s.tipo)}
-            fontes={fontes} simbolo={SIMBOLO} inicial={ajustes(m.id)} temFoto={m.foto} save={saveAjustesAction.bind(null, slug, m.id)} />
-          <div>
-            <span className="label">Tipos de lâmina</span>
-            <div className="mf-tipos mt-2">
-              {m.tipos.map((t) => (
-                <div key={t.tipo}><b className="font-medium">{t.nome}</b><span className="text-[var(--muted)]">{t.campos}</span></div>
-              ))}
-            </div>
-          </div>
-          <p className="text-xs text-[var(--muted)]">Marcação no texto: *palavra* em dourado, **trecho** com a ênfase do modelo, _trecho_ em itálico.</p>
-        </div>
-      )}
-    </section>
   );
 }

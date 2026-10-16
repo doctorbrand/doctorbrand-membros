@@ -49,3 +49,5 @@ export const UserIcon = ({ size = 18, className }: P) => <svg {...base(size)} cl
 export const WandIcon = ({ size = 18, className }: P) => <svg {...base(size)} className={className}><path d="m4 20 11-11M13.5 6.5l4 4M18 3v3M16.5 4.5h3M20.5 9v2M19.5 10h2M8 3.5v2M7 4.5h2" /></svg>;
 export const LogoutIcon = ({ size = 18, className }: P) => <svg {...base(size)} className={className}><path d="M14 4.5h4A1.5 1.5 0 0 1 19.5 6v12a1.5 1.5 0 0 1-1.5 1.5h-4M10 16l4-4-4-4M14 12H4.5" /></svg>;
 export const SidebarIcon = ({ size = 18, className }: P) => <svg {...base(size)} className={className}><rect x="3.5" y="4.5" width="17" height="15" rx="3" /><path d="M9.5 4.5v15" /></svg>;
+export const DownloadIcon = ({ size = 16, className }: P) => <svg {...base(size)} className={className}><path d="M12 4v11m0 0-4.5-4.5M12 15l4.5-4.5M5 19h14" /></svg>;
+export const UploadIcon = ({ size = 16, className }: P) => <svg {...base(size)} className={className}><path d="M12 15V4m0 0L7.5 8.5M12 4l4.5 4.5M5 19h14" /></svg>;

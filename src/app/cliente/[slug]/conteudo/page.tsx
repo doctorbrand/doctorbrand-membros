@@ -11,6 +11,7 @@ import { ListImport } from "@/components/content/ListImport";
 import { FeedGrid } from "@/components/content/FeedGrid";
 import { runSeedCovers, runSeedDecisions, runSeedImports, runSeedSources } from "@/lib/seedImports";
 import { DriveImport } from "@/components/content/DriveImport";
+import { CanvaLote } from "@/components/content/CanvaLote";
 import { Shell } from "@/components/Shell";
 import { AlertIcon, ArrowRightIcon, CalendarIcon, CheckIcon, ChevronLeftIcon, ChevronRightIcon, ClockIcon, EyeIcon, MenuIcon, PencilIcon } from "@/components/Icons";
 import { DecisionBar, FeedFrame } from "@/components/content/ClientView";
@@ -23,9 +24,14 @@ import { igAccounts, igProfile, igRecentMedia, type IgAccount } from "@/lib/inst
 import { publishProblem } from "@/lib/publish";
 import { addDays, todayISO } from "@/lib/periods";
 import { localDir } from "@/lib/store";
+import { getBrand } from "@/lib/brandStore";
+import { getLotes } from "@/lib/canvaLotes";
+import { anexarLaminasAction, escreverLaminasAction, planilhaAction, salvarCampoAction } from "./canvaActions";
 import { approveAllAction, approveAndNextAction, changeAndNextAction, connectInstagramAction, refreshIgAccountsAction, disconnectInstagramAction, deletePostAction, importDriveAction, importDriveBatchAction, refreshDriveAction, importListAction, importPostsAction, reorderFeedAction, setDateAction, setPillarAction, publishNowAction, retryPublishAction, savePlanAction, savePostAction, scheduleAction, setCoverAction, setStatusAction, unscheduleAction } from "./actions";
 
 export const dynamic = "force-dynamic";
+/** O texto das lâminas é escrito pelo Claude numa chamada por carrossel: dá folga para o tempo da função. */
+export const maxDuration = 120;
 
 const CAROUSEL = <svg className="ct-flag" viewBox="0 0 24 24" fill="#fff" aria-label="Carrossel"><path d="M7 3h11a3 3 0 0 1 3 3v11h-2V6a1 1 0 0 0-1-1H7z" /><rect x="3" y="7" width="14" height="14" rx="3" /></svg>;
 const REEL = <svg className="ct-flag" viewBox="0 0 24 24" fill="#fff" aria-label="Reels"><path d="M8 5.5v13l11-6.5z" /></svg>;
@@ -56,6 +62,10 @@ export default async function ConteudoPage({ params, searchParams }: { params: P
   if (admin) { await runSeedImports(slug).catch(() => undefined); await runSeedCovers(slug).catch(() => undefined); await runSeedDecisions(slug).catch(() => undefined); await runSeedSources(slug).catch(() => undefined); }
   const [all, plan, profile, live, accounts] = await Promise.all([getPosts(slug), getPlan(slug), igProfile(c.igUserId), igRecentMedia(c.igUserId, 15), admin ? igAccounts() : Promise.resolve([] as IgAccount[])]);
   const local = !!localDir();
+  const [kit, lotes] = admin ? await Promise.all([getBrand(slug), getLotes(slug)]) : [undefined, []];
+  const carrosseis = admin ? all.filter((p) => p.type === "carrossel" && p.status !== "publicado" && !p.publish?.igMediaId)
+    .sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time))
+    .map((p) => ({ id: p.id, title: p.title, date: p.date, status: p.status, media: p.media.length, ...(p.canva ? { canva: { modeloId: p.canva.modeloId, campos: p.canva.campos } } : {}) })) : [];
   const nextDay = addDays(todayISO(), 1);
   const posts = all.filter((p) => visibleTo(p, role));
   const planned = posts.filter((p) => p.status !== "publicado");
@@ -123,6 +133,8 @@ export default async function ConteudoPage({ params, searchParams }: { params: P
           <ZipImport slug={slug} action={importPostsAction.bind(null, slug)} local={local} defaultStart={nextDay} everyDays={Math.max(1, Math.round(7 / plan.postsPerWeek))} />
           <DriveImport action={importDriveBatchAction.bind(null, slug)} defaultStart={nextDay} everyDays={Math.max(1, Math.round(7 / plan.postsPerWeek))} />
           <ListImport action={importListAction.bind(null, slug)} defaultStart={nextDay} everyDays={Math.max(1, Math.round(7 / plan.postsPerWeek))} />
+          <CanvaLote slug={slug} local={local} modelos={kit?.canvaModelos ?? []} carrosseis={carrosseis} lotes={lotes} driveFolder={kit?.driveFolder ? (kit.driveFolder.startsWith("http") ? kit.driveFolder : `https://drive.google.com/drive/folders/${kit.driveFolder}`) : undefined} kitHref={`/cliente/${slug}/marca#modelos`}
+            escrever={escreverLaminasAction.bind(null, slug)} salvarCampo={salvarCampoAction.bind(null, slug)} planilha={planilhaAction.bind(null, slug)} anexar={anexarLaminasAction.bind(null, slug)} />
         </div>
       )}
 

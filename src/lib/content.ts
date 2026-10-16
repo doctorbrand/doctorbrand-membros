@@ -23,6 +23,15 @@ export interface Media {
   rev?: number;
 }
 
+/** Texto das lâminas escrito para um modelo do Canva (uma linha da planilha do Criar em massa). */
+export interface CanvaTexto {
+  modeloId: string;
+  modeloTitulo?: string;
+  campos: Record<string, string>;
+  at: string;
+  by: string;
+}
+
 export interface HistoryEntry {
   at: string;           // ISO
   by: string;           // nome de quem agiu
@@ -75,6 +84,8 @@ export interface Post {
   source?: string;
   /** Roteiro e direção para a equipe produzir (gerado no painel). Só a equipe vê. */
   roteiro?: string;
+  /** Texto das lâminas para o modelo do Canva (vira uma linha da planilha). Só a equipe vê. */
+  canva?: CanvaTexto;
   /** Data e hora planejadas (America/Sao_Paulo). */
   date: string;         // YYYY-MM-DD
   time: string;         // HH:MM
