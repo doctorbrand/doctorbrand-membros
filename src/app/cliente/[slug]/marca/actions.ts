@@ -36,7 +36,7 @@ export async function saveModeloAction(slug: string, id: string | null, _prev: A
   const campos = lerCampos(String(fd.get("campos") ?? ""));
   if (!titulo) return { ok: false, message: "Dê um nome ao modelo." };
   if (link && !/^https:\/\/(www\.)?canva\.com\//.test(link)) return { ok: false, message: "O link precisa ser do Canva (https://www.canva.com/...)." };
-  if (!campos.some((c) => c.tipo === "text")) return { ok: false, message: "Liste pelo menos uma coluna de texto (ex.: capa_titulo 10)." };
+  if (!campos.some((c) => c.tipo === "text")) return { ok: false, message: "O modelo precisa de pelo menos um texto (ex.: capa_titulo, até 10 palavras)." };
   const k = await getBrand(slug);
   const lista = k.canvaModelos ?? [];
   if (lista.some((m) => m.id !== id && m.titulo.toLowerCase() === titulo.toLowerCase())) return { ok: false, message: "Já existe um modelo com esse nome." };
@@ -44,7 +44,7 @@ export async function saveModeloAction(slug: string, id: string | null, _prev: A
   const m: CanvaModelo = { id: id ?? crypto.randomUUID().slice(0, 8), titulo, ...(link ? { link } : {}), campos, addedAt: new Date().toISOString() };
   await saveBrand(slug, { canvaModelos: id ? lista.map((x) => (x.id === id ? m : x)) : [...lista, m] }, s.name);
   revalidatePath(page(slug));
-  return { ok: true, message: `Modelo salvo: ${campos.length} ${campos.length === 1 ? "coluna" : "colunas"}.` };
+  return { ok: true, message: `Modelo salvo: ${m.titulo}.` };
 }
 
 export async function removeModeloAction(slug: string, id: string, _prev: ActionResult | null): Promise<ActionResult> {

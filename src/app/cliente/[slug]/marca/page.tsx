@@ -6,7 +6,8 @@ import { ArrowUpRightIcon, CheckIcon, FolderIcon } from "@/components/Icons";
 import { Shell } from "@/components/Shell";
 import { requireAdmin } from "@/lib/auth";
 import { getBrand } from "@/lib/brandStore";
-import { brandChecklist, camposTexto, MAX_MODELOS, type CanvaModelo } from "@/lib/brand";
+import { brandChecklist, MAX_MODELOS, type CanvaModelo } from "@/lib/brand";
+import { CamposEditor } from "@/components/brand/CamposEditor";
 import { usaModelosDoctorbrand } from "@/lib/canvaPresets";
 import { getClient } from "@/lib/clients";
 import { getPlan, getPosts, monthlyByType } from "@/lib/content";
@@ -51,11 +52,10 @@ function ModeloForm({ slug, m }: { slug: string; m?: CanvaModelo }) {
         <label className="flex flex-col gap-1"><span className="label">Nome</span><input name="titulo" defaultValue={m?.titulo ?? ""} placeholder="ex.: Autoridade" className="ct-input" /></label>
         <label className="flex flex-col gap-1"><span className="label">Link do modelo no Canva</span><input name="link" defaultValue={m?.link ?? ""} placeholder="https://www.canva.com/design/..." className="ct-input" /></label>
       </div>
-      <label className="flex flex-col gap-1">
-        <span className="label">Colunas da planilha, na ordem das lâminas</span>
-        <textarea name="campos" rows={10} defaultValue={m ? camposTexto(m.campos) : ""} placeholder={"capa_titulo 10\ncapa_texto 14\nfoto_capa foto\nl2_titulo 8\nl2_texto 40\ncta_keyword 1"} className="ct-input mono text-[13px]" />
-        <span className="text-xs text-[var(--muted)]">Uma por linha: o nome da coluna e quantas palavras cabem na caixa. Colunas de foto terminam com &quot;foto&quot;. No Canva, cada coluna é ligada à caixa certa no Criar em massa.</span>
-      </label>
+      <div className="flex flex-col gap-1">
+        <span className="label">Textos e fotos do modelo</span>
+        <CamposEditor inicial={m?.campos ?? []} />
+      </div>
       <div><button className="ct-btn ct-btn-dark">{m ? "Salvar modelo" : "Adicionar modelo"}</button></div>
     </ActionForm>
   );
@@ -101,7 +101,7 @@ export default async function MarcaPage({ params, searchParams }: { params: Prom
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <h2 className="font-semibold">Modelos do Canva</h2>
-            <p className="text-sm text-[var(--muted)] max-w-2xl">Para cada modelo, as colunas da planilha do Criar em massa e quantas palavras cabem em cada uma. O Claude escreve o texto de cada carrossel dentro desses limites e a área de membros baixa a planilha pronta, em Conteúdo.</p>
+            <p className="text-sm text-[var(--muted)] max-w-2xl">Os modelos de carrossel que este cliente usa no Canva e quantas palavras cabem em cada caixa. O Claude escreve dentro desses limites. Para produzir, vá em Conteúdo e toque em Carrosséis no Canva.</p>
           </div>
           <div className="flex flex-wrap gap-2">
             {dbFaltando && <ActionButton action={addModelosDoctorbrandAction.bind(null, slug)} label="Pôr os 5 modelos DoctorBrand" />}
@@ -119,7 +119,7 @@ export default async function MarcaPage({ params, searchParams }: { params: Prom
               return (
                 <Link key={m.id} href={`${base}?modelo=${m.id}#modelos`} scroll={false} className={`tm-card ${aberto?.id === m.id ? "is-on" : ""}`}>
                   <span className="font-medium truncate">{m.titulo}</span>
-                  <span className="text-xs text-[var(--muted)]">{textos} {textos === 1 ? "coluna" : "colunas"} de texto{fotos ? ` · ${fotos} de foto` : ""}</span>
+                  <span className="text-xs text-[var(--muted)]">{textos} {textos === 1 ? "texto" : "textos"}{fotos ? ` · ${fotos} ${fotos === 1 ? "foto" : "fotos"}` : ""}</span>
                   <span className={`text-xs ${m.link ? "text-[var(--muted)]" : "g-warn"}`}>{m.link ? "Link do Canva salvo" : "Falta o link do Canva"}</span>
                 </Link>
               );

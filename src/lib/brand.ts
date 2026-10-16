@@ -36,11 +36,53 @@ export function lerCampos(texto: string): CanvaCampo[] {
     const [bruto, extra] = [m?.[1] ?? "", m?.[2]];
     const nome = nomeCampo(bruto);
     if (!nome || out.some((c) => c.nome === nome)) continue;
-    if (/^(foto|imagem|image)$/i.test(extra ?? "") || /^(foto|imagem)/.test(nome)) { out.push({ nome, tipo: "image" }); continue; }
+    if (/^(foto|imagem|image)$/i.test(extra ?? "") || /^(foto|imagem)(_|\d|$)/.test(nome)) { out.push({ nome, tipo: "image" }); continue; }
     const n = Math.round(Number(extra));
     out.push({ nome, tipo: "text", limite: Number.isFinite(n) && n >= 1 ? Math.min(n, 200) : limitePadrao(nome) });
   }
   return out.slice(0, 60);
+}
+
+const SECAO: Record<string, string> = {
+  capa: "Capa", cta: "Final", argumento: "Argumento", numero: "Número", citacao: "Citação", resumo: "Resumo",
+  zigue: "Zigue-zague", frase: "Frase", comparacao: "Comparação", texto: "Texto", secao: "Seção", etapas: "Etapas",
+  fototexto: "Foto e texto", telas: "Telas",
+};
+const PAPEL: Record<string, string> = {
+  titulo: "título", texto: "texto", keyword: "palavra para comentar", kicker: "chamada pequena", eyebrow: "chamada pequena",
+  italico: "trecho em itálico", script: "assinatura escrita à mão", rotulo: "rótulo", rotulo2: "segundo rótulo", numero: "número",
+  assinatura: "assinatura", antes: "texto antes do número", fecho: "fecho", frase: "frase",
+};
+const comNumero = (s: string, dic: Record<string, string>) => {
+  if (dic[s]) return dic[s];
+  const m = s.match(/^([a-z]+?)(\d+)$/);
+  if (m) {
+    const nomes: Record<string, string> = { l: "Lâmina", lamina: "Lâmina", item: "item", bloco: "bloco", card: "Card", etapa: "Etapa", status: "status" };
+    return `${nomes[m[1]] ?? m[1]} ${m[2]}`;
+  }
+  return s;
+};
+const maiuscula = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+
+/** Nome de coluna em português legível: "capa_titulo" vira { secao: "Capa", papel: "título" }. */
+export function rotuloCampo(nome: string): { secao: string; papel: string } {
+  const partes = nome.split("_").filter(Boolean);
+  if (partes[0] === "foto" || partes[0] === "imagem") return { secao: maiuscula(comNumero(partes.slice(1).join(" ") || "foto", SECAO)), papel: "foto" };
+  if (partes.length < 2) return { secao: maiuscula(comNumero(partes[0] ?? nome, SECAO)), papel: "texto" };
+  const papel = partes.slice(1).map((p) => comNumero(p, PAPEL)).join(" ");
+  return { secao: maiuscula(comNumero(partes[0], SECAO)), papel };
+}
+
+/** Colunas de texto agrupadas por parte do carrossel, na ordem do modelo. */
+export function secoesTexto(cs: CanvaCampo[]): { secao: string; campos: (CanvaCampo & { papel: string })[] }[] {
+  const out: { secao: string; campos: (CanvaCampo & { papel: string })[] }[] = [];
+  for (const c of cs) {
+    if (c.tipo !== "text") continue;
+    const r = rotuloCampo(c.nome);
+    const g = out.find((x) => x.secao === r.secao) ?? (out.push({ secao: r.secao, campos: [] }), out[out.length - 1]);
+    g.campos.push({ ...c, papel: r.papel });
+  }
+  return out;
 }
 
 export const camposTexto = (cs: CanvaCampo[]) => cs.map((c) => (c.tipo === "image" ? `${c.nome} foto` : `${c.nome} ${c.limite ?? ""}`.trim())).join("\n");
