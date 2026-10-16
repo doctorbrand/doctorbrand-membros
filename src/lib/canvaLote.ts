@@ -1,9 +1,6 @@
-import type { CanvaModelo } from "./brand";
-
 /**
- * Lote de carrosséis para o "Criar em massa" do Canva: a planilha (CSV, uma linha por carrossel, uma coluna
- * por campo de texto do modelo) e, na volta, a leitura do ZIP baixado do Canva (um design por carrossel).
- * Puro: vale no navegador e no servidor.
+ * Lote de carrosséis levado ao Canva: a ordem dos posts (os arquivos saem numerados 01, 02…) e, na volta,
+ * a leitura do ZIP baixado do Canva (um design por carrossel). Puro: vale no navegador e no servidor.
  */
 
 export interface Lote {
@@ -12,21 +9,8 @@ export interface Lote {
   by: string;
   modeloId: string;
   modeloTitulo: string;
-  /** Posts na ordem das linhas da planilha (é a ordem em que o Canva cria os designs). */
+  /** Posts na ordem dos arquivos (01, 02…), que é o número no nome do design no Canva. */
   postIds: string[];
-}
-
-const celula = (v: string) => {
-  const t = String(v ?? "").replace(/\r?\n+/g, " ").trim();
-  return /[",;\n]/.test(t) || /^\s|\s$/.test(t) ? `"${t.replace(/"/g, '""')}"` : t;
-};
-
-/** CSV para o Criar em massa: primeira coluna "post" (só para conferir; não precisa ligar no Canva). */
-export function planilhaCsv(modelo: CanvaModelo, linhas: { titulo: string; campos: Record<string, string> }[]): string {
-  const cols = modelo.campos.filter((c) => c.tipo === "text").map((c) => c.nome);
-  const head = ["post", ...cols].map(celula).join(",");
-  const body = linhas.map((l, i) => [`${String(i + 1).padStart(2, "0")} ${l.titulo}`, ...cols.map((c) => l.campos[c] ?? "")].map(celula).join(","));
-  return [head, ...body].join("\r\n") + "\r\n";
 }
 
 export const IMG = /\.(png|jpe?g)$/i;
