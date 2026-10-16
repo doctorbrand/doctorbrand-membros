@@ -17,6 +17,12 @@ export function LaminaPreview({ itens, i, estilo, largura = 240, className = "" 
       {els.map((e, j) => {
         const base = { position: "absolute" as const, left: e.x * s, top: e.y * s, width: e.w * s, height: e.h * s };
         if (e.k === "rect") return <div key={j} style={{ ...base, background: e.borda ? "transparent" : e.cor, opacity: e.alfa ?? 1, border: e.borda ? `${Math.max(1, 1.5 * s)}px solid ${e.borda}` : undefined, borderRadius: e.elipse ? "9999px" : e.raio ? e.raio * s : undefined }} />;
+        if (e.k === "vaga") return (
+          <div key={j} style={{ ...base, background: e.cor, borderRadius: e.raio ? e.raio * s : undefined, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 6 * s, padding: 40 * s, textAlign: "center", color: e.corTexto, fontFamily: familia(e.fonte, false) }}>
+            <span style={{ fontSize: 18 * s, letterSpacing: 4 * s, fontWeight: 600 }}>FOTO</span>
+            <span style={{ fontSize: 22 * s, lineHeight: 1.3 }}>{e.nota}</span>
+          </div>
+        );
         if (e.k === "foto") {
           const src = mediaUrl(e.foto, 800);
           // eslint-disable-next-line @next/next/no-img-element

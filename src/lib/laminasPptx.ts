@@ -32,11 +32,21 @@ export async function gerarPptx(itens: Lamina[], estilo: Estilo, titulo: string,
           fill: e.borda ? { type: "none" } : { color: hex(e.cor), transparency: e.alfa !== undefined ? Math.round((1 - e.alfa) * 100) : 0 },
           line: e.borda ? { color: hex(e.borda), width: 1.25 } : { type: "none" },
         });
+      } else if (e.k === "vaga") {
+        // Lugar da foto: um retângulo com a indicação do roteiro. No Canva, troca pela foto.
+        s.addShape(e.raio ? p.ShapeType.roundRect : p.ShapeType.rect, { ...box, fill: { color: hex(e.cor) }, line: { type: "none" }, ...(e.raio ? { rectRadius: pol(e.raio) } : {}) });
+        s.addText([{ text: "FOTO", options: { fontSize: pt(18), charSpacing: pt(4), bold: true, breakLine: true } }, { text: e.nota, options: { fontSize: pt(22) } }], {
+          ...box, fontFace: e.fonte, color: hex(e.corTexto), align: "center", valign: "middle", margin: pol(40) * 72, isTextBox: true, fit: "none", wrap: true,
+        });
       } else if (e.k === "foto") {
         const data = await carregar(e.foto, e.w, e.h, !!e.pb, e.raio && e.fundo ? { raio: e.raio, fundo: e.fundo } : undefined);
         if (data) s.addImage({ data: `image/jpeg;base64,${data}`, ...box });
       } else {
-        s.addText(e.trechos.map((t) => ({ text: t.t, options: { italic: !!(t.italico || e.italico), bold: !!(t.negrito || e.negrito) } })), {
+        // Cada quebra de linha fecha o parágrafo no próprio pedaço (senão o pedaço seguinte, em negrito ou itálico, pula de linha).
+        const runs = e.trechos.flatMap((t) => t.t.split("\n").map((parte, k, todas) => ({
+          text: parte, options: { italic: !!(t.italico || e.italico), bold: !!(t.negrito || e.negrito), ...(k < todas.length - 1 ? { breakLine: true } : {}) },
+        })));
+        s.addText(runs, {
           ...box,
           fontFace: e.fonte,
           fontSize: pt(e.tam),

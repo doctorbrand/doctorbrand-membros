@@ -6,7 +6,8 @@ import { getBrand } from "@/lib/brandStore";
 import type { Lote } from "@/lib/canvaLote";
 import { saveLote } from "@/lib/canvaLotes";
 import { getClient } from "@/lib/clients";
-import { getPosts, mediaBelongsTo, updatePost, type Media } from "@/lib/content";
+import { getPosts, mediaBelongsTo, savePosts, updatePost, type Media, type Post } from "@/lib/content";
+import { lerCarrosseis } from "@/lib/importCarrosseis";
 import { driveFolderFiles, parseDriveLinks } from "@/lib/drive";
 import { MAX_LAMINAS, MIN_LAMINAS, ordenar, type Lamina, type LaminasPost } from "@/lib/laminas";
 import { preencherLaminas } from "@/lib/laminasTexto";
@@ -30,7 +31,13 @@ function laminasLimpas(slug: string, itens: unknown): Lamina[] {
     const o = (l ?? {}) as Partial<Lamina>;
     const tipo = o.tipo === "capa" || o.tipo === "final" ? o.tipo : "slide";
     const foto = fotoLimpa(slug, o.foto);
-    return { tipo, titulo: txt(o.titulo, 300), subtitulo: txt(o.subtitulo, 300), descricao: txt(o.descricao, 900), ...(foto ? { foto, modoFoto: o.modoFoto === "moldura" ? "moldura" : "fundo", ...(o.posFoto === "cima" || o.posFoto === "baixo" || o.posFoto === "lado" ? { posFoto: o.posFoto } : {}) } : {}) };
+    const nota = txt(o.notaFoto, 200).trim();
+    return {
+      tipo, titulo: txt(o.titulo, 300), subtitulo: txt(o.subtitulo, 300), descricao: txt(o.descricao, 900),
+      ...(foto ? { foto } : {}),
+      ...(nota ? { notaFoto: nota } : {}),
+      ...(foto || nota ? { modoFoto: o.modoFoto === "moldura" ? "moldura" : "fundo", ...(o.posFoto === "cima" || o.posFoto === "baixo" || o.posFoto === "lado" ? { posFoto: o.posFoto } : {}) } : {}),
+    };
   });
   return ordenar(limpas);
 }
@@ -52,7 +59,7 @@ export async function escreverLaminasAction(slug: string, postId: string, estilo
       post: { titulo: post.title, legenda: post.caption, roteiro: post.roteiro },
       slides: antes ? antes.filter((l) => l.tipo === "slide").length : undefined,
     });
-    if (antes) itens.forEach((l, i) => { const a = antes[i]; if (a?.foto && a.tipo === l.tipo) { l.foto = a.foto; l.modoFoto = a.modoFoto; l.posFoto = a.posFoto; } });
+    if (antes) itens.forEach((l, i) => { const a = antes[i]; if ((a?.foto || a?.notaFoto) && a.tipo === l.tipo) { l.foto = a.foto; l.notaFoto = a.notaFoto; l.modoFoto = a.modoFoto; l.posFoto = a.posFoto; } });
     const laminas: LaminasPost = { estiloId, itens, at: new Date().toISOString(), by: s.name };
     // Atenção: em updatePost, devolver null APAGA o post. Aqui sempre devolve o post.
     await updatePost(slug, postId, (p) => ({ ...p, laminas }));
@@ -122,4 +129,48 @@ export async function anexarLaminasAction(slug: string, postId: string, media: M
   if (!p) return { ok: false, message: "Post não encontrado." };
   revalidatePath(page(slug));
   return { ok: true, message: `${p.title}: ${limpas.length} lâminas${voltou ? " (voltou para rascunho)" : ""}.` };
+}
+
+/**
+ * Importa um documento de carrosséis já escritos: cada "## título" vira um post de carrossel em rascunho, com a
+ * legenda, o roteiro e as lâminas exatamente como no texto. Se já existe um carrossel com o mesmo título
+ * (ainda não publicado), atualiza as lâminas e o roteiro dele em vez de criar outro.
+ */
+export async function importarCarrosseisAction(slug: string, texto: string, estiloId: string, opts: { start: string; everyDays: number; time: string }): Promise<ActionResult & { ids?: string[]; laminas?: Record<string, LaminasPost> }> {
+  const s = await requireAdmin();
+  const lidos = lerCarrosseis(String(texto ?? "").slice(0, 400_000));
+  if (!lidos.length) return { ok: false, message: "Não achei carrosséis no texto. Cada um começa com uma linha “## Título” e tem linhas “**Slide 1 (capa):** …”." };
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(opts.start)) return { ok: false, message: "Escolha a data do primeiro carrossel." };
+  const every = Math.min(14, Math.max(1, Math.round(Number(opts.everyDays) || 1)));
+  const time = /^\d{2}:\d{2}$/.test(opts.time) ? opts.time : "12:00";
+  const now = new Date().toISOString();
+  const posts = await getPosts(slug);
+  const ids: string[] = [];
+  const laminas: Record<string, LaminasPost> = {};
+  let novos = 0, atualizados = 0;
+  const lista = [...posts];
+  for (const [i, c] of lidos.entries()) {
+    const lp: LaminasPost = { estiloId: String(estiloId).slice(0, 60), itens: laminasLimpas(slug, c.laminas), at: now, by: s.name };
+    const mesmo = lista.findIndex((p) => p.type === "carrossel" && p.status !== "publicado" && !p.publish?.igMediaId && p.title.trim().toLowerCase() === c.titulo.toLowerCase());
+    if (mesmo >= 0) {
+      const p = lista[mesmo];
+      lista[mesmo] = { ...p, laminas: lp, roteiro: c.roteiro, ...(p.caption.trim() ? {} : { caption: c.legenda }), updatedAt: now, history: [...p.history, { at: now, by: s.name, role: s.role, action: "editado", note: "Lâminas importadas do documento" }] };
+      ids.push(p.id); laminas[p.id] = lp; atualizados++;
+      continue;
+    }
+    const d = new Date(`${opts.start}T12:00:00Z`);
+    d.setUTCDate(d.getUTCDate() + i * every);
+    const novo: Post = {
+      id: crypto.randomUUID(), type: "carrossel", title: c.titulo, caption: c.legenda, media: [], roteiro: c.roteiro, laminas: lp,
+      date: d.toISOString().slice(0, 10), time, status: "rascunho", createdAt: now, updatedAt: now,
+      history: [{ at: now, by: s.name, role: s.role, action: "criado", note: "Importado do documento de carrosséis" }],
+    };
+    lista.push(novo);
+    ids.push(novo.id); laminas[novo.id] = lp; novos++;
+  }
+  await savePosts(slug, lista);
+  revalidatePath(page(slug));
+  const avisos = lidos.flatMap((c) => c.avisos.map((a) => `“${c.titulo}” ${a}.`));
+  const partes = [novos ? `${novos} ${novos === 1 ? "carrossel criado" : "carrosséis criados"}` : "", atualizados ? `${atualizados} ${atualizados === 1 ? "atualizado" : "atualizados"}` : ""].filter(Boolean).join(" e ");
+  return { ok: true, message: `${partes}, com as lâminas do documento.${avisos.length ? ` ${avisos.join(" ")}` : ""}`, ids, laminas };
 }

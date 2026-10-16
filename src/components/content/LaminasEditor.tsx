@@ -157,7 +157,13 @@ export function LaminasEditor({ slug, local, itens, estilo, onChange, fotos, car
                 <button type="button" className="text-sm underline text-[var(--muted)]" disabled={desativado} onClick={() => mudar({ foto: undefined, modoFoto: undefined })}>Tirar</button>
               </div>
             ) : (
-              <div><button type="button" className="ct-btn" disabled={desativado} onClick={abrirFotos}><ImageIcon size={16} />Pôr foto</button></div>
+              <div className="flex flex-col gap-2">
+                {l.notaFoto && <p className="text-sm rounded-lg bg-[#f5f5f7] px-3 py-2"><span className="text-[var(--muted)]">Foto indicada no roteiro: </span>{l.notaFoto}</p>}
+                <div className="flex flex-wrap items-center gap-3">
+                  <button type="button" className="ct-btn" disabled={desativado} onClick={abrirFotos}><ImageIcon size={16} />Pôr foto</button>
+                  {l.notaFoto && <button type="button" className="text-sm underline text-[var(--muted)]" disabled={desativado} onClick={() => mudar({ notaFoto: undefined, modoFoto: undefined, posFoto: undefined })}>Sem foto nesta lâmina</button>}
+                </div>
+              </div>
             )}
 
             {escolhendo && (

@@ -3,9 +3,10 @@
 import JSZip from "jszip";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowRightIcon, CheckIcon, ChevronDownIcon, ChevronLeftIcon, DownloadIcon, LayersIcon, RefreshIcon, UploadIcon, XIcon } from "@/components/Icons";
+import { ArrowRightIcon, CheckIcon, DocIcon, ChevronDownIcon, ChevronLeftIcon, DownloadIcon, LayersIcon, RefreshIcon, UploadIcon, XIcon } from "@/components/Icons";
 import { agruparDesigns, IMG, type Lote } from "@/lib/canvaLote";
 import type { Media } from "@/lib/content";
+import { lerCarrosseis } from "@/lib/importCarrosseis";
 import { ESTILO_PADRAO, nomeArquivo, novasLaminas, type Estilo, type Lamina, type LaminasPost } from "@/lib/laminas";
 import type { ActionResult } from "@/lib/types";
 import { LaminaPreview } from "./LaminaPreview";
@@ -86,7 +87,7 @@ async function lerZip(file: File): Promise<Design[]> {
  * escreve, a equipe ajusta textos e fotos), baixar os arquivos que abrem editáveis no Canva e, na volta,
  * anexar a cada post as lâminas dos ZIPs baixados do Canva.
  */
-export function CanvaLote({ slug, local, estilos, carrosseis, lotes, temPasta, kitHref, escrever, salvar, fotosDaPasta, criarLote, anexar }: {
+export function CanvaLote({ slug, local, estilos, carrosseis, lotes, temPasta, kitHref, escrever, salvar, fotosDaPasta, criarLote, anexar, importar }: {
   slug: string;
   local: boolean;
   estilos: Estilo[];
@@ -99,6 +100,7 @@ export function CanvaLote({ slug, local, estilos, carrosseis, lotes, temPasta, k
   fotosDaPasta: () => Promise<ActionResult & { fotos?: Media[] }>;
   criarLote: (estiloTitulo: string, postIds: string[]) => Promise<ActionResult & { lote?: Lote }>;
   anexar: (postId: string, media: Media[]) => Promise<ActionResult>;
+  importar: (texto: string, estiloId: string, opts: { start: string; everyDays: number; time: string }) => Promise<ActionResult & { ids?: string[]; laminas?: Record<string, LaminasPost> }>;
 }) {
   const router = useRouter();
   const lista = estilos.length ? estilos : [ESTILO_PADRAO];
@@ -121,6 +123,11 @@ export function CanvaLote({ slug, local, estilos, carrosseis, lotes, temPasta, k
   const [arrastando, setArrastando] = useState(false);
   const [feito, setFeito] = useState<string | null>(null);
   const zipInput = useRef<HTMLInputElement>(null);
+  const amanha = () => { const d = new Date(Date.now() + 864e5); return d.toLocaleString("sv-SE", { timeZone: "America/Sao_Paulo" }).slice(0, 10); };
+  const [importando, setImportando] = useState(false);
+  const [doc, setDoc] = useState("");
+  const [docOpts, setDocOpts] = useState({ start: amanha(), everyDays: 2, time: "12:00" });
+  const lidos = importando && doc.trim() ? lerCarrosseis(doc) : [];
   const timers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
 
   const estilo = lista.find((e) => e.id === estiloId) ?? lista[0];
@@ -291,6 +298,18 @@ export function CanvaLote({ slug, local, estilos, carrosseis, lotes, temPasta, k
     } finally { setBusy(null); setProgresso(null); }
   }
 
+  async function importarDoc() {
+    setMsg(null); setBusy(`Importando ${plural(lidos.length, "carrossel", "carrosséis")}…`);
+    const r = await importar(doc, estilo.id, docOpts).catch((e) => erro(e) as ActionResult & { ids?: string[]; laminas?: Record<string, LaminasPost> });
+    setBusy(null);
+    setMsg(r);
+    if (!r.ok || !r.ids) return;
+    setLaminas((x) => ({ ...x, ...Object.fromEntries(Object.entries(r.laminas ?? {}).map(([id, l]) => [id, l.itens])) }));
+    setSel(r.ids);
+    setImportando(false); setDoc("");
+    router.refresh();
+  }
+
   async function carregarFotos(): Promise<string | null> {
     const r = await fotosDaPasta().catch((e) => erro(e) as ActionResult & { fotos?: Media[] });
     if (!r.ok || !r.fotos) { setFotos([]); return r.message; }
@@ -381,12 +400,48 @@ export function CanvaLote({ slug, local, estilos, carrosseis, lotes, temPasta, k
               <div className="flex flex-col gap-2">
                 <div className="flex items-baseline justify-between gap-2">
                   <p className="font-medium">Quais carrosséis?</p>
-                  {carrosseis.length > 1 && (
-                    <button type="button" className="text-sm text-[var(--muted)] underline" onClick={() => setSel(sel.length === carrosseis.length ? [] : carrosseis.map((c) => c.id))}>
-                      {sel.length === carrosseis.length ? "Desmarcar todos" : "Marcar todos"}
-                    </button>
-                  )}
+                  <div className="flex items-center gap-3">
+                    {carrosseis.length > 1 && (
+                      <button type="button" className="text-sm text-[var(--muted)] underline" onClick={() => setSel(sel.length === carrosseis.length ? [] : carrosseis.map((c) => c.id))}>
+                        {sel.length === carrosseis.length ? "Desmarcar todos" : "Marcar todos"}
+                      </button>
+                    )}
+                    <button type="button" className="ct-btn text-sm" onClick={() => setImportando((x) => !x)} aria-expanded={importando}><DocIcon size={15} />Importar textos</button>
+                  </div>
                 </div>
+
+                {importando && (
+                  <div className="rounded-xl border border-[var(--line)] p-4 flex flex-col gap-3">
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <p className="text-sm font-medium">Importar carrosséis já escritos</p>
+                        <p className="text-xs text-[var(--muted)]">Cada carrossel começa com “## Título”, cada lâmina com “**Slide 1 (capa):**” e as linhas de texto com “-”. “- Foto:” vira a indicação da foto e “**Legenda:**”, a legenda. Os textos entram como estão, sem reescrever.</p>
+                      </div>
+                      <button type="button" className="ct-icon-btn" aria-label="Fechar importação" onClick={() => setImportando(false)}><XIcon size={15} /></button>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <label className="ct-btn cursor-pointer text-sm"><UploadIcon size={15} />Escolher arquivo (.md ou .txt)
+                        <input type="file" hidden accept=".md,.txt,.markdown,text/markdown,text/plain" onChange={async (e) => { const f = e.target.files?.[0]; if (f) setDoc(await f.text()); e.target.value = ""; }} />
+                      </label>
+                      <span className="text-xs text-[var(--muted)]">ou cole o texto abaixo</span>
+                    </div>
+                    <textarea className="ct-input mono text-[12px]" rows={6} value={doc} onChange={(e) => setDoc(e.target.value)} placeholder={"## 01 · Título do carrossel\n**Slide 1 (capa):** Frase da capa\n- Foto: o que vai na foto\n**Slide 2:** Título do slide\n- Texto do slide\n**Slide 3 (CTA):** Chamada final\n- Comenta “PALAVRA”…\n**Legenda:**\nTexto da legenda"} />
+                    {doc.trim() && (
+                      lidos.length ? (
+                        <ul className="text-sm flex flex-col gap-0.5 max-h-40 overflow-y-auto">
+                          {lidos.map((c, i) => <li key={i} className="flex justify-between gap-3"><span className="truncate">{c.titulo}</span><span className="text-[var(--muted)] shrink-0">{plural(c.laminas.length, "lâmina", "lâminas")}{c.legenda ? " · legenda" : ""}</span></li>)}
+                        </ul>
+                      ) : <p className="text-sm g-bad">Não achei carrosséis nesse texto. Confira as linhas “## Título” e “**Slide 1 (capa):**”.</p>
+                    )}
+                    <div className="grid grid-cols-3 gap-2">
+                      <label className="flex flex-col gap-1 text-xs text-[var(--muted)]">Primeiro post<input type="date" className="ct-input" value={docOpts.start} onChange={(e) => setDocOpts((o) => ({ ...o, start: e.target.value }))} /></label>
+                      <label className="flex flex-col gap-1 text-xs text-[var(--muted)]">A cada (dias)<input type="number" min={1} max={14} className="ct-input" value={docOpts.everyDays} onChange={(e) => setDocOpts((o) => ({ ...o, everyDays: Number(e.target.value) || 1 }))} /></label>
+                      <label className="flex flex-col gap-1 text-xs text-[var(--muted)]">Horário<input type="time" className="ct-input" value={docOpts.time} onChange={(e) => setDocOpts((o) => ({ ...o, time: e.target.value }))} /></label>
+                    </div>
+                    <p className="text-xs text-[var(--muted)]">Se já existe um carrossel com o mesmo título, as lâminas dele são atualizadas em vez de criar outro.</p>
+                    <div><button type="button" className="ct-btn ct-btn-dark" disabled={!lidos.length || !!busy} onClick={importarDoc}>Importar {lidos.length ? plural(lidos.length, "carrossel", "carrosséis") : ""} no modelo {estilo.titulo}</button></div>
+                  </div>
+                )}
                 {!carrosseis.length ? (
                   <p className="text-sm text-[var(--muted)]">Nenhum carrossel no planejamento ainda. Crie os posts do tipo carrossel, com o roteiro, e volte aqui.</p>
                 ) : (
@@ -414,7 +469,7 @@ export function CanvaLote({ slug, local, estilos, carrosseis, lotes, temPasta, k
             </>
           ) : passo === 2 ? (
             <>
-              <p className="text-sm text-[var(--muted)]">O Claude escreve as lâminas a partir do roteiro de cada post. Depois é só abrir o carrossel para ajustar os textos, pôr fotos e somar ou tirar slides (até 10 lâminas). Tudo fica salvo sozinho.</p>
+              <p className="text-sm text-[var(--muted)]">As lâminas vêm do documento importado ou o Claude escreve a partir do roteiro de cada post. Abra cada carrossel para ajustar os textos, pôr as fotos e somar ou tirar slides (até 10 lâminas). Tudo fica salvo sozinho.</p>
               <ul className="flex flex-col gap-2">
                 {escolhidos.map((c) => {
                   const itens = laminas[c.id];
