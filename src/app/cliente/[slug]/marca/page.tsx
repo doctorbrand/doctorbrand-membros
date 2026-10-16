@@ -7,6 +7,7 @@ import { Shell } from "@/components/Shell";
 import { requireAdmin } from "@/lib/auth";
 import { getBrand } from "@/lib/brandStore";
 import { brandChecklist } from "@/lib/brand";
+import { studioHref } from "@/lib/studio";
 import { EstiloCampos } from "@/components/brand/EstiloCampos";
 import { LaminaPreview } from "@/components/content/LaminaPreview";
 import { ESTILOS_DOCTORBRAND, MAX_ESTILOS, usaEstilosDoctorbrand, type Estilo, type Lamina } from "@/lib/laminas";
@@ -101,6 +102,7 @@ export default async function MarcaPage({ params, searchParams }: { params: Prom
           </div>
           <div className="flex flex-wrap gap-2">
             {dbFaltando && <ActionButton action={addEstilosDoctorbrandAction.bind(null, slug)} label="Pôr os 5 modelos DoctorBrand" />}
+            <a href={studioHref(slug)} target="_blank" rel="noreferrer" className="ct-btn">Abrir Estúdio de Carrosséis<ArrowUpRightIcon size={14} /></a>
             {modelos.length < MAX_ESTILOS && <Link href={`${base}?modelo=novo#modelos`} scroll={false} className="ct-btn">Novo modelo</Link>}
           </div>
         </div>

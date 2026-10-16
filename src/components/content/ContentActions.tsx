@@ -2,7 +2,7 @@
 
 import { useActionState, useState } from "react";
 import type { ActionResult } from "@/lib/types";
-import { TrashIcon } from "@/components/Icons";
+import { ArrowUpRightIcon, TrashIcon } from "@/components/Icons";
 
 type Act0 = (prev: ActionResult | null) => Promise<ActionResult>;
 type ActFd = (prev: ActionResult | null, fd: FormData) => Promise<ActionResult>;
@@ -157,5 +157,31 @@ export function PillarSelect({ action, value, options }: { action: ActFd; value?
       </select>
       <Msg state={state} pending={pending} />
     </form>
+  );
+}
+
+/**
+ * Link do carrossel montado no Canva (pelo Estúdio de Carrosséis): mostra "Abrir no Canva" quando existe
+ * e deixa a equipe colar, trocar ou tirar o link ali mesmo.
+ */
+export function CanvaLinkField({ action, link }: { action: ActFd; link?: string }) {
+  const [state, run, pending] = useActionState(action, null);
+  return (
+    <div className="flex flex-col gap-2">
+      {link && (
+        <a href={link} target="_blank" rel="noreferrer" className="ct-btn self-start">Abrir no Canva<ArrowUpRightIcon size={14} /></a>
+      )}
+      <details className="ct-date-edit w-full" open={!!state && !state.ok}>
+        <summary>{link ? "Trocar o link do Canva" : "Link do Canva"}</summary>
+        <form action={run} className="mt-2 flex flex-col gap-2">
+          <input name="canvaLink" type="url" inputMode="url" defaultValue={link ?? ""} placeholder="https://www.canva.com/design/…" className="ct-input" aria-label="Link do Canva" />
+          <div className="flex flex-wrap items-center gap-2">
+            <button disabled={pending} className="ct-btn ct-btn-dark">{pending ? "Salvando…" : "Salvar link"}</button>
+            <span className="text-xs text-[var(--muted)]">Cole o link do carrossel que o Estúdio montou. Deixe vazio para tirar.</span>
+          </div>
+          {state && <p className={`text-xs ${state.ok ? "g-good" : "g-bad"}`}>{state.message}</p>}
+        </form>
+      </details>
+    </div>
   );
 }

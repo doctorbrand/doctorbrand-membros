@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ActionForm } from "@/components/ActionForm";
-import { ActionButton, ConnectInstagram, DeleteIconButton, DriveRefresh, PillarSelect, ScheduleForm } from "@/components/content/ContentActions";
+import { ActionButton, CanvaLinkField, ConnectInstagram, DeleteIconButton, DriveRefresh, PillarSelect, ScheduleForm } from "@/components/content/ContentActions";
 import { CoverPicker } from "@/components/content/CoverPicker";
 import { PostEditor } from "@/components/content/PostEditor";
 import { VideoPlayer } from "@/components/content/VideoPlayer";
@@ -13,7 +13,7 @@ import { runSeedCovers, runSeedDecisions, runSeedImports, runSeedSources } from 
 import { DriveImport } from "@/components/content/DriveImport";
 import { CanvaLote } from "@/components/content/CanvaLote";
 import { Shell } from "@/components/Shell";
-import { AlertIcon, ArrowRightIcon, CalendarIcon, CheckIcon, ChevronLeftIcon, ChevronRightIcon, ClockIcon, EyeIcon, MenuIcon, PencilIcon } from "@/components/Icons";
+import { AlertIcon, ArrowRightIcon, ArrowUpRightIcon, CalendarIcon, CheckIcon, ChevronLeftIcon, ChevronRightIcon, ClockIcon, EyeIcon, MenuIcon, PencilIcon } from "@/components/Icons";
 import { DecisionBar, FeedFrame } from "@/components/content/ClientView";
 import { requireAuth } from "@/lib/auth";
 import { getClient, type Client } from "@/lib/clients";
@@ -24,10 +24,11 @@ import { igAccounts, igProfile, igRecentMedia, type IgAccount } from "@/lib/inst
 import { publishProblem } from "@/lib/publish";
 import { addDays, todayISO } from "@/lib/periods";
 import { localDir } from "@/lib/store";
+import { studioHref } from "@/lib/studio";
 import { getBrand } from "@/lib/brandStore";
 import { getLotes } from "@/lib/canvaLotes";
 import { anexarLaminasAction, escreverLaminasAction, fotosDaPastaAction, importarCarrosseisAction, loteAction, salvarLaminasAction } from "./canvaActions";
-import { approveAllAction, approveAndNextAction, changeAndNextAction, connectInstagramAction, refreshIgAccountsAction, disconnectInstagramAction, deletePostAction, importDriveAction, importDriveBatchAction, refreshDriveAction, importListAction, importPostsAction, reorderFeedAction, setDateAction, setPillarAction, publishNowAction, retryPublishAction, savePlanAction, savePostAction, scheduleAction, setCoverAction, setStatusAction, unscheduleAction } from "./actions";
+import { approveAllAction, approveAndNextAction, changeAndNextAction, connectInstagramAction, refreshIgAccountsAction, disconnectInstagramAction, deletePostAction, importDriveAction, importDriveBatchAction, refreshDriveAction, importListAction, importPostsAction, reorderFeedAction, setCanvaLinkAction, setDateAction, setPillarAction, publishNowAction, retryPublishAction, savePlanAction, savePostAction, scheduleAction, setCoverAction, setStatusAction, unscheduleAction } from "./actions";
 
 export const dynamic = "force-dynamic";
 /** O texto das lâminas é escrito pelo Claude numa chamada por carrossel: dá folga para o tempo da função. */
@@ -137,6 +138,18 @@ export default async function ConteudoPage({ params, searchParams }: { params: P
             escrever={escreverLaminasAction.bind(null, slug)} salvar={salvarLaminasAction.bind(null, slug)} fotosDaPasta={fotosDaPastaAction.bind(null, slug)} criarLote={loteAction.bind(null, slug)} anexar={anexarLaminasAction.bind(null, slug)} importar={importarCarrosseisAction.bind(null, slug)} />
         </div>
       )}
+
+      {admin && (() => {
+        const meta = monthlyByType(plan).carrossel;
+        const mes = todayISO().slice(0, 7);
+        const noMes = all.filter((p) => p.type === "carrossel" && p.date?.startsWith(mes)).length;
+        return (
+          <div className="card p-3 sm:px-4 mb-4 flex flex-wrap items-center justify-between gap-3">
+            <p className="text-sm"><span className="label mr-2">Carrosséis</span>Meta de <b>{meta} por mês</b> · {noMes} no planejamento deste mês</p>
+            <a href={studioHref(slug)} target="_blank" rel="noreferrer" className="ct-btn">Abrir Estúdio de Carrosséis<ArrowUpRightIcon size={14} /></a>
+          </div>
+        );
+      })()}
 
       {admin && !c.igUserId && (
         <section className="card p-4 mb-4 flex flex-col gap-2">
@@ -287,6 +300,8 @@ function PostDetail({ post: p, n, total, slug, admin, base, client, plan, local,
           <div className="mt-2"><ScheduleForm key={`${p.id}${p.date}${p.time}`} action={setDateAction.bind(null, slug, p.id)} date={p.date} time={p.time} label="Salvar data" /></div>
         </details>
       )}
+
+      {admin && p.type === "carrossel" && <CanvaLinkField key={`${p.id}${p.canvaLink ?? ""}`} action={setCanvaLinkAction.bind(null, slug, p.id)} link={p.canvaLink} />}
 
       {admin && <PillarSelect key={`${p.id}${p.pillar ?? ""}`} action={setPillarAction.bind(null, slug, p.id)} value={p.pillar} options={plan.pillars.map((x) => x.name)} />}
 

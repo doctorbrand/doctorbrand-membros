@@ -86,6 +86,8 @@ export interface Post {
   roteiro?: string;
   /** Lâminas do carrossel (capa, slides, tela final), montadas na área e levadas ao Canva. Só a equipe vê. */
   laminas?: LaminasPost;
+  /** Link do carrossel montado no Canva (pelo Estúdio de Carrosséis). Só a equipe vê. */
+  canvaLink?: string;
   /** Data e hora planejadas (America/Sao_Paulo). */
   date: string;         // YYYY-MM-DD
   time: string;         // HH:MM
