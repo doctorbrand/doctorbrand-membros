@@ -160,6 +160,22 @@ export function PillarSelect({ action, value, options }: { action: ActFd; value?
   );
 }
 
+/** Modelo do Canva (do kit de marca) com que o Estúdio monta o carrossel. Vazio: o Estúdio escolhe pelas regras do kit. */
+export function ModeloSelect({ action, value, options }: { action: ActFd; value?: string; options: string[] }) {
+  const [state, run, pending] = useActionState(action, null);
+  const opts = value && !options.includes(value) ? [...options, value] : options;
+  return (
+    <form action={run} className="ct-pillar-edit">
+      <span className="label">Modelo</span>
+      <select name="modelo" defaultValue={value ?? ""} className="ct-input" disabled={pending} onChange={(e) => e.currentTarget.form?.requestSubmit()} aria-label="Modelo do Canva">
+        <option value="">Escolha do Estúdio</option>
+        {opts.map((o) => <option key={o} value={o}>{o}</option>)}
+      </select>
+      <Msg state={state} pending={pending} />
+    </form>
+  );
+}
+
 /**
  * Link do carrossel montado no Canva (pelo Estúdio de Carrosséis): mostra "Abrir no Canva" quando existe
  * e deixa a equipe colar, trocar ou tirar o link ali mesmo.

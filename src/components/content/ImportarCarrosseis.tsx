@@ -65,7 +65,7 @@ export function ImportarCarrosseis({ action, defaultStart, everyDays, studio }: 
           </div>
         ) : (
           <>
-            <p className="text-xs text-[var(--muted)]">Formato: cada carrossel começa com “## Título”; cada slide com “**Slide 1 (capa):** frase”, e as linhas dele com “-”. “- Foto:” é a foto indicada e “**Legenda:**”, a legenda.</p>
+            <p className="text-xs text-[var(--muted)]">Formato: cada carrossel começa com “## Título”; cada slide com “**Slide 1 (capa):** frase”, e as linhas dele com “-”. “- Foto:” é a foto indicada e “**Legenda:**”, a legenda. Uma linha “Modelo: Editorial” abaixo do título escolhe o modelo do Canva.</p>
             <div className="flex flex-wrap items-center gap-2">
               <label className="ct-btn cursor-pointer text-sm"><UploadIcon size={15} />Escolher arquivo (.md ou .txt)
                 <input type="file" hidden accept=".md,.txt,.markdown,text/markdown,text/plain" onChange={async (e) => { const f = e.target.files?.[0]; if (f) setDoc(await f.text()); e.target.value = ""; }} />
@@ -75,7 +75,7 @@ export function ImportarCarrosseis({ action, defaultStart, everyDays, studio }: 
             <textarea className="ct-input mono text-[12px]" rows={7} value={doc} onChange={(e) => setDoc(e.target.value)} placeholder={"## 01 · Título do carrossel\n**Slide 1 (capa):** Frase da capa\n- Foto: o que vai na foto\n**Slide 2:** Título do slide\n- Texto do slide\n**Slide 3 (CTA):** Chamada final\n- Comenta “PALAVRA”…\n**Legenda:**\nTexto da legenda"} />
             {doc.trim() && (lidos.length ? (
               <ul className="text-sm flex flex-col gap-0.5 max-h-44 overflow-y-auto rounded-xl border border-[var(--line)] p-3">
-                {lidos.map((c, i) => <li key={i} className="flex justify-between gap-3"><span className="truncate">{c.titulo}</span><span className="text-[var(--muted)] shrink-0">{plural(c.slides.length, "slide", "slides")}{c.legenda ? " · legenda" : ""}</span></li>)}
+                {lidos.map((c, i) => <li key={i} className="flex justify-between gap-3"><span className="truncate">{c.titulo}</span><span className="text-[var(--muted)] shrink-0">{c.modelo ? `${c.modelo} · ` : ""}{plural(c.slides.length, "slide", "slides")}{c.legenda ? " · legenda" : ""}</span></li>)}
               </ul>
             ) : <p className="text-sm g-bad">Não achei carrosséis nesse texto. Confira as linhas “## Título” e “**Slide 1 (capa):**”.</p>)}
             <div className="grid grid-cols-3 gap-2">

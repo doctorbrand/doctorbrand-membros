@@ -12,6 +12,8 @@ import { IG_ACCOUNTS_TAG, igAccounts } from "@/lib/instagram";
 import { getClient, updateClient } from "@/lib/clients";
 import { publishProblem, stepPublish } from "@/lib/publish";
 import { linkCanvaValido } from "@/lib/studio";
+import { getBrand } from "@/lib/brandStore";
+import { modelosDoKit } from "@/lib/brand";
 import type { ActionResult } from "@/lib/types";
 
 const str = (fd: FormData, k: string) => String(fd.get(k) ?? "").trim();
@@ -582,6 +584,21 @@ export async function setCanvaLinkAction(slug: string, id: string, _prev: Action
   if (!p) return { ok: false, message: "Post não encontrado." };
   revalidatePath(path(slug));
   return { ok: true, message: link ? "Link do Canva salvo." : "Link do Canva removido." };
+}
+
+/** Equipe escolhe com qual modelo do Canva (do kit de marca) o Estúdio monta o carrossel. Vazio: o Estúdio escolhe. */
+export async function setModeloAction(slug: string, id: string, _prev: ActionResult | null, fd: FormData): Promise<ActionResult> {
+  const s = await requireAdmin();
+  const modelo = str(fd, "modelo").slice(0, 40);
+  if (modelo && !modelosDoKit(await getBrand(slug)).some((m) => m.nome === modelo)) return { ok: false, message: "Esse modelo não está no kit de marca." };
+  // Atenção: em updatePost, devolver null APAGA o post. Aqui sempre devolve o post.
+  const p = await updatePost(slug, id, (p) => (p.canvaModelo ?? "") === modelo ? p : {
+    ...p, ...(modelo ? { canvaModelo: modelo } : { canvaModelo: undefined }), updatedAt: new Date().toISOString(),
+    history: [...p.history, entry(s, "editado", modelo ? `Modelo do Canva: ${modelo}` : "Modelo do Canva: escolha do Estúdio")],
+  });
+  if (!p) return { ok: false, message: "Post não encontrado." };
+  revalidatePath(path(slug));
+  return { ok: true, message: modelo ? `Modelo: ${modelo}.` : "O Estúdio escolhe o modelo." };
 }
 
 export async function setPillarAction(slug: string, id: string, _prev: ActionResult | null, fd: FormData): Promise<ActionResult> {

@@ -6,6 +6,7 @@ import { MAX_SLIDES, type SlideTexto } from "./slides";
  *
  *   ## 01 · Título do carrossel
  *   Base: … · Keyword: ERROS · 9 slides
+ *   Modelo: Editorial            (opcional: o modelo do Canva, pelo nome no kit de marca)
  *   **Slide 1 (capa):** Frase da capa
  *   - Foto: o que vai na foto
  *   **Slide 2:** Título do slide
@@ -22,6 +23,8 @@ import { MAX_SLIDES, type SlideTexto } from "./slides";
 export interface CarrosselDoc {
   titulo: string;
   keyword?: string;
+  /** Nome do modelo do Canva indicado no documento (linha "Modelo: ..."). */
+  modelo?: string;
   slides: SlideTexto[];
   legenda: string;
   /** O trecho original do documento (vira o roteiro do post). */
@@ -41,6 +44,9 @@ export function lerCarrosseis(texto: string): CarrosselDoc[] {
     const titulo = limpa(linhas[0].replace(/^\d{1,3}\s*[·.\-–—)]\s*/, "")).slice(0, 120);
     if (!titulo) continue;
     const keyword = bloco.match(/Keyword:\s*([^\s·|]+)/i)?.[1];
+    // "Modelo: Editorial" numa linha antes do primeiro slide (sozinha ou junto de Base/Keyword, separada por ·).
+    const cabecalho = bloco.split(/^\*\*\s*(?:Slide|Lâmina|Lamina)/im)[0];
+    const modelo = cabecalho.match(/(?:^|[·|]\s*|\n\s*)Modelo\s*:\s*([^·|\n*]+)/i)?.[1]?.trim().slice(0, 40);
     const slides: { cab: string; tipo: SlideTexto["tipo"] | "auto"; linhas: string[]; foto?: string }[] = [];
     const legenda: string[] = [];
     let naLegenda = false;
@@ -78,6 +84,7 @@ export function lerCarrosseis(texto: string): CarrosselDoc[] {
     out.push({
       titulo,
       ...(keyword ? { keyword } : {}),
+      ...(modelo ? { modelo } : {}),
       slides: lams,
       legenda: legenda.join("\n").replace(/\n{3,}/g, "\n\n").trim().slice(0, 2200),
       roteiro: `## ${bloco.trim()}`.slice(0, 12000),
