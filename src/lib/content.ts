@@ -88,6 +88,8 @@ export interface Post {
   slides?: SlideTexto[];
   /** Link do carrossel montado no Canva (pelo Estúdio de Carrosséis). Só a equipe vê. */
   canvaLink?: string;
+  /** Nome do modelo do Canva (do kit de marca) com que o carrossel é montado. Vazio: o Estúdio escolhe. */
+  canvaModelo?: string;
   /** Data e hora planejadas (America/Sao_Paulo). */
   date: string;         // YYYY-MM-DD
   time: string;         // HH:MM

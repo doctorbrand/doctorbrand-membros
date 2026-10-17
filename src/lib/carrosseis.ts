@@ -11,7 +11,7 @@ import { localDir } from "./store";
  * slides, listar os que faltam montar e receber de volta o link do Canva e as imagens exportadas.
  */
 
-export interface CarrosselNovo { titulo: string; legenda: string; roteiro?: string; slides: SlideTexto[] }
+export interface CarrosselNovo { titulo: string; legenda: string; roteiro?: string; slides: SlideTexto[]; modelo?: string }
 
 const somarDias = (iso: string, n: number) => { const d = new Date(`${iso}T12:00:00Z`); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
 const mesmoTitulo = (p: Post, t: string) => p.type === "carrossel" && p.status !== "publicado" && !p.publish?.igMediaId && p.title.trim().toLowerCase() === t.trim().toLowerCase();
@@ -33,15 +33,16 @@ export async function gravarCarrosseis(slug: string, itens: CarrosselNovo[], o: 
     const slides = slidesLimpos(c.slides);
     const legenda = String(c.legenda ?? "").replace(/\r\n?/g, "\n").trim().slice(0, 2200);
     const roteiro = c.roteiro ? String(c.roteiro).slice(0, 12000) : undefined;
+    const modelo = c.modelo ? String(c.modelo).trim().slice(0, 40) || undefined : undefined;
     const i = lista.findIndex((p) => mesmoTitulo(p, titulo));
     if (i >= 0) {
       const p = lista[i];
-      lista[i] = { ...p, slides, ...(roteiro ? { roteiro } : {}), ...(p.caption.trim() ? {} : { caption: legenda }), updatedAt: now, history: [...p.history, { at: now, by: o.por, role: o.papel, action: "editado", note: `${o.nota} (texto dos slides atualizado)` }] };
+      lista[i] = { ...p, slides, ...(roteiro ? { roteiro } : {}), ...(modelo ? { canvaModelo: modelo } : {}), ...(p.caption.trim() ? {} : { caption: legenda }), updatedAt: now, history: [...p.history, { at: now, by: o.por, role: o.papel, action: "editado", note: `${o.nota} (texto dos slides atualizado)` }] };
       ids.push(p.id); atualizados++;
       continue;
     }
     const novo: Post = {
-      id: crypto.randomUUID(), type: "carrossel", title: titulo, caption: legenda, media: [], slides, ...(roteiro ? { roteiro } : {}),
+      id: crypto.randomUUID(), type: "carrossel", title: titulo, caption: legenda, media: [], slides, ...(roteiro ? { roteiro } : {}), ...(modelo ? { canvaModelo: modelo } : {}),
       date: somarDias(o.start, criados * every), time, status: "rascunho", createdAt: now, updatedAt: now,
       history: [{ at: now, by: o.por, role: o.papel, action: "criado", note: o.nota }],
     };
@@ -60,7 +61,7 @@ export async function carrosseisDoPlanejamento(slug: string, opts: { soSemCanva?
     .map((p) => ({
       id: p.id, titulo: p.title, data: p.date, hora: p.time, status: p.status, legenda: p.caption,
       slides: p.slides ?? [], roteiro: p.slides?.length ? undefined : p.roteiro,
-      canva_link: p.canvaLink ?? null, imagens: p.media.length,
+      canva_link: p.canvaLink ?? null, modelo: p.canvaModelo ?? null, imagens: p.media.length,
     }));
 }
 
@@ -101,7 +102,7 @@ async function guardar(path: string, buf: Buffer): Promise<void> {
  * ou um ZIP), que viram as imagens do post. Aprovado com outras imagens volta para rascunho; publicado ou
  * agendado não muda.
  */
-export async function receberDoCanva(slug: string, postId: string, d: { link: string; imagens?: string[]; por: string; papel: HistoryEntry["role"] }): Promise<{ titulo: string; imagens: number; voltou: boolean }> {
+export async function receberDoCanva(slug: string, postId: string, d: { link: string; imagens?: string[]; modelo?: string; por: string; papel: HistoryEntry["role"] }): Promise<{ titulo: string; imagens: number; voltou: boolean }> {
   const atual = (await getPosts(slug)).find((p) => p.id === postId);
   if (!atual) throw new Error("Carrossel não encontrado no planejamento deste cliente.");
   if (atual.type !== "carrossel") throw new Error(`“${atual.title}” não é carrossel.`);
@@ -135,7 +136,7 @@ export async function receberDoCanva(slug: string, postId: string, d: { link: st
     const usar = media && !travado ? media : undefined;
     voltou = !!usar && p.status === "aprovado";
     return {
-      ...p, canvaLink: d.link, updatedAt: now,
+      ...p, canvaLink: d.link, ...(d.modelo ? { canvaModelo: d.modelo.slice(0, 40) } : {}), updatedAt: now,
       ...(usar ? { media: usar, publish: undefined, ...(voltou ? { status: "rascunho" as const } : {}) } : {}),
       history: [...p.history, { at: now, by: d.por, role: d.papel, action: "editado", note: usar ? `Montado no Canva: ${usar.length} imagens${voltou ? "; voltou para rascunho porque já estava aprovado com outras imagens" : ""}` : "Link do Canva salvo" }],
     };

@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ActionForm } from "@/components/ActionForm";
-import { ActionButton, CanvaLinkField, ConnectInstagram, DeleteIconButton, DriveRefresh, PillarSelect, ScheduleForm } from "@/components/content/ContentActions";
+import { ActionButton, CanvaLinkField, ConnectInstagram, ModeloSelect, DeleteIconButton, DriveRefresh, PillarSelect, ScheduleForm } from "@/components/content/ContentActions";
 import { CoverPicker } from "@/components/content/CoverPicker";
 import { PostEditor } from "@/components/content/PostEditor";
 import { VideoPlayer } from "@/components/content/VideoPlayer";
@@ -25,8 +25,10 @@ import { publishProblem } from "@/lib/publish";
 import { addDays, todayISO } from "@/lib/periods";
 import { localDir } from "@/lib/store";
 import { studioHref } from "@/lib/studio";
+import { getBrand } from "@/lib/brandStore";
+import { modelosDoKit } from "@/lib/brand";
 import { importarCarrosseisAction } from "./carrosseisActions";
-import { approveAllAction, approveAndNextAction, changeAndNextAction, connectInstagramAction, refreshIgAccountsAction, disconnectInstagramAction, deletePostAction, importDriveAction, importDriveBatchAction, refreshDriveAction, importListAction, importPostsAction, reorderFeedAction, setCanvaLinkAction, setDateAction, setPillarAction, publishNowAction, retryPublishAction, savePlanAction, savePostAction, scheduleAction, setCoverAction, setStatusAction, unscheduleAction } from "./actions";
+import { approveAllAction, approveAndNextAction, changeAndNextAction, connectInstagramAction, refreshIgAccountsAction, disconnectInstagramAction, deletePostAction, importDriveAction, importDriveBatchAction, refreshDriveAction, importListAction, importPostsAction, reorderFeedAction, setCanvaLinkAction, setDateAction, setModeloAction, setPillarAction, publishNowAction, retryPublishAction, savePlanAction, savePostAction, scheduleAction, setCoverAction, setStatusAction, unscheduleAction } from "./actions";
 
 export const dynamic = "force-dynamic";
 
@@ -57,7 +59,8 @@ export default async function ConteudoPage({ params, searchParams }: { params: P
 
   // Planejamento trazido de fora entra na primeira vez que a equipe abre a página.
   if (admin) { await runSeedImports(slug).catch(() => undefined); await runSeedCovers(slug).catch(() => undefined); await runSeedDecisions(slug).catch(() => undefined); await runSeedSources(slug).catch(() => undefined); }
-  const [all, plan, profile, live, accounts] = await Promise.all([getPosts(slug), getPlan(slug), igProfile(c.igUserId), igRecentMedia(c.igUserId, 15), admin ? igAccounts() : Promise.resolve([] as IgAccount[])]);
+  const [all, plan, profile, live, accounts, kit] = await Promise.all([getPosts(slug), getPlan(slug), igProfile(c.igUserId), igRecentMedia(c.igUserId, 15), admin ? igAccounts() : Promise.resolve([] as IgAccount[]), admin ? getBrand(slug) : Promise.resolve({})]);
+  const modelos = modelosDoKit(kit).map((m) => m.nome);
   const local = !!localDir();
   const nextDay = addDays(todayISO(), 1);
   const posts = all.filter((p) => visibleTo(p, role));
@@ -210,7 +213,7 @@ export default async function ConteudoPage({ params, searchParams }: { params: P
               <PostEditor slug={slug} action={savePostAction.bind(null, slug)} post={editing} defaultDate={todayISO()} pillars={plan.pillars.map((p) => p.name)} importDrive={importDriveAction} local={local} />
             </>
           ) : selected ? (
-            <PostDetail post={selected} n={num.get(selected.id)} total={order.length} slug={slug} admin={admin} base={base} client={c} plan={plan} local={local}
+            <PostDetail post={selected} n={num.get(selected.id)} total={order.length} slug={slug} admin={admin} base={base} client={c} plan={plan} local={local} modelos={modelos}
               prevHref={prevOf(order, selected.id, postHref)} nextHref={nextOf(order, selected.id, postHref)} afterHref={nextWaiting(order, selected.id, postHref) ?? (asClient ? `${base}?visao=cliente` : base)}
               hasNextWaiting={!!nextWaiting(order, selected.id, postHref)} feito={sp.feito}
               taskUrl={admin && selected.status === "alteracao" ? (await getAlteracaoTasks())[alteracaoKey(slug, selected.id)]?.url : undefined} />
@@ -262,7 +265,7 @@ export default async function ConteudoPage({ params, searchParams }: { params: P
   );
 }
 
-function PostDetail({ post: p, n, total, slug, admin, base, client, plan, local, prevHref, nextHref, afterHref, hasNextWaiting, feito, taskUrl }: { post: Post; n?: number; total: number; slug: string; admin: boolean; base: string; client: Client; plan: FeedPlan; local: boolean; prevHref?: string; nextHref?: string; afterHref: string; hasNextWaiting: boolean; feito?: string; taskUrl?: string }) {
+function PostDetail({ post: p, n, total, slug, admin, base, client, plan, local, modelos, prevHref, nextHref, afterHref, hasNextWaiting, feito, taskUrl }: { post: Post; n?: number; total: number; slug: string; admin: boolean; base: string; client: Client; plan: FeedPlan; local: boolean; modelos: string[]; prevHref?: string; nextHref?: string; afterHref: string; hasNextWaiting: boolean; feito?: string; taskUrl?: string }) {
   const canDecide = p.status === "aguardando" || p.status === "alteracao";
   const lastChange = [...p.history].reverse().find((h) => h.action === "alteracao");
   return (
@@ -292,9 +295,10 @@ function PostDetail({ post: p, n, total, slug, admin, base, client, plan, local,
         </details>
       )}
 
-      {admin && p.type === "carrossel" && <CanvaLinkField key={`${p.id}${p.canvaLink ?? ""}`} action={setCanvaLinkAction.bind(null, slug, p.id)} link={p.canvaLink} />}
+      {admin && p.type === "carrossel" && modelos.length > 1 && <ModeloSelect key={`modelo-${p.id}-${p.canvaModelo ?? ""}`} action={setModeloAction.bind(null, slug, p.id)} value={p.canvaModelo} options={modelos} />}
+      {admin && p.type === "carrossel" && <CanvaLinkField key={`canva-${p.id}-${p.canvaLink ?? ""}`} action={setCanvaLinkAction.bind(null, slug, p.id)} link={p.canvaLink} />}
 
-      {admin && <PillarSelect key={`${p.id}${p.pillar ?? ""}`} action={setPillarAction.bind(null, slug, p.id)} value={p.pillar} options={plan.pillars.map((x) => x.name)} />}
+      {admin && <PillarSelect key={`pilar-${p.id}-${p.pillar ?? ""}`} action={setPillarAction.bind(null, slug, p.id)} value={p.pillar} options={plan.pillars.map((x) => x.name)} />}
 
       {p.status === "alteracao" && lastChange?.note && (
         <div className="rounded-xl border border-[#f2c6c2] bg-[#fbeae9] p-3 text-sm">

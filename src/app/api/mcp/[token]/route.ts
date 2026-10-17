@@ -1,6 +1,7 @@
 import { timingSafeEqual } from "crypto";
 import { revalidatePath } from "next/cache";
 import { getBrand, saveBrand } from "@/lib/brandStore";
+import { modelosDoKit } from "@/lib/brand";
 import { carrosseisDoPlanejamento, gravarCarrosseis, receberDoCanva } from "@/lib/carrosseis";
 import { getClient, listClients } from "@/lib/clients";
 import { linkCanvaValido } from "@/lib/studio";
@@ -30,13 +31,13 @@ const slugOk = (v: unknown) => typeof v === "string" && /^[a-z0-9-]{1,80}$/.test
 const FERRAMENTAS = [
   {
     name: "listar_clientes",
-    description: "Lista os clientes da área de membros com o que o Estúdio precisa: link do carrossel modelo no Canva, pasta do cliente no Canva e tom de voz e regras.",
+    description: "Lista os clientes da área de membros com o que o Estúdio precisa: os modelos de carrossel no Canva (nome e link; o primeiro é o padrão), a pasta do cliente no Canva e o tom de voz e regras.",
     inputSchema: { type: "object", properties: {}, additionalProperties: false },
     annotations: { readOnlyHint: true },
   },
   {
     name: "listar_carrosseis",
-    description: "Carrosséis do planejamento de um cliente que ainda não foram publicados, com legenda e o texto de cada slide (capa, slides, final e a foto indicada). Com so_sem_canva, só os que ainda não foram montados.",
+    description: "Carrosséis do planejamento de um cliente que ainda não foram publicados, com legenda, o texto de cada slide (capa, slides, final e a foto indicada) e o modelo do Canva escolhido (vazio: o Estúdio escolhe). Com so_sem_canva, só os que ainda não foram montados.",
     inputSchema: { type: "object", properties: { cliente: { type: "string", description: "Slug do cliente (ex.: fernando-fontes)." }, so_sem_canva: { type: "boolean" } }, required: ["cliente"], additionalProperties: false },
     annotations: { readOnlyHint: true },
   },
@@ -50,6 +51,7 @@ const FERRAMENTAS = [
         titulo: { type: "string" },
         legenda: { type: "string" },
         data: { type: "string", description: "AAAA-MM-DD. Sem data: amanhã." },
+        modelo: { type: "string", description: "Nome do modelo do Canva (de listar_clientes)." },
         slides: { type: "array", items: { type: "object", properties: { tipo: { type: "string", enum: ["capa", "slide", "final"] }, titulo: { type: "string" }, texto: { type: "string" }, foto: { type: "string" } }, required: ["titulo"] } },
       },
       required: ["cliente", "titulo", "slides"],
@@ -58,10 +60,10 @@ const FERRAMENTAS = [
   },
   {
     name: "salvar_carrossel",
-    description: "Recebe o carrossel montado no Canva: guarda o link do design no post e, se vierem, baixa as imagens exportadas (links de exportação do Canva, uma por página na ordem, ou um ZIP) e põe no post. Aprovado com outras imagens volta para rascunho; agendado ou publicado não troca as imagens.",
+    description: "Recebe o carrossel montado no Canva: guarda o link do design no post e, se vierem, baixa as imagens exportadas (links de exportação do Canva, uma por página na ordem, ou um ZIP) e põe no post. Aprovado com outras imagens volta para rascunho; agendado ou publicado não troca as imagens. Com modelo, guarda o modelo usado.",
     inputSchema: {
       type: "object",
-      properties: { cliente: { type: "string" }, post_id: { type: "string" }, canva_link: { type: "string" }, imagens: { type: "array", items: { type: "string" }, maxItems: 12 } },
+      properties: { cliente: { type: "string" }, post_id: { type: "string" }, canva_link: { type: "string" }, imagens: { type: "array", items: { type: "string" }, maxItems: 12 }, modelo: { type: "string" } },
       required: ["cliente", "post_id", "canva_link"],
       additionalProperties: false,
     },
@@ -79,7 +81,7 @@ async function chamar(nome: string, a: Record<string, unknown>): Promise<unknown
   if (nome === "listar_clientes") {
     const cs = (await listClients()).filter((c) => !c.removed);
     const kits = await Promise.all(cs.map((c) => getBrand(c.slug)));
-    return { clientes: cs.map((c, i) => ({ slug: c.slug, nome: c.name, especialidade: c.specialty, modelo_canva: kits[i].canvaModelo ?? null, pasta_canva: kits[i].canvaPasta ?? null, tom_de_voz: kits[i].rules ?? "" })) };
+    return { clientes: cs.map((c, i) => ({ slug: c.slug, nome: c.name, especialidade: c.specialty, modelos: modelosDoKit(kits[i]), modelo_canva: modelosDoKit(kits[i])[0]?.link ?? null, pasta_canva: kits[i].canvaPasta ?? null, tom_de_voz: kits[i].rules ?? "" })) };
   }
   if (!slugOk(a.cliente) || !(await getClient(String(a.cliente)))) throw new Erro("Cliente não encontrado. Use o slug de listar_clientes.");
   const slug = String(a.cliente);
@@ -89,7 +91,7 @@ async function chamar(nome: string, a: Record<string, unknown>): Promise<unknown
   if (nome === "criar_carrossel") {
     const amanha = new Date(Date.now() + 864e5).toLocaleString("sv-SE", { timeZone: "America/Sao_Paulo" }).slice(0, 10);
     const data = typeof a.data === "string" && /^\d{4}-\d{2}-\d{2}$/.test(a.data) ? a.data : amanha;
-    const r = await gravarCarrosseis(slug, [{ titulo: String(a.titulo ?? ""), legenda: String(a.legenda ?? ""), slides: (a.slides as never) ?? [] }], { start: data, everyDays: 1, time: "12:00", por: QUEM, papel: "admin", nota: "Criado no Estúdio de Carrosséis" });
+    const r = await gravarCarrosseis(slug, [{ titulo: String(a.titulo ?? ""), legenda: String(a.legenda ?? ""), slides: (a.slides as never) ?? [], ...(typeof a.modelo === "string" && a.modelo.trim() ? { modelo: a.modelo } : {}) }], { start: data, everyDays: 1, time: "12:00", por: QUEM, papel: "admin", nota: "Criado no Estúdio de Carrosséis" });
     if (!r.ids.length) throw new Erro("Dê um título ao carrossel.");
     revalidatePath(`/cliente/${slug}/conteudo`);
     return { post_id: r.ids[0], criado: r.criados > 0 };
@@ -99,7 +101,8 @@ async function chamar(nome: string, a: Record<string, unknown>): Promise<unknown
     const link = String(a.canva_link ?? "").trim();
     if (!linkCanvaValido(link)) throw new Erro("canva_link precisa ser um link https do Canva.");
     const imagens = Array.isArray(a.imagens) ? a.imagens.map(String) : [];
-    const r = await receberDoCanva(slug, String(a.post_id ?? ""), { link, imagens, por: QUEM, papel: "admin" });
+    const modelo = typeof a.modelo === "string" && a.modelo.trim() ? a.modelo.trim() : undefined;
+    const r = await receberDoCanva(slug, String(a.post_id ?? ""), { link, imagens, modelo, por: QUEM, papel: "admin" });
     revalidatePath(`/cliente/${slug}/conteudo`);
     return { ok: true, titulo: r.titulo, imagens: r.imagens, voltou_para_rascunho: r.voltou };
   }

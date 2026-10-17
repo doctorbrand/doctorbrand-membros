@@ -5,7 +5,7 @@ import { ArrowUpRightIcon, CheckIcon, FolderIcon } from "@/components/Icons";
 import { Shell } from "@/components/Shell";
 import { requireAdmin } from "@/lib/auth";
 import { getBrand } from "@/lib/brandStore";
-import { brandChecklist } from "@/lib/brand";
+import { brandChecklist, MAX_MODELOS, modelosDoKit } from "@/lib/brand";
 import { studioHref } from "@/lib/studio";
 import { getClient } from "@/lib/clients";
 import { getPlan, getPosts, monthlyByType } from "@/lib/content";
@@ -53,6 +53,9 @@ export default async function MarcaPage({ params }: { params: Promise<{ slug: st
   const mes = new Date().toLocaleString("sv-SE", { timeZone: "America/Sao_Paulo" }).slice(0, 7);
   const feitos = posts.filter((p) => p.type === "carrossel" && p.date?.startsWith(mes)).length;
   const checks = brandChecklist(k);
+  const modelos = modelosDoKit(k);
+  // Linhas do formulário: os modelos que existem e mais duas em branco (até o máximo).
+  const linhas = [...modelos, ...Array.from({ length: Math.max(0, Math.min(MAX_MODELOS, modelos.length + 2) - modelos.length) }, () => ({ nome: "", link: "" }))];
   const done = checks.filter((x) => x.done).length;
 
   return (
@@ -61,7 +64,7 @@ export default async function MarcaPage({ params }: { params: Promise<{ slug: st
         <div>
           <p className="label">{c.name} · {c.specialty}</p>
           <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight mt-1">Kit de marca</h1>
-          <p className="text-sm text-[var(--muted)] mt-1 max-w-2xl">O desenho dos carrosséis fica no Canva: aqui ficam o modelo e a pasta do cliente no Canva, o tom de voz e a pasta de fotos. O Estúdio de Carrosséis lê tudo daqui. Só a equipe vê esta página.</p>
+          <p className="text-sm text-[var(--muted)] mt-1 max-w-2xl">O desenho dos carrosséis fica no Canva: aqui ficam os modelos e a pasta do cliente no Canva, o tom de voz e a pasta de fotos. O Estúdio de Carrosséis lê tudo daqui. Só a equipe vê esta página.</p>
         </div>
         <div className="flex items-center gap-2 text-sm">
           <span className={`pill ${done === checks.length ? "pill-green" : done >= 2 ? "pill-info" : "pill-yellow"}`}>{done} de {checks.length} prontos</span>
@@ -78,17 +81,21 @@ export default async function MarcaPage({ params }: { params: Promise<{ slug: st
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
               <h2 className="font-semibold">Canva</h2>
-              <p className="text-sm text-[var(--muted)] max-w-2xl">O carrossel modelo do cliente, com as fontes, cores e páginas que se repetem (capa, slides e convite final). O Estúdio monta cada carrossel novo como cópia dele, na pasta do cliente. Para mudar o desenho, mude o modelo no Canva.</p>
+              <p className="text-sm text-[var(--muted)] max-w-2xl">Os carrosséis modelo do cliente, com as fontes, cores e páginas que se repetem (capa, slides e convite final). Cada modelo é um design no Canva. O Estúdio monta cada carrossel novo com um modelo só, do início ao fim, na pasta do cliente. Para mudar o desenho, mude o modelo no Canva.</p>
             </div>
             <a href={studioHref(slug)} target="_blank" rel="noreferrer" className="ct-btn">Abrir Estúdio de Carrosséis<ArrowUpRightIcon size={14} /></a>
           </div>
-          <label className="flex flex-col gap-1">
-            <span className="label">Link do carrossel modelo</span>
-            <div className="flex flex-wrap gap-2 items-center">
-              <input name="canvaModelo" type="url" inputMode="url" defaultValue={k.canvaModelo ?? ""} placeholder="https://www.canva.com/design/... ou https://canva.link/..." className="ct-input flex-1 min-w-[260px]" />
-              {k.canvaModelo && <a href={k.canvaModelo} target="_blank" rel="noreferrer" className="ct-btn">Abrir no Canva<ArrowUpRightIcon size={14} /></a>}
-            </div>
-          </label>
+          <div className="flex flex-col gap-2">
+            <span className="label">Modelos</span>
+            {linhas.map((m, i) => (
+              <div key={i} className="grid grid-cols-1 sm:grid-cols-[11rem_minmax(0,1fr)_auto] gap-2 items-center">
+                <input name="modeloNome" defaultValue={m.nome} placeholder={i === 0 ? "Nome (ex.: Autoridade)" : "Nome"} aria-label={`Nome do modelo ${i + 1}`} className="ct-input" />
+                <input name="modeloLink" type="url" inputMode="url" defaultValue={m.link} placeholder="https://www.canva.com/design/... ou https://canva.link/..." aria-label={`Link do modelo ${i + 1}`} className="ct-input min-w-0" />
+                {m.link ? <a href={m.link} target="_blank" rel="noreferrer" className="ct-btn justify-self-start">Abrir no Canva<ArrowUpRightIcon size={14} /></a> : <span className="hidden sm:block" />}
+              </div>
+            ))}
+            <p className="text-xs text-[var(--muted)]">O primeiro é o padrão. Para tirar um modelo, apague o link. Precisa de mais linhas? Salve e aparecem outras duas (até {MAX_MODELOS}). Use o link de um design (no Canva, Compartilhar e Copiar link), não de um modelo da marca.</p>
+          </div>
           <label className="flex flex-col gap-1">
             <span className="label">Pasta do cliente no Canva (opcional)</span>
             <input name="canvaPasta" defaultValue={k.canvaPasta ?? ""} placeholder="https://www.canva.com/folder/... (sem pasta, o Estúdio cria uma com o nome do cliente)" className="ct-input" />
