@@ -1,19 +1,19 @@
 /**
- * Kit de marca do cliente na área de membros: os modelos de carrossel (cores, fontes e base do desenho,
- * usados para montar as lâminas e o arquivo que abre no Canva), as regras de texto que o Claude lê antes
- * de escrever e a pasta de fotos do Drive.
+ * Kit de marca do cliente na área de membros. O desenho dos carrosséis mora no Canva (um modelo e uma pasta
+ * por cliente); aqui ficam os links para eles, o tom de voz e as regras que o Claude lê antes de escrever, e a
+ * pasta de fotos do Drive. O Estúdio de Carrosséis lê este kit pelo conector da área.
  * Guardado no Blob em `marca/<slug>` (leitura e escrita em brandStore.ts). Este arquivo vale também no navegador.
  */
 
-import type { Estilo } from "./laminas";
-
 export interface BrandKit {
-  /** Link da pasta de fotos no Google Drive (compartilhada por link). É dela que saem as fotos das lâminas. */
+  /** Link da pasta de fotos no Google Drive (compartilhada por link). Fotos do cliente para os carrosséis. */
   driveFolder?: string;
   /** Regras de texto e de marca, uma por linha. O Claude lê antes de escrever. */
   rules?: string;
-  /** Modelos de carrossel deste cliente (cores, fontes e base do desenho). */
-  estilos?: Estilo[];
+  /** Link do carrossel modelo do cliente no Canva (o Estúdio monta cada carrossel a partir dele). */
+  canvaModelo?: string;
+  /** Pasta do cliente no Canva (id), onde o Estúdio guarda os carrosséis montados. */
+  canvaPasta?: string;
   updatedAt?: string;
   updatedBy?: string;
 }
@@ -21,8 +21,8 @@ export interface BrandKit {
 /** Quanto do kit está pronto, por item. Usado no topo da página. */
 export function brandChecklist(k: BrandKit): { label: string; done: boolean }[] {
   return [
-    { label: "Modelo de carrossel", done: (k.estilos ?? []).length > 0 },
-    { label: "Regras de texto", done: !!k.rules?.trim() },
+    { label: "Modelo no Canva", done: !!k.canvaModelo },
+    { label: "Tom de voz e regras", done: !!k.rules?.trim() },
     { label: "Pasta de fotos", done: !!k.driveFolder },
   ];
 }

@@ -1,8 +1,8 @@
-import { laminaVazia, MAX_LAMINAS, type Lamina } from "./laminas";
+import { MAX_SLIDES, type SlideTexto } from "./slides";
 
 /**
- * Lê um documento de carrosséis já escritos (Markdown) e devolve cada carrossel com as lâminas prontas,
- * sem reescrever nada. Formato esperado (o mesmo dos documentos de roteiro da equipe):
+ * Lê um documento de carrosséis já escritos (Markdown) e devolve cada carrossel com o texto de cada slide,
+ * sem reescrever nada. O Estúdio de Carrosséis encaixa esse texto no modelo do cliente no Canva. Formato esperado (o mesmo dos documentos de roteiro da equipe):
  *
  *   ## 01 · Título do carrossel
  *   Base: … · Keyword: ERROS · 9 slides
@@ -22,7 +22,7 @@ import { laminaVazia, MAX_LAMINAS, type Lamina } from "./laminas";
 export interface CarrosselDoc {
   titulo: string;
   keyword?: string;
-  laminas: Lamina[];
+  slides: SlideTexto[];
   legenda: string;
   /** O trecho original do documento (vira o roteiro do post). */
   roteiro: string;
@@ -41,7 +41,7 @@ export function lerCarrosseis(texto: string): CarrosselDoc[] {
     const titulo = limpa(linhas[0].replace(/^\d{1,3}\s*[·.\-–—)]\s*/, "")).slice(0, 120);
     if (!titulo) continue;
     const keyword = bloco.match(/Keyword:\s*([^\s·|]+)/i)?.[1];
-    const slides: { cab: string; tipo: Lamina["tipo"] | "auto"; linhas: string[]; foto?: string }[] = [];
+    const slides: { cab: string; tipo: SlideTexto["tipo"] | "auto"; linhas: string[]; foto?: string }[] = [];
     const legenda: string[] = [];
     let naLegenda = false;
     for (const bruta of linhas.slice(1)) {
@@ -65,23 +65,20 @@ export function lerCarrosseis(texto: string): CarrosselDoc[] {
     }
     if (!slides.length) continue;
     const avisos: string[] = [];
-    let lams: Lamina[] = slides.map((x, i) => {
-      const tipo: Lamina["tipo"] = x.tipo !== "auto" ? x.tipo : i === 0 ? "capa" : i === slides.length - 1 ? "final" : "slide";
-      let descricao = x.linhas.join("\n\n");
-      // A palavra para comentar sai em negrito na tela final.
-      if (tipo === "final" && keyword) descricao = descricao.replace(new RegExp(`([“"])${keyword.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}([”"])`), "**$1" + keyword + "$2**");
-      return { ...laminaVazia(tipo), titulo: x.cab, descricao, ...(x.foto ? { notaFoto: x.foto, modoFoto: tipo === "capa" ? "fundo" as const : "moldura" as const } : {}) };
+    let lams: SlideTexto[] = slides.map((x, i) => {
+      const tipo: SlideTexto["tipo"] = x.tipo !== "auto" ? x.tipo : i === 0 ? "capa" : i === slides.length - 1 ? "final" : "slide";
+      return { tipo, titulo: x.cab, texto: x.linhas.join("\n\n"), ...(x.foto ? { foto: x.foto } : {}) };
     });
     if (lams[0].tipo !== "capa") lams[0] = { ...lams[0], tipo: "capa" };
     if (lams.length > 1 && lams[lams.length - 1].tipo !== "final") lams[lams.length - 1] = { ...lams[lams.length - 1], tipo: "final" };
-    if (lams.length > MAX_LAMINAS) {
-      avisos.push(`tinha ${lams.length} lâminas; entraram as ${MAX_LAMINAS - 1} primeiras e a final`);
-      lams = [...lams.slice(0, MAX_LAMINAS - 1), lams[lams.length - 1]];
+    if (lams.length > MAX_SLIDES) {
+      avisos.push(`tinha ${lams.length} slides; entraram os ${MAX_SLIDES - 1} primeiros e o final`);
+      lams = [...lams.slice(0, MAX_SLIDES - 1), lams[lams.length - 1]];
     }
     out.push({
       titulo,
       ...(keyword ? { keyword } : {}),
-      laminas: lams,
+      slides: lams,
       legenda: legenda.join("\n").replace(/\n{3,}/g, "\n\n").trim().slice(0, 2200),
       roteiro: `## ${bloco.trim()}`.slice(0, 12000),
       avisos,

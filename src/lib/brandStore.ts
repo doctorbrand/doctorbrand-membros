@@ -21,8 +21,8 @@ const docPath = (slug: string) => `marca/${slug}`;
 
 export async function getBrand(slug: string): Promise<BrandKit> {
   const saved = await readDoc<BrandKit | null>(docPath(slug), null);
-  if (saved) return { ...EMPTY, ...saved, estilos: saved.estilos ?? [] };
-  return { ...EMPTY, ...(SEED[slug] ?? {}), estilos: [] };
+  if (saved) return { ...EMPTY, ...saved };
+  return { ...EMPTY, ...(SEED[slug] ?? {}) };
 }
 
 export async function saveBrand(slug: string, patch: Partial<BrandKit>, by: string): Promise<BrandKit> {

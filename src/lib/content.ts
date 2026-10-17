@@ -1,4 +1,4 @@
-import type { LaminasPost } from "./laminas";
+import type { SlideTexto } from "./slides";
 import { readDoc, writeDoc } from "./store";
 
 /**
@@ -84,8 +84,10 @@ export interface Post {
   source?: string;
   /** Roteiro e direção para a equipe produzir (gerado no painel). Só a equipe vê. */
   roteiro?: string;
-  /** Lâminas do carrossel (capa, slides, tela final), montadas na área e levadas ao Canva. Só a equipe vê. */
-  laminas?: LaminasPost;
+  /** Texto de cada slide do carrossel (do documento importado ou do Estúdio). O Estúdio monta no Canva. Só a equipe vê. */
+  slides?: SlideTexto[];
+  /** Link do carrossel montado no Canva (pelo Estúdio de Carrosséis). Só a equipe vê. */
+  canvaLink?: string;
   /** Data e hora planejadas (America/Sao_Paulo). */
   date: string;         // YYYY-MM-DD
   time: string;         // HH:MM

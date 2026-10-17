@@ -26,6 +26,7 @@ export function PostEditor({ slug, action, post, defaultDate, pillars, importDri
   const [caption, setCaption] = useState(post?.caption ?? "");
   const [links, setLinks] = useState("");
   const [source, setSource] = useState(post?.source ?? "");
+  const [canvaLink, setCanvaLink] = useState(post?.canvaLink ?? "");
   const [busy, setBusy] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [note, setNote] = useState<string | null>(null);
@@ -143,6 +144,12 @@ export function PostEditor({ slug, action, post, defaultDate, pillars, importDri
             <span className="label">Link salvo do Drive</span>
             <input name="source" value={source} onChange={(e) => setSource(e.target.value)} className="ct-input" placeholder="Pasta das lâminas ou arquivo do vídeo (usado em “Atualizar do Drive”)" />
           </label>
+          {type === "carrossel" && (
+            <label className="flex flex-col gap-1">
+              <span className="label">Link do Canva (opcional)</span>
+              <input name="canvaLink" type="url" inputMode="url" value={canvaLink} onChange={(e) => setCanvaLink(e.target.value)} className="ct-input" placeholder="https://www.canva.com/design/… (o carrossel montado no Estúdio)" />
+            </label>
+          )}
           <p className="text-xs text-[var(--muted)]">Pasta do post: arquivos numerados (1.jpg, 2.jpg… ou o vídeo), <b>legenda.txt</b> e, no Reels, <b>capa.jpg</b> se quiser. Compartilhe a pasta do cliente como “qualquer pessoa com o link”.</p>
         </div>
         {type === "reels" && (

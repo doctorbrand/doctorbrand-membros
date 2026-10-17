@@ -11,6 +11,7 @@ import { driveFileInfo, driveFolderFiles, driveText, FOLDER, parseDriveLinks, to
 import { IG_ACCOUNTS_TAG, igAccounts } from "@/lib/instagram";
 import { getClient, updateClient } from "@/lib/clients";
 import { publishProblem, stepPublish } from "@/lib/publish";
+import { linkCanvaValido } from "@/lib/studio";
 import type { ActionResult } from "@/lib/types";
 
 const str = (fd: FormData, k: string) => String(fd.get(k) ?? "").trim();
@@ -134,6 +135,7 @@ export async function savePostAction(slug: string, _prev: ActionResult | null, f
   const coverOffsetMs = Number(str(fd, "coverOffsetMs")) || undefined;
   const pillar = str(fd, "pillar") || undefined;
   const source = str(fd, "source").slice(0, 2000) || undefined;
+  const canvaLink = type === "carrossel" ? str(fd, "canvaLink").slice(0, 500) || undefined : undefined;
   const send = str(fd, "intent") === "enviar";
 
   if (!title) return { ok: false, message: "Dê um título interno ao post." };
@@ -143,6 +145,7 @@ export async function savePostAction(slug: string, _prev: ActionResult | null, f
   if (type === "carrossel" && (media.length < 2 || media.length > 10)) return { ok: false, message: "Carrossel precisa de 2 a 10 mídias." };
   if (type === "reels" && (media.length !== 1 || media[0].kind !== "video")) return { ok: false, message: "Reels precisa de exatamente 1 vídeo." };
   if (caption.length > 2200) return { ok: false, message: `Legenda com ${caption.length} caracteres (máximo do Instagram: 2.200).` };
+  if (canvaLink && !linkCanvaValido(canvaLink)) return { ok: false, message: "O link do Canva precisa começar com https://www.canva.com/ ou https://canva.link/." };
 
   const now = new Date().toISOString();
   const posts = await getPosts(slug);
@@ -158,9 +161,9 @@ export async function savePostAction(slug: string, _prev: ActionResult | null, f
     let keep: PostStatus = send ? "aguardando" : old.status === "rascunho" ? "rascunho" : old.status;
     let note: string | undefined;
     if (wasApproved && !sameContent) { keep = "aguardando"; note = "Conteúdo alterado depois da aprovação: volta para o cliente aprovar."; }
-    posts[i] = { ...old, type, title, caption, date, time, media, cover, coverOffsetMs, pillar, source, status: keep, publish: undefined, updatedAt: now, history: [...old.history, entry(s, keep === "aguardando" && keep !== old.status ? "enviado" : "editado", note)] };
+    posts[i] = { ...old, type, title, caption, date, time, media, cover, coverOffsetMs, pillar, source, canvaLink, status: keep, publish: undefined, updatedAt: now, history: [...old.history, entry(s, keep === "aguardando" && keep !== old.status ? "enviado" : "editado", note)] };
   } else {
-    const post: Post = { id: crypto.randomUUID(), type, title, caption, date, time, media, cover, coverOffsetMs, pillar, source, status, createdAt: now, updatedAt: now, history: [entry(s, "criado"), ...(send ? [entry(s, "enviado")] : [])] };
+    const post: Post = { id: crypto.randomUUID(), type, title, caption, date, time, media, cover, coverOffsetMs, pillar, source, canvaLink, status, createdAt: now, updatedAt: now, history: [entry(s, "criado"), ...(send ? [entry(s, "enviado")] : [])] };
     posts.push(post);
   }
   await savePosts(slug, posts);
@@ -566,6 +569,21 @@ export async function importListAction(slug: string, text: string, opts: { start
 const dm = (date: string, time: string) => `${date.split("-").reverse().slice(0, 2).join("/")} às ${time}`;
 
 /** Equipe troca o pilar editorial de um post, direto do detalhe. Vazio tira o pilar. */
+/** Equipe cola (ou tira) o link do carrossel montado no Canva, direto do detalhe do post. */
+export async function setCanvaLinkAction(slug: string, id: string, _prev: ActionResult | null, fd: FormData): Promise<ActionResult> {
+  const s = await requireAdmin();
+  const link = str(fd, "canvaLink").slice(0, 500);
+  if (link && !linkCanvaValido(link)) return { ok: false, message: "O link do Canva precisa começar com https://www.canva.com/ ou https://canva.link/." };
+  // Atenção: em updatePost, devolver null APAGA o post. Aqui sempre devolve o post.
+  const p = await updatePost(slug, id, (p) => (p.canvaLink ?? "") === link ? p : {
+    ...p, ...(link ? { canvaLink: link } : { canvaLink: undefined }), updatedAt: new Date().toISOString(),
+    history: [...p.history, entry(s, "editado", link ? "Link do Canva salvo" : "Link do Canva removido")],
+  });
+  if (!p) return { ok: false, message: "Post não encontrado." };
+  revalidatePath(path(slug));
+  return { ok: true, message: link ? "Link do Canva salvo." : "Link do Canva removido." };
+}
+
 export async function setPillarAction(slug: string, id: string, _prev: ActionResult | null, fd: FormData): Promise<ActionResult> {
   const s = await requireAdmin();
   const pillar = str(fd, "pillar");
