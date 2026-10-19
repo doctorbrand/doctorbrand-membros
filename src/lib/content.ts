@@ -90,6 +90,8 @@ export interface Post {
   canvaLink?: string;
   /** Nome do modelo do Canva (do kit de marca) com que o carrossel é montado. Vazio: o Estúdio escolhe. */
   canvaModelo?: string;
+  /** Quando as imagens do post foram trazidas do Canva pela última vez (ISO). Comparado com a última edição do design no Canva. */
+  canvaSincronizadoEm?: string;
   /** Data e hora planejadas (America/Sao_Paulo). */
   date: string;         // YYYY-MM-DD
   time: string;         // HH:MM
