@@ -37,7 +37,7 @@ const FERRAMENTAS = [
   },
   {
     name: "listar_carrosseis",
-    description: "Carrosséis do planejamento de um cliente que ainda não foram publicados, com legenda, o texto de cada slide (capa, slides, final e a foto indicada) e o modelo do Canva escolhido (vazio: o Estúdio escolhe). Com so_sem_canva, só os que ainda não foram montados.",
+    description: "Carrosséis do planejamento de um cliente que ainda não foram publicados, com legenda, o texto de cada slide (capa, slides, final e a foto indicada) e o modelo do Canva escolhido (vazio: o Estúdio escolhe), o status e, nos já montados, sincronizado_em: quando as imagens vieram do Canva pela última vez. Design editado no Canva depois disso precisa de salvar_carrossel de novo. Com so_sem_canva, só os que ainda não foram montados.",
     inputSchema: { type: "object", properties: { cliente: { type: "string", description: "Slug do cliente (ex.: fernando-fontes)." }, so_sem_canva: { type: "boolean" } }, required: ["cliente"], additionalProperties: false },
     annotations: { readOnlyHint: true },
   },

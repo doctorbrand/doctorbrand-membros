@@ -62,6 +62,8 @@ export async function carrosseisDoPlanejamento(slug: string, opts: { soSemCanva?
       id: p.id, titulo: p.title, data: p.date, hora: p.time, status: p.status, legenda: p.caption,
       slides: p.slides ?? [], roteiro: p.slides?.length ? undefined : p.roteiro,
       canva_link: p.canvaLink ?? null, modelo: p.canvaModelo ?? null, imagens: p.media.length,
+      // Quando as imagens vieram do Canva pela última vez (sem registro: a última mudança no post).
+      sincronizado_em: p.canvaLink ? p.canvaSincronizadoEm ?? p.updatedAt : null,
     }));
 }
 
@@ -137,7 +139,7 @@ export async function receberDoCanva(slug: string, postId: string, d: { link: st
     voltou = !!usar && p.status === "aprovado";
     return {
       ...p, canvaLink: d.link, ...(d.modelo ? { canvaModelo: d.modelo.slice(0, 40) } : {}), updatedAt: now,
-      ...(usar ? { media: usar, publish: undefined, ...(voltou ? { status: "rascunho" as const } : {}) } : {}),
+      ...(usar ? { media: usar, publish: undefined, canvaSincronizadoEm: now, ...(voltou ? { status: "rascunho" as const } : {}) } : {}),
       history: [...p.history, { at: now, by: d.por, role: d.papel, action: "editado", note: usar ? `Montado no Canva: ${usar.length} imagens${voltou ? "; voltou para rascunho porque já estava aprovado com outras imagens" : ""}` : "Link do Canva salvo" }],
     };
   });
