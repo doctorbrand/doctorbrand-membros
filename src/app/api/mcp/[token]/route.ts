@@ -5,6 +5,7 @@ import { modelosDoKit } from "@/lib/brand";
 import { carrosseisDoPlanejamento, gravarCarrosseis, receberDoCanva } from "@/lib/carrosseis";
 import { getClient, listClients } from "@/lib/clients";
 import { linkCanvaValido } from "@/lib/studio";
+import { clienteCompleto, equipe, indicacoes, lerSecoes, resumoClientes, SECOES, tudo } from "@/lib/jarvis";
 
 /**
  * Conector da área de membros para o Claude (MCP por HTTP, respostas em JSON).
@@ -28,7 +29,40 @@ function chaveOk(token: string): boolean {
 
 const slugOk = (v: unknown) => typeof v === "string" && /^[a-z0-9-]{1,80}$/.test(v);
 
+const LEITURA = { readOnlyHint: true };
+const SECOES_SCHEMA = { type: "array", items: { type: "string", enum: [...SECOES, "tudo"] }, description: "Seções a ler. Sem nada: todas, menos anuncios e relatorio (que consultam o painel de tráfego e o Instagram na hora). \"tudo\": todas." };
+
 const FERRAMENTAS = [
+  {
+    name: "ler_clientes",
+    description: "Leitura (Jarvis): lista dos clientes da área de membros, com especialidade e a contagem de posts por status.",
+    inputSchema: { type: "object", properties: {}, additionalProperties: false },
+    annotations: LEITURA,
+  },
+  {
+    name: "ler_cliente",
+    description: "Leitura (Jarvis): tudo de um cliente — cadastro, perfil estratégico, projeto (etapas, entregas, contrato), plano de conteúdo, posts com legendas, slides, histórico e links das mídias, kit de marca, onboarding e briefing, pedidos de conteúdo, diagnósticos do feed, NPS; anúncios e relatório quando pedidos. Nunca devolve senhas, hashes, tokens ou chaves.",
+    inputSchema: { type: "object", properties: { cliente: { type: "string", description: "Slug do cliente (de ler_clientes)." }, secoes: SECOES_SCHEMA }, required: ["cliente"], additionalProperties: false },
+    annotations: LEITURA,
+  },
+  {
+    name: "ler_equipe",
+    description: "Leitura (Jarvis): usuários da área (equipe e acessos de clientes) com nome, e-mail, papel e último login. Sem senha.",
+    inputSchema: { type: "object", properties: {}, additionalProperties: false },
+    annotations: LEITURA,
+  },
+  {
+    name: "ler_indicacoes",
+    description: "Leitura (Jarvis): indicações do Circle DoctorBrand, com status e quem indicou.",
+    inputSchema: { type: "object", properties: {}, additionalProperties: false },
+    annotations: LEITURA,
+  },
+  {
+    name: "ler_tudo",
+    description: "Leitura (Jarvis): todos os clientes nas seções pedidas, mais equipe e indicações. Resposta grande: prefira ler_cliente quando a pergunta for sobre um cliente.",
+    inputSchema: { type: "object", properties: { secoes: SECOES_SCHEMA }, additionalProperties: false },
+    annotations: LEITURA,
+  },
   {
     name: "listar_clientes",
     description: "Lista os clientes da área de membros com o que o Estúdio precisa: os modelos de carrossel no Canva (nome e link; o primeiro é o padrão), a pasta do cliente no Canva e o tom de voz e regras.",
@@ -78,6 +112,10 @@ const FERRAMENTAS = [
 class Erro extends Error {}
 
 async function chamar(nome: string, a: Record<string, unknown>): Promise<unknown> {
+  if (nome === "ler_clientes") return { clientes: await resumoClientes() };
+  if (nome === "ler_equipe") return { equipe: await equipe() };
+  if (nome === "ler_indicacoes") return indicacoes();
+  if (nome === "ler_tudo") return tudo(lerSecoes(a.secoes));
   if (nome === "listar_clientes") {
     const cs = (await listClients()).filter((c) => !c.removed);
     const kits = await Promise.all(cs.map((c) => getBrand(c.slug)));
@@ -85,6 +123,8 @@ async function chamar(nome: string, a: Record<string, unknown>): Promise<unknown
   }
   if (!slugOk(a.cliente) || !(await getClient(String(a.cliente)))) throw new Erro("Cliente não encontrado. Use o slug de listar_clientes.");
   const slug = String(a.cliente);
+
+  if (nome === "ler_cliente") return clienteCompleto(slug, lerSecoes(a.secoes));
 
   if (nome === "listar_carrosseis") return { carrosseis: await carrosseisDoPlanejamento(slug, { soSemCanva: a.so_sem_canva === true }) };
 
@@ -132,7 +172,7 @@ async function responder(m: Msg): Promise<object | null> {
         protocolVersion: PROTOCOLOS.includes(pedido) ? pedido : PROTOCOLOS[0],
         capabilities: { tools: { listChanged: false } },
         serverInfo: { name: "Área de membros DoctorBrand", version: "1.0.0" },
-        instructions: "Planejamento de conteúdo dos clientes DoctorBrand. Use listar_clientes, depois listar_carrosseis do cliente; depois de montar no Canva, devolva com salvar_carrossel.",
+        instructions: "Área de membros DoctorBrand. Para ler qualquer coisa (Jarvis): ler_clientes, ler_cliente, ler_equipe, ler_indicacoes, ler_tudo. Para carrosséis no Canva: listar_clientes, listar_carrosseis e, depois de montar, salvar_carrossel.",
       });
     }
     case "ping": return ok({});
