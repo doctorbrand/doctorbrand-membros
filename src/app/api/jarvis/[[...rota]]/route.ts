@@ -1,5 +1,5 @@
 import { timingSafeEqual } from "crypto";
-import { clienteCompleto, equipe, indicacoes, lerSecoes, resumoClientes, SECOES, SECOES_PADRAO, tudo } from "@/lib/jarvis";
+import { clienteCompleto, equipe, indicacoes, lerSecoes, resumoClientes, resumoConteudo, SECOES, SECOES_PADRAO, tudo } from "@/lib/jarvis";
 
 /**
  * API de leitura para o Jarvis: todo o conteúdo da área de membros em JSON, sem senhas, hashes, tokens ou chaves.
@@ -7,6 +7,7 @@ import { clienteCompleto, equipe, indicacoes, lerSecoes, resumoClientes, SECOES,
  * (ou com menos de 24 caracteres), a API não existe (404).
  *
  *   GET /api/jarvis                          o que existe aqui
+ *   GET /api/jarvis/resumo                   conteúdo de todos os clientes em números, para o briefing e o registro diário
  *   GET /api/jarvis/clientes                 lista dos clientes, com a contagem de posts
  *   GET /api/jarvis/clientes/<slug>          tudo de um cliente (?secoes=perfil,conteudo,... ou ?secoes=tudo)
  *   GET /api/jarvis/equipe                   usuários (sem senha)
@@ -39,12 +40,13 @@ export async function GET(req: Request, ctx: { params: Promise<{ rota?: string[]
   if (rota.length === 0) {
     return json({
       api: "Área de membros DoctorBrand, leitura para o Jarvis",
-      rotas: ["/api/jarvis/clientes", "/api/jarvis/clientes/<slug>?secoes=...", "/api/jarvis/equipe", "/api/jarvis/indicacoes", "/api/jarvis/tudo?secoes=..."],
+      rotas: ["/api/jarvis/resumo", "/api/jarvis/clientes", "/api/jarvis/clientes/<slug>?secoes=...", "/api/jarvis/equipe", "/api/jarvis/indicacoes", "/api/jarvis/tudo?secoes=..."],
       secoes: SECOES,
       secoes_padrao: SECOES_PADRAO,
       observacao: "Senhas, hashes, tokens e chaves nunca são devolvidos. Links de mídia do Blob valem 24 horas.",
     });
   }
+  if (rota[0] === "resumo" && rota.length === 1) return json(await resumoConteudo());
   if (rota[0] === "clientes" && rota.length === 1) return json({ clientes: await resumoClientes() });
   if (rota[0] === "clientes" && rota.length === 2) {
     if (!slugOk(rota[1])) return json({ erro: "Slug inválido." }, 400);

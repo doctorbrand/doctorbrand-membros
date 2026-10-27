@@ -3,14 +3,16 @@ import { getBrand } from "./brandStore";
 import { getCircle } from "./circle";
 import { getClient, listClients } from "./clients";
 import { mediaUrl } from "./content-media";
-import { getPlan, getPosts, type Media, type Post } from "./content";
+import { getPlan, getPosts, MAX_ATTEMPTS, plannedAt, type Media, type Post } from "./content";
 import { getAudits } from "./feedAudit";
+import { scoreFeed } from "./feedScore";
 import { getNps } from "./nps";
 import { getOnboarding } from "./onboarding";
 import { getOrders } from "./orders";
 import { previousMonth, buildReport } from "./report";
 import { getProfile } from "./profile";
 import { getProject } from "./project";
+import { todayISO } from "./periods";
 import { signedMediaUrl } from "./signed";
 import { getUsers } from "./users";
 
@@ -108,4 +110,75 @@ export async function tudo(secoes: Secao[] = SECOES_PADRAO) {
   // Um cliente por vez: são vários documentos por cliente e o Blob não gosta de rajadas.
   for (const c of cs) clientes.push(await clienteCompleto(c.slug, secoes));
   return { geradoEm: new Date().toISOString(), secoes, clientes, equipe: await equipe(), indicacoes: await indicacoes() };
+}
+
+/** Uma data ISO (instante) como dia no fuso da agência: 23h no Rio ainda é o mesmo dia. */
+function diaRio(iso: string): string {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date(iso));
+}
+
+/** Quando o post foi para aprovação pela última vez: o último "enviado" do histórico, senão a última edição. */
+function enviadoEm(p: Post): string {
+  return [...p.history].reverse().find((h) => h.action === "enviado")?.at ?? p.updatedAt;
+}
+
+/** Quando o post foi publicado: o registro da publicação, senão o histórico. */
+function publicadoEm(p: Post): string | undefined {
+  return p.publish?.publishedAt ?? [...p.history].reverse().find((h) => h.action === "publicado")?.at;
+}
+
+const falhou = (p: Post) => p.status === "agendado" && (p.publish?.attempts ?? 0) >= MAX_ATTEMPTS;
+
+/**
+ * O conteúdo de todos os clientes, em números, para o briefing e o registro diário do Jarvis
+ * (GET /api/jarvis/resumo; formato em doctorbrand/jarvis, docs/members-api.md). Os números são os da
+ * tabela "Conteúdo de todos os clientes" (/conteudo), mais três que dizem urgência: há quantos dias o post
+ * mais antigo espera aprovação, as publicações que falharam e a data da última publicação.
+ * Os avisos trazem o texto que o cliente escreveu no pedido de alteração e o erro de cada falha.
+ */
+export async function resumoConteudo() {
+  const cs = (await listClients()).filter((c) => !c.removed);
+  const hoje = todayISO();
+  const agora = Date.now();
+  const avisos: { client: string; kind: "change_request" | "failed_publication"; text: string; at: string }[] = [];
+
+  const clients = await Promise.all(cs.map(async (c) => {
+    const [posts, plan] = await Promise.all([getPosts(c.slug), getPlan(c.slug)]);
+    const visiveis = posts.filter((p) => p.status !== "rascunho");
+    const aguardando = posts.filter((p) => p.status === "aguardando");
+    const alteracao = posts.filter((p) => p.status === "alteracao");
+    const agendados = posts.filter((p) => p.status === "agendado");
+    const falhas = posts.filter(falhou);
+    const proxima = [...agendados].sort((a, b) => plannedAt(a).getTime() - plannedAt(b).getTime())[0];
+    const maisAntigo = aguardando.map((p) => new Date(enviadoEm(p)).getTime()).filter(Number.isFinite).sort((a, b) => a - b)[0];
+    const ultima = posts.filter((p) => p.status === "publicado").map(publicadoEm).filter((d): d is string => !!d).sort().at(-1);
+
+    for (const p of alteracao) {
+      const pedido = [...p.history].reverse().find((h) => h.action === "alteracao");
+      if (pedido) avisos.push({ client: c.slug, kind: "change_request", text: pedido.note?.trim() || `Alteração pedida em "${p.title}"`, at: pedido.at });
+    }
+    for (const p of falhas) {
+      avisos.push({ client: c.slug, kind: "failed_publication", text: `"${p.title}" não publicou: ${p.publish?.lastError ?? "sem detalhe do erro"}`, at: p.publish?.lastTriedAt ?? p.updatedAt });
+    }
+
+    return {
+      slug: c.slug,
+      name: c.name,
+      specialty: c.specialty ?? null,
+      score: visiveis.length ? scoreFeed(posts, plan, hoje).total : null,
+      changeRequests: alteracao.length,
+      awaitingApproval: aguardando.length,
+      oldestAwaitingDays: maisAntigo === undefined ? null : Math.max(0, Math.floor((agora - maisAntigo) / 86_400_000)),
+      scheduled: agendados.length,
+      drafts: posts.filter((p) => p.status === "rascunho").length,
+      failedPublications: falhas.length,
+      nextPublication: proxima ? plannedAt(proxima).toISOString() : null,
+      lastPublished: ultima ? diaRio(ultima) : null,
+      instagramConnected: !!c.igUserId,
+    };
+  }));
+
+  clients.sort((a, b) => (b.changeRequests + b.failedPublications) - (a.changeRequests + a.failedPublications) || b.awaitingApproval - a.awaitingApproval || a.name.localeCompare(b.name, "pt-BR"));
+  avisos.sort((a, b) => b.at.localeCompare(a.at));
+  return semSegredos({ generatedAt: new Date().toISOString(), clients, notices: avisos.slice(0, 20) });
 }
