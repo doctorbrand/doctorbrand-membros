@@ -6,15 +6,18 @@ import { mediaUrl } from "./content-media";
 import { getPlan, getPosts, MAX_ATTEMPTS, plannedAt, type Media, type Post } from "./content";
 import { getAudits } from "./feedAudit";
 import { scoreFeed } from "./feedScore";
-import { getNps } from "./nps";
+import { getCrm } from "./clickup";
+import { contratoStatus } from "./contrato";
+import { getNps, grupo, npsPendente, ultima as ultimaNps } from "./nps";
 import { getOnboarding } from "./onboarding";
 import { getOrders } from "./orders";
 import { previousMonth, buildReport } from "./report";
 import { getProfile } from "./profile";
-import { getProject } from "./project";
+import { calendarAliases, getProject } from "./project";
 import { todayISO } from "./periods";
 import { signedMediaUrl } from "./signed";
 import { getUsers } from "./users";
+import { clientContract } from "./zapsign";
 
 /**
  * Leitura de todo o conteúdo da área de membros para o Jarvis (assistente da DoctorBrand), pela API
@@ -143,7 +146,12 @@ export async function resumoConteudo() {
   const avisos: { client: string; kind: "change_request" | "failed_publication"; text: string; at: string }[] = [];
 
   const clients = await Promise.all(cs.map(async (c) => {
-    const [posts, plan] = await Promise.all([getPosts(c.slug), getPlan(c.slug)]);
+    const [posts, plan, nps, project] = await Promise.all([getPosts(c.slug), getPlan(c.slug), getNps(c.slug), getProject(c.slug).catch(() => null)]);
+    // Contrato: prazo e renovação (projeto ou CRM do ClickUp) e assinatura na ZapSign, como em avisos.ts.
+    const nomes = [c.name, ...(project ? calendarAliases(c.slug, project) : [])];
+    const [crm, zs] = await Promise.all([getCrm(nomes).catch(() => null), clientContract(nomes, project?.contrato?.zapsign)]);
+    const ct = contratoStatus(project?.contrato, hoje, crm?.desde, crm?.renovacao);
+    const npsUltima = ultimaNps(nps);
     const visiveis = posts.filter((p) => p.status !== "rascunho");
     const aguardando = posts.filter((p) => p.status === "aguardando");
     const alteracao = posts.filter((p) => p.status === "alteracao");
@@ -175,6 +183,22 @@ export async function resumoConteudo() {
       nextPublication: proxima ? plannedAt(proxima).toISOString() : null,
       lastPublished: ultima ? diaRio(ultima) : null,
       instagramConnected: !!c.igUserId,
+      nps: {
+        lastScore: npsUltima?.score ?? null,
+        lastGroup: npsUltima ? grupo(npsUltima.score) : null,
+        lastAt: npsUltima?.at.slice(0, 10) ?? null,
+        lastComment: npsUltima?.comentario ?? null,
+        pending: npsPendente(nps, ct.desde),
+      },
+      contract: {
+        clientSince: ct.desde ?? null,
+        renewal: ct.proxima ?? null,
+        daysToRenewal: ct.diasParaProxima ?? null,
+        expired: ct.vencido,
+        needsNewContract: project?.contrato?.regra === "nova",
+        signature: zs ? zs.doc.status : null,
+        awaitingSignatureFrom: zs && zs.doc.status === "pending" ? zs.doc.pendentes : [],
+      },
     };
   }));
 
