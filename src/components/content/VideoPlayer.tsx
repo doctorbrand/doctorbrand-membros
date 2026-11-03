@@ -4,15 +4,13 @@ import { useEffect, useRef, useState } from "react";
 
 /**
  * Vídeo leve: mostra a capa e só carrega o vídeo quando a pessoa clica.
- * Player nativo no formato do post (9:16 no Reels); o do Drive só como reserva.
+ * Vídeo do Drive abre no player do próprio Drive: ele ajusta a qualidade à conexão (360p, 720p...),
+ * vem dos servidores do Google e toca .MOV/HEVC em qualquer celular. O arquivo original, pesado,
+ * nunca é baixado para assistir. Player nativo só para vídeo enviado direto à área (sem Drive).
  */
 export function VideoPlayer({ poster, iframe, src, vertical, label }: { poster?: string; iframe?: string; src?: string; vertical?: boolean; label?: string }) {
   const [play, setPlay] = useState(false);
-  const [nativeFailed, setNativeFailed] = useState(false);
   const ratio = vertical ? "9 / 16" : "4 / 5";
-  if (play && src && !nativeFailed) {
-    return <video src={src} poster={poster} controls autoPlay playsInline onError={() => iframe && setNativeFailed(true)} className="w-full rounded-[14px] bg-black block" style={{ aspectRatio: ratio, objectFit: "cover" }} />;
-  }
   if (play && iframe) return <DriveFrame src={iframe} vertical={vertical} label={label} />;
   if (play && src) {
     return <video src={src} poster={poster} controls autoPlay playsInline className="w-full rounded-[14px] bg-black block" style={{ aspectRatio: ratio, objectFit: "cover" }} />;
@@ -31,7 +29,7 @@ export function VideoPlayer({ poster, iframe, src, vertical, label }: { poster?:
 }
 
 /**
- * Player do Drive (reserva quando o arquivo não é público). Ele tem largura mínima própria e, numa coluna
+ * Player do Drive (qualidade adaptável). Ele tem largura mínima própria e, numa coluna
  * estreita, o vídeo escapa para a direita com uma faixa preta à esquerda. Por isso o iframe é desenhado
  * numa largura confortável, no formato exato do post, e reduzido em escala até caber inteiro na moldura.
  */

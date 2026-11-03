@@ -19,11 +19,11 @@ export function mediaUrl(m: Media | undefined, width = 1080): string | undefined
 }
 
 /**
- * Vídeo tocável. Drive: player nativo pelo nosso domínio (encaixa no 9:16 como no Instagram);
- * se o arquivo não estiver aberto por link, cai para o player do Drive.
+ * Vídeo tocável. Drive: player do Drive, que ajusta a qualidade à conexão (leve no celular).
+ * Enviado direto à área: o arquivo pelo nosso domínio.
  */
 export function videoSource(m: Media): { iframe?: string; src?: string } {
-  if (m.driveId) return { src: `/api/drive/stream?id=${encodeURIComponent(m.driveId)}`, iframe: `${DRIVE_WEB}/file/d/${encodeURIComponent(m.driveId)}/preview` };
+  if (m.driveId) return { iframe: `${DRIVE_WEB}/file/d/${encodeURIComponent(m.driveId)}/preview` };
   return { src: m.path ? `/api/media?p=${encodeURIComponent(m.path)}` : undefined };
 }
 
