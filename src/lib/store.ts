@@ -21,17 +21,27 @@ async function localWrite(path: string, body: string): Promise<void> {
   await fs.writeFile(full, body);
 }
 
+/**
+ * Lê um documento. Só devolve o `fallback` quando o documento não existe (404).
+ * Falha de leitura (Blob fora, limite de requisições, resposta cortada) tenta de novo e, se insistir, dá erro:
+ * tratar a falha como "vazio" fazia quem lê-e-grava apagar dados ou repetir importações já feitas.
+ */
 export async function readDoc<T>(path: string, fallback: T): Promise<T> {
   if (!enabled()) return fallback;
   if (localDir()) { const t = await localRead(`${path}.json`); return t ? (JSON.parse(t) as T) : fallback; }
-  try {
-    const res = await get(`${path}.json`, { access: "private", useCache: false });
-    if (!res || res.statusCode !== 200 || !res.stream) return fallback;
-    const text = await new Response(res.stream).text();
-    return JSON.parse(text) as T;
-  } catch {
-    return fallback;
+  let erro: unknown;
+  for (let tentativa = 0; tentativa < 3; tentativa++) {
+    try {
+      const res = await get(`${path}.json`, { access: "private", useCache: false });
+      if (!res) return fallback;
+      if (res.statusCode !== 200 || !res.stream) throw new Error(`Blob respondeu ${res.statusCode}`);
+      return JSON.parse(await new Response(res.stream).text()) as T;
+    } catch (e) {
+      erro = e;
+      await new Promise((r) => setTimeout(r, 300 * (tentativa + 1)));
+    }
   }
+  throw new Error(`Não consegui ler ${path} agora (${erro instanceof Error ? erro.message : String(erro)}). Tente de novo em instantes.`);
 }
 
 export async function writeDoc<T>(path: string, data: T): Promise<void> {
