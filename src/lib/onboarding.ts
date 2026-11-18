@@ -1,3 +1,4 @@
+import { randomBytes, timingSafeEqual } from "crypto";
 import type { ClientProfile } from "./profile";
 import { readDoc, writeDoc } from "./store";
 
@@ -43,12 +44,34 @@ export const BRIEFING: BriefingPergunta[] = [
 
 export interface OnboardingDoc {
   acessos: Record<string, AcessoMarca>;
-  briefing?: { respostas: Partial<Record<keyof ClientProfile, string>>; enviadoEm?: string; por?: string; aplicadoEm?: string };
+  briefing?: { respostas: Partial<Record<keyof ClientProfile, string>>; enviadoEm?: string; por?: string; aplicadoEm?: string; viaLink?: boolean };
+  /** Link do briefing sem login (a equipe manda pelo WhatsApp). Trocar o link desliga o anterior. */
+  briefingLink?: { token: string; criadoEm: string; por: string };
 }
 
 const path = (slug: string) => `onboarding/${slug}`;
 export const getOnboarding = (slug: string) => readDoc<OnboardingDoc>(path(slug), { acessos: {} });
 export const saveOnboarding = (slug: string, d: OnboardingDoc) => writeDoc(path(slug), d);
+
+/** Token novo e difícil de adivinhar para o link do briefing. */
+export function novoTokenBriefing(): string {
+  return randomBytes(18).toString("base64url");
+}
+
+/** Confere o token do link do briefing sem vazar tempo de comparação. */
+export function tokenBriefingOk(d: OnboardingDoc, token: string): boolean {
+  const certo = d.briefingLink?.token;
+  if (!certo || !/^[\w-]{20,40}$/.test(token)) return false;
+  const a = Buffer.from(token), b = Buffer.from(certo);
+  return a.length === b.length && timingSafeEqual(a, b);
+}
+
+export const briefingPath = (slug: string, token: string) => `/briefing/${slug}/${token}`;
+
+/** Respostas do formulário, só das perguntas do briefing, com limite de tamanho. */
+export function respostasDoForm(fd: FormData): Partial<Record<keyof ClientProfile, string>> {
+  return Object.fromEntries(BRIEFING.map((q) => [q.key, String(fd.get(q.key) ?? "").trim().slice(0, 3000)]).filter(([, v]) => v));
+}
 
 /** Itens que valem para o plano (anúncios só em Growth e Black). */
 export function acessosDoPlano(comAnuncios: boolean): Acesso[] {

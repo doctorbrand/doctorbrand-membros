@@ -9,8 +9,11 @@ import { planKey } from "@/lib/plans";
 import { getProject, onboardingAtivo } from "@/lib/project";
 import { igProfile } from "@/lib/instagram";
 
+/** Radar da Cirurgia Plástica: notícias do mercado para pauta. Só a equipe vê no menu. */
+const RADAR_URL = "https://radar.doctorbrand.co";
+
 export type ShellActive =
-  | "geral" | "projeto" | "evolucao" | "conteudo" | "anuncios" | "semana" | "ajuda" | "perfil" | "marca" | "gerar"
+  | "geral" | "projeto" | "evolucao" | "conteudo" | "calendario" | "anuncios" | "semana" | "ajuda" | "perfil" | "marca" | "gerar"
   | "avisos" | "onboarding" | "indicacoes" | "circle" | "admin" | "config" | "acessos";
 
 export async function Shell({ children, active, session, clientSlug }: { children: React.ReactNode; active: ShellActive; session?: Session | null; clientSlug?: string }) {
@@ -42,6 +45,7 @@ export async function Shell({ children, active, session, clientSlug }: { childre
         it(b, "Projeto", "home", "projeto"),
         it(`${b}/evolucao`, "Evolução", "trend", "evolucao"),
         it(`${b}/conteudo`, "Conteúdo", "grid", "conteudo"),
+        it(`${b}/calendario`, "Calendário", "calendar", "calendario"),
         ...(ADS_CLIENTS.has(slug) ? [it(`${b}/anuncios`, "Anúncios", "megaphone", "anuncios"), it(`${b}/semana`, "Sua semana", "calendar", "semana")] : []),
         ...(showOnb ? [it(`${b}/onboarding`, "Onboarding", "checklist", "onboarding")] : []),
         it(`${b}/indicacoes`, "Indicações", "spark", "indicacoes"),
@@ -50,7 +54,7 @@ export async function Shell({ children, active, session, clientSlug }: { childre
     if (admin) sections.push({ title: "Só a equipe", items: [it(`${b}/perfil`, "Perfil", "user", "perfil"), it(`${b}/marca`, "Kit de marca", "palette", "marca"), ...(!ativo ? [it(`${b}/onboarding`, "Acessos e briefing", "key", "onboarding")] : []), it(`${b}/gerar`, "Gerar", "wand", "gerar"), { href: `/api/preview?slug=${slug}`, label: "Ver como o cliente", icon: "eye", active: false }] });
   }
   if (admin) {
-    sections.unshift({ title: "Equipe", items: [it("/conteudo", "Clientes", "users", "geral"), it("/admin/avisos", "Avisos", "bell", "avisos"), it("/admin/indicacoes", "Circle", "spark", "circle"), it("/admin/usuarios", "Acessos", "key", "acessos")] });
+    sections.unshift({ title: "Equipe", items: [it("/conteudo", "Clientes", "users", "geral"), it("/admin/avisos", "Avisos", "bell", "avisos"), it("/admin/indicacoes", "Circle", "spark", "circle"), it("/admin/usuarios", "Acessos", "key", "acessos"), { href: RADAR_URL, label: "Radar", icon: "radar", active: false }] });
   }
 
   const footer: NavItem[] = [
