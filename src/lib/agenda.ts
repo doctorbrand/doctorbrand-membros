@@ -44,7 +44,7 @@ async function loadCalendars(): Promise<CalendarResponse[]> {
   if (cache && Date.now() - cache.at < CACHE_MS) return cache.cals;
   const urls = (process.env.GOOGLE_CALENDAR_ICS ?? "").split(/[\s,]+/).filter((u) => /^https?:\/\//.test(u));
   const cals = await Promise.all(urls.map(async (u) => {
-    const r = await fetch(u, { cache: "no-store" });
+    const r = await fetch(u, { cache: "no-store", signal: AbortSignal.timeout(10_000) });
     if (!r.ok) throw new Error(`Agenda respondeu ${r.status}`);
     return ical.sync.parseICS(await r.text());
   }));
