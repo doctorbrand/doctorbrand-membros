@@ -59,7 +59,14 @@ export async function GET(req: Request) {
     }
     // Notificações dos clientes no celular, com o tempo que sobrou da rodada.
     const sobra = 52_000 - (Date.now() - started);
-    if (sobra > 12_000) notificacoes = await rodadaNotificacoes(sobra - 8_000).catch((e) => ({ pulou: e instanceof Error ? e.message : String(e) }));
+    // Prazo duro: a rodada nunca segura a função além do limite (o que não terminar fica para a próxima).
+    if (sobra > 12_000) {
+      const prazo = sobra - 8_000;
+      notificacoes = await Promise.race([
+        rodadaNotificacoes(prazo - 3_000).catch((e) => ({ pulou: e instanceof Error ? e.message : String(e) })),
+        new Promise((r) => setTimeout(() => r({ pulou: "prazo esgotado" }), prazo)),
+      ]);
+    }
   } finally {
     await writeDoc("locks/publish", { until: 0 }).catch(() => undefined);
   }

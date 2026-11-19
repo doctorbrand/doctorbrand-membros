@@ -32,7 +32,7 @@ export async function readDoc<T>(path: string, fallback: T): Promise<T> {
   let erro: unknown;
   for (let tentativa = 0; tentativa < 3; tentativa++) {
     try {
-      const res = await get(`${path}.json`, { access: "private", useCache: false });
+      const res = await get(`${path}.json`, { access: "private", useCache: false, abortSignal: AbortSignal.timeout(8_000) });
       if (!res) return fallback;
       if (res.statusCode !== 200 || !res.stream) throw new Error(`Blob respondeu ${res.statusCode}`);
       return JSON.parse(await new Response(res.stream).text()) as T;

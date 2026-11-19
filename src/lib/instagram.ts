@@ -29,7 +29,7 @@ async function graph<T>(path: string, revalidate: number, tags?: string[]): Prom
   if (!token) return null;
   try {
     const sep = path.includes("?") ? "&" : "?";
-    const res = await fetch(`${API}/${path}${sep}access_token=${token}`, { next: { revalidate, ...(tags ? { tags } : {}) } });
+    const res = await fetch(`${API}/${path}${sep}access_token=${token}`, { next: { revalidate, ...(tags ? { tags } : {}) }, signal: AbortSignal.timeout(10_000) });
     if (!res.ok) return null;
     return (await res.json()) as T;
   } catch {
