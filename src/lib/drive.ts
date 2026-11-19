@@ -39,6 +39,20 @@ function nameFromDisposition(v: string | null): string | undefined {
   return v.match(/filename="?([^";]+)"?/i)?.[1];
 }
 
+/** Tamanho do arquivo em bytes (undefined quando o Drive não diz). */
+export async function driveFileSize(id: string): Promise<number | undefined> {
+  if (key()) {
+    const r = await fetch(`${API}/files/${encodeURIComponent(id)}?fields=size&supportsAllDrives=true&key=${key()}`, { cache: "no-store" }).catch(() => null);
+    const j = (await r?.json().catch(() => ({}))) as { size?: string } | undefined;
+    if (r?.ok && j?.size) return Number(j.size);
+  }
+  const r = await fetch(downloadUrl(id), { headers: { range: "bytes=0-0" }, cache: "no-store" }).catch(() => null);
+  if (!r) return undefined;
+  void r.body?.cancel().catch(() => undefined);
+  const total = r.headers.get("content-range")?.match(/\/(\d+)$/)?.[1];
+  return total ? Number(total) : undefined;
+}
+
 /** Nome e tipo de um arquivo. */
 export async function driveFileInfo(id: string): Promise<DriveFile> {
   if (key()) {

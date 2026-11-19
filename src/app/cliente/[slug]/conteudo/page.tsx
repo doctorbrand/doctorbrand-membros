@@ -9,7 +9,6 @@ import { MediaImg } from "@/components/content/MediaImg";
 import { ZipImport } from "@/components/content/ZipImport";
 import { ListImport } from "@/components/content/ListImport";
 import { FeedGrid } from "@/components/content/FeedGrid";
-import { runSeedCovers, runSeedDecisions, runSeedImports, runSeedSources } from "@/lib/seedImports";
 import { DriveImport } from "@/components/content/DriveImport";
 import { ImportarCarrosseis } from "@/components/content/ImportarCarrosseis";
 import { Shell } from "@/components/Shell";
@@ -58,7 +57,6 @@ export default async function ConteudoPage({ params, searchParams }: { params: P
   if (!c) notFound();
 
   // Planejamento trazido de fora entra na primeira vez que a equipe abre a página.
-  if (admin) { await runSeedImports(slug).catch(() => undefined); await runSeedCovers(slug).catch(() => undefined); await runSeedDecisions(slug).catch(() => undefined); await runSeedSources(slug).catch(() => undefined); }
   const [all, plan, profile, live, accounts, kit] = await Promise.all([getPosts(slug), getPlan(slug), igProfile(c.igUserId), igRecentMedia(c.igUserId, 15), admin ? igAccounts() : Promise.resolve([] as IgAccount[]), admin ? getBrand(slug) : Promise.resolve({})]);
   const modelos = modelosDoKit(kit).map((m) => m.nome);
   const local = !!localDir();

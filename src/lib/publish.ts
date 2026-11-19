@@ -1,7 +1,9 @@
 import type { Client } from "./clients";
 import { MAX_ATTEMPTS, plannedAt, type Media, type Post, type PublishState } from "./content";
-import { copyDriveToBlob } from "./drive";
+import { head } from "@vercel/blob";
+import { copyDriveToBlob, driveFileSize } from "./drive";
 import { signedMediaUrl } from "./signed";
+import { localDir } from "./store";
 
 /**
  * Publicação no Instagram pela Content Publishing API (gratuita).
@@ -77,6 +79,33 @@ export function publishProblem(c: Client, p: Post): string | null {
   return null;
 }
 
+/** Limite da Meta para vídeo publicado pela API (Reels e vídeo de carrossel): 300 MB. */
+const VIDEO_MAX = 300 * 1024 * 1024;
+
+async function tamanho(m: Media): Promise<number | undefined> {
+  if (m.path) {
+    const dir = localDir();
+    if (dir) { const fs = await import("fs/promises"); return (await fs.stat(`${dir}/${m.path}`).catch(() => null))?.size; }
+    return (await head(m.path).catch(() => null))?.size;
+  }
+  return m.driveId ? driveFileSize(m.driveId) : undefined;
+}
+
+/**
+ * Vídeo acima do limite da Meta: o contêiner volta com erro de processamento depois de minutos.
+ * Avisa antes, ao agendar, com o que pedir ao editor. Sem conseguir ler o tamanho, não bloqueia.
+ */
+export async function videoSizeProblem(p: Post): Promise<string | null> {
+  for (const m of p.media) {
+    if (m.kind !== "video") continue;
+    const bytes = await tamanho(m).catch(() => undefined);
+    if (bytes && bytes > VIDEO_MAX) {
+      return `O vídeo “${m.name ?? "do post"}” tem ${Math.round(bytes / 1048576)} MB, e o Instagram só aceita até 300 MB na publicação automática. Peça ao editor para exportar de novo em H.264, 1080 × 1920, 30 fps, por volta de 8 Mbps (um minuto fica com uns 60 MB), use “Atualizar lâminas do Drive” no post e agende de novo.`;
+    }
+  }
+  return null;
+}
+
 /**
  * Avança a publicação de um post. `budgetMs` limita quanto tempo esta chamada espera a Meta processar.
  * Sempre devolve o post atualizado (com `publish` preenchido) para ser salvo.
@@ -88,6 +117,10 @@ export async function stepPublish(c: Client, p: Post, budgetMs = 45_000): Promis
   const problem = publishProblem(c, p);
   if (problem) return { post: { ...p, publish: { ...st, lastError: problem, lastTriedAt: new Date().toISOString() } }, outcome: "error", message: problem };
 
+  if (!st.containerId) {
+    const grande = await videoSizeProblem(p);
+    if (grande) return { post: { ...p, publish: { ...st, lastError: grande, lastTriedAt: new Date().toISOString() } }, outcome: "error", message: grande };
+  }
   const ig = c.igUserId!;
   const url = (m: Media | undefined) => signedMediaUrl(m?.path ?? "");
   st.startedAt ??= new Date().toISOString();

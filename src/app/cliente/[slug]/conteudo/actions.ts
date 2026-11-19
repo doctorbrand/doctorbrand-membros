@@ -10,7 +10,7 @@ import { getPlan, getPosts, mediaBelongsTo, ondeLabel, plannedAt, savePlan, save
 import { driveFileInfo, driveFolderFiles, driveText, FOLDER, parseDriveLinks, toMedia, type DriveFile } from "@/lib/drive";
 import { IG_ACCOUNTS_TAG, igAccounts } from "@/lib/instagram";
 import { getClient, updateClient } from "@/lib/clients";
-import { publishProblem, stepPublish } from "@/lib/publish";
+import { publishProblem, stepPublish, videoSizeProblem } from "@/lib/publish";
 import { linkCanvaValido } from "@/lib/studio";
 import { getBrand } from "@/lib/brandStore";
 import { modelosDoKit } from "@/lib/brand";
@@ -200,6 +200,10 @@ export async function scheduleAction(slug: string, id: string, _prev: ActionResu
   const date = str(fd, "date"), time = str(fd, "time");
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !/^\d{2}:\d{2}$/.test(time)) return { ok: false, message: "Escolha data e hora." };
   if (plannedAt({ date, time }).getTime() < Date.now() + 5 * 60_000) return { ok: false, message: "Escolha um horário pelo menos 5 minutos à frente." };
+  // Vídeo grande demais para a Meta: avisa agora, não às 19h com erro de processamento.
+  const atual = (await getPosts(slug)).find((x) => x.id === id);
+  const grande = atual ? await videoSizeProblem(atual) : null;
+  if (grande) return { ok: false, message: grande };
   let problem: string | null = null;
   let title = "";
   const p = await updatePost(slug, id, (p) => {
