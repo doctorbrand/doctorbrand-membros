@@ -7,8 +7,9 @@ import { autoSource, Deliverables } from "@/components/project/Deliverables";
 import { Agenda, type DateItem } from "@/components/project/Agenda";
 import { ADS_CLIENTS, brl, CPL_LABEL, getAds, gradeCpl, int } from "@/lib/ads";
 import { agendaWindow, clientMeetings, meetingDate, type Meeting } from "@/lib/agenda";
-import { SparkIcon, ArrowRightIcon, ArrowUpRightIcon, BookIcon, CalendarIcon, ChatIcon, CheckIcon, ChevronDownIcon, ChevronUpIcon, DocIcon, EyeIcon, GlobeIcon, FolderIcon, GridIcon, LayersIcon, LinkIcon, PaletteIcon, StoriesIcon, VideoIcon } from "@/components/Icons";
+import { BellIcon, SparkIcon, ArrowRightIcon, ArrowUpRightIcon, BookIcon, CalendarIcon, ChatIcon, CheckIcon, ChevronDownIcon, ChevronUpIcon, DocIcon, EyeIcon, GlobeIcon, FolderIcon, GridIcon, LayersIcon, LinkIcon, PaletteIcon, StoriesIcon, VideoIcon } from "@/components/Icons";
 import { requireAuth } from "@/lib/auth";
+import { getPushDoc, pushLigado } from "@/lib/push";
 import { getClient } from "@/lib/clients";
 import { dayLabel, getPlan, getPosts, mediaUrl, scheduleOrder, thumbOf, TYPE_LABEL, visibleTo } from "@/lib/content";
 import { todayISO } from "@/lib/periods";
@@ -108,6 +109,7 @@ export default async function ProjetoPage({ params, searchParams }: { params: Pr
   const showNps = !admin && npsPendente(nps, contrato.desde);
   const firstName = session.role === "cliente" ? session.name.split(" ")[0] : c.name.split(" ")[0];
   const pct = steps.length ? Math.round((done / steps.length) * 100) : 0;
+  const convidarPush = session.role === "cliente" && !session.preview && !!session.userId && pushLigado() && !(await getPushDoc(session.userId).catch(() => ({ subs: [{}] }))).subs.length;
 
   return (
     <Shell active="projeto" session={session} clientSlug={slug}>
@@ -131,6 +133,14 @@ export default async function ProjetoPage({ params, searchParams }: { params: Pr
           {admin && <a href={`/api/preview?slug=${slug}`} className="ct-btn inline-flex items-center gap-1.5"><EyeIcon /> Ver como o cliente</a>}
         </div>
       </section>
+
+      {convidarPush && (
+        <Link href="/notificacoes" className="card nt-invite mb-4">
+          <BellIcon size={18} />
+          <span className="min-w-0 flex-1"><b>Receba os avisos no celular.</b> <span className="text-[var(--muted)]">Posts para aprovar, posts no ar e resultados, sem precisar abrir a área.</span></span>
+          <ArrowRightIcon />
+        </Link>
+      )}
 
       <div className="pj-grid">
         <div className="flex flex-col gap-4 min-w-0">

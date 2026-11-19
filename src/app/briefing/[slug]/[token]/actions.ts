@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { sendAlert } from "@/lib/alerts";
 import { getClient } from "@/lib/clients";
 import { briefingPath, getOnboarding, respostasDoForm, saveOnboarding, tokenBriefingOk } from "@/lib/onboarding";
+import { avisarEquipe } from "@/lib/push";
 import { publicBase } from "@/lib/signed";
 import type { ActionResult } from "@/lib/types";
 
@@ -27,6 +28,7 @@ export async function briefingPorLinkAction(slug: string, token: string, _prev: 
   await saveOnboarding(slug, d);
   if (enviar) {
     await sendAlert(`*Briefing · ${c.name}*\nO cliente respondeu pelo link (${Object.keys(respostas).length} respostas).\n${publicBase()}/cliente/${slug}/onboarding`).catch(() => undefined);
+    await avisarEquipe({ title: c.name, body: "Respondeu o briefing pelo link.", url: `/cliente/${slug}/onboarding`, tag: `briefing-${slug}` }).catch(() => 0);
   }
   revalidatePath(briefingPath(slug, token));
   revalidatePath(`/cliente/${slug}/onboarding`);

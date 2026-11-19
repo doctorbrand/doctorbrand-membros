@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { sendAlert } from "@/lib/alerts";
 import { getPosts, MAX_ATTEMPTS, updatePost, type HistoryEntry } from "@/lib/content";
 import { listClients } from "@/lib/clients";
+import { rodadaNotificacoes } from "@/lib/notificacoes";
 import { isDue, stepPublish } from "@/lib/publish";
 import { publicBase } from "@/lib/signed";
 import { readDoc, storeEnabled, writeDoc } from "@/lib/store";
@@ -33,6 +34,7 @@ export async function GET(req: Request) {
 
   const started = Date.now();
   const report: { client: string; post: string; outcome: string; message: string }[] = [];
+  let notificacoes: unknown;
   try {
     const clients = (await listClients()).filter((c) => c.igUserId);
     for (const c of clients) {
@@ -55,8 +57,11 @@ export async function GET(req: Request) {
         }
       }
     }
+    // Notificações dos clientes no celular, com o tempo que sobrou da rodada.
+    const sobra = 52_000 - (Date.now() - started);
+    if (sobra > 12_000) notificacoes = await rodadaNotificacoes(sobra - 8_000).catch((e) => ({ pulou: e instanceof Error ? e.message : String(e) }));
   } finally {
     await writeDoc("locks/publish", { until: 0 }).catch(() => undefined);
   }
-  return NextResponse.json({ ok: true, ran: report.length, report });
+  return NextResponse.json({ ok: true, ran: report.length, report, ...(notificacoes ? { notificacoes } : {}) });
 }
