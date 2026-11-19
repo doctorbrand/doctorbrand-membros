@@ -8,13 +8,14 @@ import { todayISO, fmtDate } from "@/lib/periods";
 import { planKey } from "@/lib/plans";
 import { getProject, onboardingAtivo } from "@/lib/project";
 import { igProfile } from "@/lib/instagram";
+import { pushLigado } from "@/lib/push";
 
 /** Radar da Cirurgia Plástica: notícias do mercado para pauta. Só a equipe vê no menu. */
 const RADAR_URL = "https://radar.doctorbrand.co";
 
 export type ShellActive =
   | "geral" | "projeto" | "evolucao" | "conteudo" | "calendario" | "anuncios" | "semana" | "ajuda" | "perfil" | "marca" | "gerar"
-  | "avisos" | "onboarding" | "indicacoes" | "circle" | "admin" | "config" | "acessos";
+  | "avisos" | "onboarding" | "indicacoes" | "circle" | "admin" | "config" | "acessos" | "notificacoes";
 
 export async function Shell({ children, active, session, clientSlug }: { children: React.ReactNode; active: ShellActive; session?: Session | null; clientSlug?: string }) {
   const isClient = session?.role === "cliente";
@@ -58,6 +59,7 @@ export async function Shell({ children, active, session, clientSlug }: { childre
   }
 
   const footer: NavItem[] = [
+    ...(pushLigado() ? [it("/notificacoes", "Notificações", "bell", "notificacoes")] : []),
     it(slug && admin ? `/ajuda?c=${slug}` : "/ajuda", "Ajuda", "help", "ajuda"),
     ...(admin ? [it("/admin/configuracoes", "Configurações", "gear", active === "admin" ? "admin" : "config")] : []),
   ];

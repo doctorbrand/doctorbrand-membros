@@ -65,3 +65,20 @@ export async function igAccounts(): Promise<IgAccount[]> {
     igUserId: p.instagram_business_account!.id, username: p.instagram_business_account!.username, pageId: p.id, pageName: p.name,
   }));
 }
+
+export interface IgInsights { reach?: number; saved?: number; likes?: number; comments?: number; shares?: number; views?: number }
+
+/** Números de um post publicado (sem cache). Tenta as métricas completas e, se a Meta recusar alguma, só alcance e salvamentos. */
+export async function igInsights(mediaId: string): Promise<IgInsights | null> {
+  for (const metric of ["reach,saved,likes,comments,shares,views", "reach,saved,likes,comments", "reach,saved"]) {
+    const j = await graph<{ data?: { name: string; values?: { value?: number }[]; total_value?: { value?: number } }[] }>(`${mediaId}/insights?metric=${metric}`, 0);
+    if (!j?.data) continue;
+    const out: IgInsights = {};
+    for (const m of j.data) {
+      const v = m.total_value?.value ?? m.values?.[0]?.value;
+      if (typeof v === "number") (out as Record<string, number>)[m.name] = v;
+    }
+    return out;
+  }
+  return null;
+}

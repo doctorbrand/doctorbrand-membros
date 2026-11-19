@@ -753,3 +753,13 @@ a.cal-item:hover { filter: brightness(.97); }
   .cal-agenda { display: flex; }
 }
 @media (max-width: 720px) { .cal-nav > * { flex: 0 0 auto; } .cal-nav .ct-btn { width: auto; } }
+
+/* Notificações */
+.nt-steps { list-style: decimal; padding-left: 20px; display: flex; flex-direction: column; gap: 8px; font-size: 15px; }
+.nt-dot { display: inline-block; width: 8px; height: 8px; border-radius: 999px; background: #c7c7cc; margin-right: 8px; vertical-align: 2px; }
+.nt-dot.is-on { background: #1f8a4c; }
+.nt-pref { display: flex; gap: 12px; align-items: flex-start; padding: 10px 0; border-bottom: 1px solid var(--line); cursor: pointer; }
+.nt-pref:last-of-type { border-bottom: 0; }
+.nt-check { width: 20px; height: 20px; margin-top: 2px; accent-color: var(--ink); flex: none; }
+.nt-invite { display: flex; align-items: center; gap: 12px; padding: 14px 16px; font-size: 14px; color: var(--ink); text-decoration: none; }
+.nt-invite:hover { background: #fafafc; }

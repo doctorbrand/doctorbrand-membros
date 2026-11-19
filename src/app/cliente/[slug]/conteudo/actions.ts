@@ -11,6 +11,7 @@ import { driveFileInfo, driveFolderFiles, driveText, FOLDER, parseDriveLinks, to
 import { IG_ACCOUNTS_TAG, igAccounts } from "@/lib/instagram";
 import { getClient, updateClient } from "@/lib/clients";
 import { publishProblem, stepPublish, videoSizeProblem } from "@/lib/publish";
+import { avisarEquipe } from "@/lib/push";
 import { linkCanvaValido } from "@/lib/studio";
 import { getBrand } from "@/lib/brandStore";
 import { modelosDoKit } from "@/lib/brand";
@@ -27,6 +28,7 @@ function entry(s: Session, action: HistoryEntry["action"], note?: string, slide?
 async function notifyTeam(slug: string, text: string) {
   const c = await getClient(slug).catch(() => null);
   await sendAlert(`*Conteúdo · ${c?.name ?? slug}*\n${text}\n${publicBase()}${path(slug)}`).catch(() => undefined);
+  await avisarEquipe({ title: c?.name ?? slug, body: text.replace(/\*/g, "").split("\n").slice(0, 2).join(" ").slice(0, 180), url: path(slug), tag: `equipe-${slug}` }).catch(() => 0);
 }
 
 export async function approvePostAction(slug: string, id: string, _prev: ActionResult | null): Promise<ActionResult> {
