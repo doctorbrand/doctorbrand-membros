@@ -6,12 +6,12 @@ import { LogoMark } from "@/components/Logo";
 import { ClientAvatar } from "@/components/ClientAvatar";
 import {
   BellIcon, CalendarIcon, ChecklistIcon, ChevronLeftIcon, ChevronRightIcon, GearIcon, GridIcon, HelpIcon, HomeIcon, KeyIcon, LogoutIcon,
-  MegaphoneIcon, MenuIcon, EyeIcon, PaletteIcon, SparkIcon, TrendIcon, UserIcon, UsersIcon, WandIcon, XIcon,
+  MegaphoneIcon, MenuIcon, EyeIcon, PaletteIcon, RadarIcon, SparkIcon, TrendIcon, UserIcon, UsersIcon, WandIcon, XIcon,
 } from "@/components/Icons";
 
 const ICONS = {
   home: HomeIcon, trend: TrendIcon, grid: GridIcon, megaphone: MegaphoneIcon, checklist: ChecklistIcon, spark: SparkIcon,
-  help: HelpIcon, calendar: CalendarIcon, eye: EyeIcon, bell: BellIcon, users: UsersIcon, key: KeyIcon, gear: GearIcon, user: UserIcon, wand: WandIcon, palette: PaletteIcon,
+  help: HelpIcon, calendar: CalendarIcon, eye: EyeIcon, bell: BellIcon, users: UsersIcon, key: KeyIcon, gear: GearIcon, user: UserIcon, wand: WandIcon, palette: PaletteIcon, radar: RadarIcon,
 } as const;
 export type IconKey = keyof typeof ICONS;
 
@@ -47,7 +47,9 @@ export function Sidebar({ sections, footer, user, client, home, initialCollapsed
   const item = (i: NavItem) => {
     const Ic = ICONS[i.icon];
     return (
-      i.href.startsWith("/api/")
+      /^https?:\/\//.test(i.href)
+        ? <a key={i.href + i.label} href={i.href} target="_blank" rel="noreferrer" className="sb-item" aria-label={`${i.label} (abre em outra aba)`} {...tipProps(i.label)}><Ic size={19} /><span className="sb-label">{i.label}</span></a>
+        : i.href.startsWith("/api/")
         ? <a key={i.href + i.label} href={i.href} className="sb-item" aria-label={i.label} {...tipProps(i.label)}><Ic size={19} /><span className="sb-label">{i.label}</span></a>
         : <Link key={i.href + i.label} href={i.href} onClick={() => { setOpen(false); setTip(null); }} className={`sb-item ${i.active ? "is-on" : ""}`} aria-label={i.label} aria-current={i.active ? "page" : undefined} {...tipProps(i.label)}>
             <Ic size={19} />

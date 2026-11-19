@@ -29,6 +29,7 @@ export const ArrowUpRightIcon = ({ size = 16, className }: P) => <svg {...base(s
 export const ChevronUpIcon = ({ size = 16, className }: P) => <svg {...base(size)} className={className}><path d="m6 14.5 6-6 6 6" /></svg>;
 export const ChevronDownIcon = ({ size = 16, className }: P) => <svg {...base(size)} className={className}><path d="m6 9.5 6 6 6-6" /></svg>;
 export const FolderIcon = ({ size = 18, className }: P) => <svg {...base(size)} className={className}><path d="M3.5 7.5A2 2 0 0 1 5.5 5.5h4l2 2.5h7a2 2 0 0 1 2 2v7.5a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2v-10Z" /></svg>;
+export const RadarIcon = ({ size = 18, className }: P) => <svg {...base(size)} className={className}><path d="M19.5 12a7.5 7.5 0 1 1-2.2-5.3M15.5 12a3.5 3.5 0 1 1-1-2.5M12 12l6-6" /><circle cx="12" cy="12" r="1" /></svg>;
 export const TargetIcon = ({ size = 18, className }: P) => <svg {...base(size)} className={className}><circle cx="12" cy="12" r="8.5" /><circle cx="12" cy="12" r="5" /><circle cx="12" cy="12" r="1.5" /></svg>;
 export const TrophyIcon = ({ size = 18, className }: P) => <svg {...base(size)} className={className}><path d="M8 4.5h8v5a4 4 0 0 1-8 0v-5ZM8 6.5H5.5a2.5 2.5 0 0 0 2.6 3.8M16 6.5h2.5a2.5 2.5 0 0 1-2.6 3.8M12 13.5v3M8.5 19.5h7M9.5 19.5l.5-3h4l.5 3" /></svg>;
 export const SparkIcon = ({ size = 18, className }: P) => <svg {...base(size)} className={className}><path d="M12 3.5 13.8 10 20.5 12l-6.7 2L12 20.5 10.2 14 3.5 12l6.7-2L12 3.5Z" /></svg>;

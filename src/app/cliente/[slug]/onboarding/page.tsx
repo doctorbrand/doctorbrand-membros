@@ -7,10 +7,12 @@ import { CheckIcon, EyeIcon } from "@/components/Icons";
 import { requireAuth } from "@/lib/auth";
 import { getClient } from "@/lib/clients";
 import { dataCurta } from "@/lib/contrato";
-import { acessosDoPlano, BRIEFING, getOnboarding, progresso } from "@/lib/onboarding";
+import { BriefingLinkShare } from "@/components/BriefingLink";
+import { acessosDoPlano, BRIEFING, briefingPath, getOnboarding, progresso } from "@/lib/onboarding";
 import { planKey } from "@/lib/plans";
 import { getProject, onboardingAtivo } from "@/lib/project";
-import { aplicarBriefingAction, confirmarAcessoAction, desfazerAcessoAction, marcarAcessoAction, modoOnboardingAction, salvarBriefingAction } from "./actions";
+import { publicBase } from "@/lib/signed";
+import { aplicarBriefingAction, confirmarAcessoAction, criarLinkBriefingAction, desfazerAcessoAction, desligarLinkBriefingAction, marcarAcessoAction, modoOnboardingAction, salvarBriefingAction } from "./actions";
 
 export const dynamic = "force-dynamic";
 
@@ -114,6 +116,18 @@ export default async function OnboardingPage({ params, searchParams }: { params:
             {b?.enviadoEm && <span className="ev-tag">{interno ? "Atualizado em" : "Enviado em"} {dataCurta(diaBR(b.enviadoEm))}</span>}
           </div>
           <p className="text-[13px] text-[var(--muted)] mt-1">{interno ? "O que sabemos do cliente. Preencha o que tiver; dá para completar aos poucos." : "Responda do seu jeito, como falaria numa conversa. É a base de todo o conteúdo que criamos para você."}</p>
+          {b?.viaLink && b.por && <p className="text-[13px] mt-2"><span className="text-[var(--muted)]">Respondido por</span> {b.por}</p>}
+          {admin && (
+            <div className="ob-link mt-4">
+              <span className="block font-medium text-[14px]">Link do briefing sem login</span>
+              <span className="block text-[12.5px] text-[var(--muted)] mb-2">O cliente responde pelo celular, sem senha, e as respostas aparecem aqui, junto com os acessos. Trocar o link desliga o anterior.</span>
+              {d.briefingLink && <BriefingLinkShare url={`${publicBase()}${briefingPath(slug, d.briefingLink.token)}`} nome={c.name.split(" ")[0]} phone={project.clienteWhatsapp} />}
+              <div className="flex flex-wrap gap-2 mt-2">
+                <ActionButton action={criarLinkBriefingAction.bind(null, slug)} label={d.briefingLink ? "Trocar link" : "Criar link"} variant={d.briefingLink ? "ghost" : "dark"} />
+                {d.briefingLink && <ActionButton action={desligarLinkBriefingAction.bind(null, slug)} label="Desligar link" variant="ghost" />}
+              </div>
+            </div>
+          )}
           <ActionForm action={salvarBriefingAction.bind(null, slug)} className="flex flex-col gap-4 mt-4">
             {BRIEFING.map((q) => (
               <label key={q.key} className="flex flex-col gap-1">

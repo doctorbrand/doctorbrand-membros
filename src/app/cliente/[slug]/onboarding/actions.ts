@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { sendAlert } from "@/lib/alerts";
 import { requireAdmin, requireAuth , PREVIEW_BLOCK } from "@/lib/auth";
 import { getClient } from "@/lib/clients";
-import { acessos, BRIEFING, getOnboarding, saveOnboarding } from "@/lib/onboarding";
+import { acessos, BRIEFING, getOnboarding, novoTokenBriefing, saveOnboarding } from "@/lib/onboarding";
 import { getProfile, saveProfile } from "@/lib/profile";
 import { getProject, saveProject } from "@/lib/project";
 import { publicBase } from "@/lib/signed";
@@ -53,7 +53,7 @@ export async function salvarBriefingAction(slug: string, _prev: ActionResult | n
     if (s.role !== "admin") return { ok: false, message: "Só a equipe." };
     const respostas = Object.fromEntries(BRIEFING.map((q) => [q.key, String(fd.get(q.key) ?? "").trim().slice(0, 3000)]).filter(([, v]) => v));
     const d = await getOnboarding(slug);
-    d.briefing = { ...d.briefing, respostas, enviadoEm: Object.keys(respostas).length ? new Date().toISOString() : undefined, por: s.name };
+    d.briefing = { ...d.briefing, respostas, enviadoEm: Object.keys(respostas).length ? new Date().toISOString() : undefined, por: s.name, viaLink: false };
     await saveOnboarding(slug, d);
     return done(slug, "Briefing salvo.");
   }
@@ -61,7 +61,7 @@ export async function salvarBriefingAction(slug: string, _prev: ActionResult | n
   const respostas = Object.fromEntries(BRIEFING.map((q) => [q.key, String(fd.get(q.key) ?? "").trim().slice(0, 3000)]).filter(([, v]) => v));
   if (enviar && Object.keys(respostas).length < 4) return { ok: false, message: "Responda pelo menos 4 perguntas para enviar. Você pode salvar e continuar depois." };
   const d = await getOnboarding(slug);
-  d.briefing = { ...d.briefing, respostas, ...(enviar ? { enviadoEm: new Date().toISOString(), por: s.name } : {}) };
+  d.briefing = { ...d.briefing, respostas, ...(enviar ? { enviadoEm: new Date().toISOString(), por: s.name, viaLink: false } : {}) };
   await saveOnboarding(slug, d);
   if (enviar) {
     const c = await getClient(slug).catch(() => undefined);
@@ -82,6 +82,25 @@ export async function aplicarBriefingAction(slug: string, _prev: ActionResult | 
   d.briefing = { ...d.briefing!, aplicadoEm: new Date().toISOString() };
   await saveOnboarding(slug, d);
   return done(slug, `${Object.keys(patch).length} campos levados para o Perfil.`);
+}
+
+/** Equipe: cria o link do briefing sem login (ou troca por um novo, desligando o anterior). */
+export async function criarLinkBriefingAction(slug: string, _prev: ActionResult | null): Promise<ActionResult> {
+  const s = await requireAdmin();
+  const d = await getOnboarding(slug);
+  const trocou = !!d.briefingLink;
+  d.briefingLink = { token: novoTokenBriefing(), criadoEm: new Date().toISOString(), por: s.name };
+  await saveOnboarding(slug, d);
+  return done(slug, trocou ? "Link novo criado. O anterior não abre mais." : "Link criado. Copie e mande para o cliente.");
+}
+
+/** Equipe: desliga o link do briefing (as respostas já salvas continuam). */
+export async function desligarLinkBriefingAction(slug: string, _prev: ActionResult | null): Promise<ActionResult> {
+  await requireAdmin();
+  const d = await getOnboarding(slug);
+  delete d.briefingLink;
+  await saveOnboarding(slug, d);
+  return done(slug, "Link desligado. As respostas já salvas continuam aqui.");
 }
 
 /** Equipe: cliente entrando (vê e preenche o onboarding) ou cliente da casa (registro interno). */
