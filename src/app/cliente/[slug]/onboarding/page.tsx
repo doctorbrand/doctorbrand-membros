@@ -50,7 +50,7 @@ export default async function OnboardingPage({ params, searchParams }: { params:
           {interno ? <>
             <p className="label">Acessos e briefing · só a equipe</p>
             <h1 className="mt-1.5">{c.name}. <i>Registro interno.</i></h1>
-            <p className="text-[14px] sm:text-[15px] text-[var(--muted)] mt-2 max-w-xl">Cliente da casa: o que temos de acesso e o briefing, guardados num lugar só. O cliente não vê esta página. Sem senhas: anote onde fica e quem tem o acesso.</p>
+            <p className="text-[14px] sm:text-[15px] text-[var(--muted)] mt-2 max-w-xl">Cliente da casa: o que temos de acesso e o briefing, guardados num lugar só. O cliente não vê esta página. Logins e senhas ficam em <Link href={`/cliente/${slug}/acessos`} className="cofre-link">Acessos</Link>.</p>
           </> : <>
             <p className="label">Onboarding</p>
             <h1 className="mt-1.5">{pr.completo ? <>Tudo pronto. <i>Obrigado!</i></> : <>Vamos começar. <i>Leva uns 20 minutos.</i></>}</h1>

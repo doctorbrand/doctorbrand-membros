@@ -9,13 +9,14 @@ import { planKey } from "@/lib/plans";
 import { getProject, onboardingAtivo } from "@/lib/project";
 import { igProfile } from "@/lib/instagram";
 import { pushLigado } from "@/lib/push";
+import { frentesDoCliente, radarLigado } from "@/lib/radar";
 
-/** Radar da Cirurgia Plástica: notícias do mercado para pauta. Só a equipe vê no menu. */
-const RADAR_URL = "https://radar.doctorbrand.co";
+/** Radar da Cirurgia Plástica: notícias do mercado para pauta. Só a equipe vê no menu e entra sem código (rota /radar). */
+const RADAR_URL = "/radar";
 
 export type ShellActive =
   | "geral" | "projeto" | "evolucao" | "conteudo" | "calendario" | "anuncios" | "semana" | "ajuda" | "perfil" | "marca" | "gerar"
-  | "avisos" | "onboarding" | "indicacoes" | "circle" | "admin" | "config" | "acessos" | "notificacoes";
+  | "avisos" | "onboarding" | "indicacoes" | "circle" | "admin" | "config" | "acessos" | "notificacoes" | "cofre" | "radar";
 
 export async function Shell({ children, active, session, clientSlug }: { children: React.ReactNode; active: ShellActive; session?: Session | null; clientSlug?: string }) {
   const isClient = session?.role === "cliente";
@@ -47,15 +48,16 @@ export async function Shell({ children, active, session, clientSlug }: { childre
         it(`${b}/evolucao`, "Evolução", "trend", "evolucao"),
         it(`${b}/conteudo`, "Conteúdo", "grid", "conteudo"),
         it(`${b}/calendario`, "Calendário", "calendar", "calendario"),
+        ...(c && radarLigado() && frentesDoCliente(c).length ? [it(`${b}/radar`, "Radar", "radar", "radar")] : []),
         ...(ADS_CLIENTS.has(slug) ? [it(`${b}/anuncios`, "Anúncios", "megaphone", "anuncios"), it(`${b}/semana`, "Sua semana", "calendar", "semana")] : []),
         ...(showOnb ? [it(`${b}/onboarding`, "Onboarding", "checklist", "onboarding")] : []),
         it(`${b}/indicacoes`, "Indicações", "spark", "indicacoes"),
       ],
     });
-    if (admin) sections.push({ title: "Só a equipe", items: [it(`${b}/perfil`, "Perfil", "user", "perfil"), it(`${b}/marca`, "Kit de marca", "palette", "marca"), ...(!ativo ? [it(`${b}/onboarding`, "Acessos e briefing", "key", "onboarding")] : []), it(`${b}/gerar`, "Gerar", "wand", "gerar"), { href: `/api/preview?slug=${slug}`, label: "Ver como o cliente", icon: "eye", active: false }] });
+    if (admin) sections.push({ title: "Só a equipe", items: [it(`${b}/acessos`, "Acessos", "key", "cofre"), it(`${b}/perfil`, "Perfil", "user", "perfil"), it(`${b}/marca`, "Kit de marca", "palette", "marca"), ...(!ativo ? [it(`${b}/onboarding`, "Briefing", "checklist", "onboarding")] : []), it(`${b}/gerar`, "Gerar", "wand", "gerar"), { href: `/api/preview?slug=${slug}`, label: "Ver como o cliente", icon: "eye", active: false }] });
   }
   if (admin) {
-    sections.unshift({ title: "Equipe", items: [it("/conteudo", "Clientes", "users", "geral"), it("/admin/avisos", "Avisos", "bell", "avisos"), it("/admin/indicacoes", "Circle", "spark", "circle"), it("/admin/usuarios", "Acessos", "key", "acessos"), { href: RADAR_URL, label: "Radar", icon: "radar", active: false }] });
+    sections.unshift({ title: "Equipe", items: [it("/conteudo", "Clientes", "users", "geral"), it("/admin/avisos", "Avisos", "bell", "avisos"), it("/admin/indicacoes", "Circle", "spark", "circle"), it("/admin/usuarios", "Usuários", "users", "acessos"), { href: RADAR_URL, label: "Radar", icon: "radar", active: false, external: true }] });
   }
 
   const footer: NavItem[] = [
