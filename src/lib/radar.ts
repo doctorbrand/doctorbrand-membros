@@ -12,23 +12,34 @@ const SUPABASE_URL = "https://netsrdpqpqabymibgwdg.supabase.co";
 const SUPABASE_ANON =
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5ldHNyZHBxcHFhYnltaWJnd2RnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE0Nzk5NjQsImV4cCI6MjA5NzA1NTk2NH0.4g8lsivQhcxFuI9-65XeZPOlYfuRmhxHCfpOZUCUILI";
 
-export type AreaRadar = "plastica" | "oftalmologia" | "odontologia" | "dermatologia";
+export type AreaRadar = "plastica" | "dermatologia" | "oftalmologia" | "odontologia" | "tecnologia" | "mercado";
 
-export const AREAS: Record<AreaRadar, { nome: string; profissional: string }> = {
-  plastica: { nome: "Cirurgia plástica", profissional: "cirurgiões plásticos" },
-  oftalmologia: { nome: "Oftalmologia", profissional: "oftalmologistas" },
-  odontologia: { nome: "Odontologia", profissional: "dentistas" },
-  dermatologia: { nome: "Dermatologia", profissional: "dermatologistas" },
+export const AREAS: Record<AreaRadar, { nome: string }> = {
+  plastica: { nome: "Cirurgia plástica" },
+  dermatologia: { nome: "Dermatologia" },
+  oftalmologia: { nome: "Oftalmologia" },
+  odontologia: { nome: "Odontologia" },
+  tecnologia: { nome: "Tecnologia" },
+  mercado: { nome: "Mercado médico" },
 };
 
-/** Áreas com varredura diária. Dermatologia fica de fora até a decisão sobre ela. */
-const ATIVAS: AreaRadar[] = ["plastica", "oftalmologia", "odontologia"];
+const sem = (t: string) => t.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
 
-/** Área do Radar pela especialidade do cadastro. Sem área ativa, o cliente não vê o Radar. */
+/** Especialidade do Radar pelo cadastro do cliente. */
 export function areaDoCliente(c: Pick<Client, "specialty">): AreaRadar | null {
-  const s = c.specialty.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
-  const a: AreaRadar | null = /plastic/.test(s) ? "plastica" : /oftalmo/.test(s) ? "oftalmologia" : /odonto|dentist|dental/.test(s) ? "odontologia" : /dermato/.test(s) ? "dermatologia" : null;
-  return a && ATIVAS.includes(a) ? a : null;
+  const s = sem(c.specialty);
+  return /plastic/.test(s) ? "plastica" : /dermato/.test(s) ? "dermatologia" : /oftalmo/.test(s) ? "oftalmologia" : /odonto|dentist|dental/.test(s) ? "odontologia" : null;
+}
+
+/**
+ * Frentes que o cliente vê: a especialidade dele (se o Radar cobre) mais Tecnologia e Mercado médico.
+ * Quem é da saúde sem especialidade coberta (gestão de clínicas, marketing médico) vê só as duas gerais.
+ * Quem não é da saúde (outros negócios) não vê o Radar.
+ */
+export function frentesDoCliente(c: Pick<Client, "specialty">): AreaRadar[] {
+  const esp = areaDoCliente(c);
+  const saude = !!esp || /medic|clinic|saude|cirurg|odonto|dent/.test(sem(c.specialty));
+  return saude ? [...(esp ? [esp] : []), "tecnologia", "mercado"] : [];
 }
 
 export const radarLigado = () => !!process.env.RADAR_CODIGO?.trim();

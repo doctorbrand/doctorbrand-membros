@@ -5,7 +5,7 @@ import { sendAlert } from "@/lib/alerts";
 import { PREVIEW_BLOCK, requireAuth } from "@/lib/auth";
 import { getClient } from "@/lib/clients";
 import { avisarEquipe } from "@/lib/push";
-import { areaDoCliente, getPedidosRadar, noticiasDaArea, savePedidosRadar } from "@/lib/radar";
+import { frentesDoCliente, getPedidosRadar, noticiasDaArea, savePedidosRadar } from "@/lib/radar";
 import { publicBase } from "@/lib/signed";
 import type { ActionResult } from "@/lib/types";
 
@@ -15,9 +15,10 @@ export async function pedirConteudoRadarAction(slug: string, noticia: string, _p
   if (s.preview) return PREVIEW_BLOCK;
   if (!/^[a-z0-9-]{1,120}$/.test(noticia)) return { ok: false, message: "Notícia inválida." };
   const c = await getClient(slug);
-  const area = c ? areaDoCliente(c) : null;
-  if (!c || !area) return { ok: false, message: "O Radar não está disponível para este cliente." };
-  const n = (await noticiasDaArea(area).catch(() => [])).find((x) => x.id === noticia);
+  const frentes = c ? frentesDoCliente(c) : [];
+  if (!c || !frentes.length) return { ok: false, message: "O Radar não está disponível para este cliente." };
+  const todas = (await Promise.all(frentes.map((a) => noticiasDaArea(a).catch(() => [])))).flat();
+  const n = todas.find((x) => x.id === noticia);
   if (!n) return { ok: false, message: "Não encontrei esta notícia. Atualize a página e tente de novo." };
 
   const lista = await getPedidosRadar(slug);
