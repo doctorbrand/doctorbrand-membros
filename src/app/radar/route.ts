@@ -1,4 +1,5 @@
 import { getRealSession } from "@/lib/auth";
+import { comFrentesEAlertas } from "@/lib/radarPagina";
 
 export const dynamic = "force-dynamic";
 
@@ -29,6 +30,7 @@ export async function GET(req: Request) {
   const js = JSON.stringify(codigo).replace(/</g, "\\u003c");
   const boot = `<script>try{localStorage.setItem("radar_codigo",${js})}catch(e){}window.__RADAR_CODIGO=${js};</script>`;
   html = html.replace("const saved=read(KEY);", "const saved=window.__RADAR_CODIGO||read(KEY);").replace("<script>", `${boot}\n<script>`);
+  html = comFrentesEAlertas(html);
 
   return new Response(html, {
     headers: {
@@ -39,3 +41,4 @@ export async function GET(req: Request) {
     },
   });
 }
+

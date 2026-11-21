@@ -16,14 +16,23 @@ const quando = (iso: string) => new Intl.DateTimeFormat("pt-BR", { timeZone: "Am
 const novo = (n: NoticiaRadar) => !!n.adicionado && Date.now() - Date.parse(n.adicionado) < 72 * 3600e3;
 const diasAtras = (iso?: string) => (iso ? (Date.now() - Date.parse(`${iso}T12:00:00Z`)) / 864e5 : 999);
 
-/** Principais: relevância 4 ou 5 das últimas 3 semanas, de todas as frentes do cliente, sem repetir. */
-function principais(porFrente: Map<AreaRadar, NoticiaRadar[]>): (NoticiaRadar & { frente: AreaRadar })[] {
+const alerta = (n: NoticiaRadar) => n.tom === "alerta";
+const pesoTom = (n: NoticiaRadar) => (n.tom === "positiva" ? 1 : 0);
+
+/** Todas as notícias das frentes do cliente, sem repetir, com a frente de onde vieram. */
+function juntas(porFrente: Map<AreaRadar, NoticiaRadar[]>): (NoticiaRadar & { frente: AreaRadar })[] {
   const vistos = new Set<string>();
   const todas: (NoticiaRadar & { frente: AreaRadar })[] = [];
   for (const [frente, itens] of porFrente) for (const n of itens) if (!vistos.has(n.id)) { vistos.add(n.id); todas.push({ ...n, frente }); }
-  const fortes = todas.filter((n) => (n.relevancia ?? 0) >= 4 && diasAtras(n.data) <= 21);
-  const lista = fortes.length >= 3 ? fortes : todas.filter((n) => diasAtras(n.data) <= 21);
-  return lista.sort((a, b) => (b.relevancia ?? 0) - (a.relevancia ?? 0) || (b.data ?? "").localeCompare(a.data ?? "")).slice(0, 8);
+  return todas;
+}
+
+/** Principais: boas notícias e novidades de peso (relevância 4 ou 5) das últimas 3 semanas. Alertas nunca entram. */
+function principais(porFrente: Map<AreaRadar, NoticiaRadar[]>): (NoticiaRadar & { frente: AreaRadar })[] {
+  const todas = juntas(porFrente).filter((n) => !alerta(n) && diasAtras(n.data) <= 21);
+  const fortes = todas.filter((n) => (n.relevancia ?? 0) >= 4);
+  const lista = fortes.length >= 3 ? fortes : todas;
+  return lista.sort((a, b) => (b.relevancia ?? 0) - (a.relevancia ?? 0) || pesoTom(b) - pesoTom(a) || (b.data ?? "").localeCompare(a.data ?? "")).slice(0, 8);
 }
 
 /** Radar do cliente: a especialidade dele, Tecnologia e Mercado médico, com as principais da semana no topo. */
@@ -47,8 +56,13 @@ export default async function RadarClientePage({ params, searchParams }: { param
   const pedidos = await getPedidosRadar(slug);
   const pedido = new Map(pedidos.map((p) => [p.noticia, p]));
 
-  const aba: "principais" | AreaRadar = sp.aba && frentes.includes(sp.aba as AreaRadar) ? (sp.aba as AreaRadar) : "principais";
-  const itensAba = aba === "principais" ? [] : porFrente.get(aba) ?? [];
+  // Alertas (mortes, erros, interdições) ficam fora das abas normais, numa aba própria.
+  const alertas = juntas(porFrente).filter(alerta);
+  const abas = ["principais", ...frentes, ...(alertas.length ? ["alertas" as const] : [])] as const;
+  type Aba = "principais" | "alertas" | AreaRadar;
+  const aba: Aba = sp.aba && (abas as readonly string[]).includes(sp.aba) ? (sp.aba as Aba) : "principais";
+  const daFrente = (a: AreaRadar) => (porFrente.get(a) ?? []).filter((n) => !alerta(n));
+  const itensAba = aba === "principais" ? [] : aba === "alertas" ? alertas : daFrente(aba);
   const regiao = sp.regiao === "Brasil" || sp.regiao === "Mundo" ? sp.regiao : "";
   const cats = [...new Set(itensAba.map((n) => n.categoria).filter(Boolean))] as string[];
   const cat = sp.cat && cats.includes(sp.cat) ? sp.cat : "";
@@ -92,16 +106,18 @@ export default async function RadarClientePage({ params, searchParams }: { param
       {pronto && (
         <>
           <nav className="rd-abas" aria-label="Frentes do Radar">
-            {(["principais", ...frentes] as const).map((a) => (
-              <Link key={a} href={href({ aba: a })} className={`rd-aba ${aba === a ? "is-on" : ""}`} aria-current={aba === a ? "page" : undefined}>
-                {a === "principais" ? "Principais" : AREAS[a].nome}
-                {a !== "principais" && <span className="rd-aba-n">{porFrente.get(a)?.length ?? 0}</span>}
+            {abas.map((a) => (
+              <Link key={a} href={href({ aba: a })} className={`rd-aba ${aba === a ? "is-on" : ""} ${a === "alertas" ? "is-alerta" : ""}`} aria-current={aba === a ? "page" : undefined}>
+                {a === "principais" ? "Principais" : a === "alertas" ? "Alertas" : AREAS[a].nome}
+                {a !== "principais" && <span className="rd-aba-n">{a === "alertas" ? alertas.length : daFrente(a).length}</span>}
               </Link>
             ))}
           </nav>
 
           {aba === "principais" ? (
-            <p className="text-[13.5px] text-[var(--muted)] mb-3">As notícias de maior peso das últimas três semanas, de todas as suas frentes.</p>
+            <p className="text-[13.5px] text-[var(--muted)] mb-3">As novidades de maior peso das últimas três semanas, de todas as suas frentes.</p>
+          ) : aba === "alertas" ? (
+            <p className="text-[13.5px] text-[var(--muted)] mb-3">Casos negativos (mortes, erros, interdições) que ficam separados do resto. Use só quando ajudam a orientar o paciente, sempre sem expor pessoas.</p>
           ) : (
             <nav className="rd-filtros" aria-label="Filtros">
               <div className="flex flex-wrap gap-1.5">
@@ -122,7 +138,7 @@ export default async function RadarClientePage({ params, searchParams }: { param
             <section className="card p-6 text-center text-[14px] text-[var(--muted)]">{aba !== "principais" && itensAba.length ? "Nada com esses filtros." : "As primeiras notícias desta frente chegam na próxima varredura diária, todo dia antes das 7h."}</section>
           ) : (
             <ul className="rd-lista">
-              {lista.slice(0, limite).map((n) => <Cartao key={n.id} n={n} frente={"frente" in n ? (n as { frente: AreaRadar }).frente : undefined} slug={slug} pedido={pedido.get(n.id)} admin={admin} />)}
+              {lista.slice(0, limite).map((n) => <Cartao key={n.id} n={n} frente={aba === "principais" || aba === "alertas" ? (n as { frente?: AreaRadar }).frente : undefined} slug={slug} pedido={pedido.get(n.id)} admin={admin} />)}
             </ul>
           )}
           {aba !== "principais" && lista.length > limite && <div className="flex justify-center mt-4"><Link href={href({ n: limite + POR_PAGINA })} className="ct-btn" scroll={false}>Ver mais {Math.min(POR_PAGINA, lista.length - limite)}</Link></div>}

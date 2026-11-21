@@ -58,6 +58,8 @@ export interface NoticiaRadar {
   gancho?: string;
   formato?: string;
   adicionado?: string;
+  /** positiva, neutra ou alerta (mortes, erros, interdições: só na aba Alertas). */
+  tom?: "positiva" | "neutra" | "alerta";
 }
 
 const cache = new Map<AreaRadar, { at: number; itens: NoticiaRadar[] }>();
