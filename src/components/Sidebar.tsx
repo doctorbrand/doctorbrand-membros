@@ -15,7 +15,7 @@ const ICONS = {
 } as const;
 export type IconKey = keyof typeof ICONS;
 
-export interface NavItem { href: string; label: string; icon: IconKey; active: boolean }
+export interface NavItem { href: string; label: string; icon: IconKey; active: boolean; /** Abre em outra aba. */ external?: boolean }
 export interface NavSection { title?: string; items: NavItem[] }
 
 const COOKIE = "db_sb";
@@ -47,7 +47,7 @@ export function Sidebar({ sections, footer, user, client, home, initialCollapsed
   const item = (i: NavItem) => {
     const Ic = ICONS[i.icon];
     return (
-      /^https?:\/\//.test(i.href)
+      i.external || /^https?:\/\//.test(i.href)
         ? <a key={i.href + i.label} href={i.href} target="_blank" rel="noreferrer" className="sb-item" aria-label={`${i.label} (abre em outra aba)`} {...tipProps(i.label)}><Ic size={19} /><span className="sb-label">{i.label}</span></a>
         : i.href.startsWith("/api/")
         ? <a key={i.href + i.label} href={i.href} className="sb-item" aria-label={i.label} {...tipProps(i.label)}><Ic size={19} /><span className="sb-label">{i.label}</span></a>
