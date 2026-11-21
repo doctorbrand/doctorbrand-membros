@@ -9,13 +9,14 @@ import { planKey } from "@/lib/plans";
 import { getProject, onboardingAtivo } from "@/lib/project";
 import { igProfile } from "@/lib/instagram";
 import { pushLigado } from "@/lib/push";
+import { areaDoCliente, radarLigado } from "@/lib/radar";
 
 /** Radar da Cirurgia Plástica: notícias do mercado para pauta. Só a equipe vê no menu e entra sem código (rota /radar). */
 const RADAR_URL = "/radar";
 
 export type ShellActive =
   | "geral" | "projeto" | "evolucao" | "conteudo" | "calendario" | "anuncios" | "semana" | "ajuda" | "perfil" | "marca" | "gerar"
-  | "avisos" | "onboarding" | "indicacoes" | "circle" | "admin" | "config" | "acessos" | "notificacoes" | "cofre";
+  | "avisos" | "onboarding" | "indicacoes" | "circle" | "admin" | "config" | "acessos" | "notificacoes" | "cofre" | "radar";
 
 export async function Shell({ children, active, session, clientSlug }: { children: React.ReactNode; active: ShellActive; session?: Session | null; clientSlug?: string }) {
   const isClient = session?.role === "cliente";
@@ -47,6 +48,7 @@ export async function Shell({ children, active, session, clientSlug }: { childre
         it(`${b}/evolucao`, "Evolução", "trend", "evolucao"),
         it(`${b}/conteudo`, "Conteúdo", "grid", "conteudo"),
         it(`${b}/calendario`, "Calendário", "calendar", "calendario"),
+        ...(c && radarLigado() && areaDoCliente(c) ? [it(`${b}/radar`, "Radar", "radar", "radar")] : []),
         ...(ADS_CLIENTS.has(slug) ? [it(`${b}/anuncios`, "Anúncios", "megaphone", "anuncios"), it(`${b}/semana`, "Sua semana", "calendar", "semana")] : []),
         ...(showOnb ? [it(`${b}/onboarding`, "Onboarding", "checklist", "onboarding")] : []),
         it(`${b}/indicacoes`, "Indicações", "spark", "indicacoes"),
